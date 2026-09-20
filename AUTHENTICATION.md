@@ -21,7 +21,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Portal and gateway MFA challenges | Bounded challenge exchange using `inputStr` and one `passwd` value. Supports XML and existing HTML challenge responses. | New portal support; corrected gateway submission. Push-only and provider-specific exchanges remain unverified. |
 | Different portal and gateway authentication | Separate gateway prelogin and sign-in when portal cookies are absent or rejected. | New implementation; no live provider available. Passwords are not silently forwarded to another host. |
 | Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
-| Smart cards and CACs | Not available. | Requires non-exportable key operations, PIN handling, and supported middleware. File-based PEM support is not equivalent. |
+| Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Builds and parallel reviews passed. Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
 | Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
@@ -126,9 +126,23 @@ GnuTLS also decodes PKCS#1 DigestInfo before the adapter requests a supported ha
 [GnuTLS chain import](https://gnutls.org/reference/gnutls-x509.html#gnutls-x509-crt-list-import-url),
 [GnuTLS DigestInfo decoding](https://gnutls.org/reference/gnutls-crypto.html#gnutls-decode-ber-digest-info)
 
-Smart-card support must preserve non-exportable keys.
-OpenConnect provides PKCS#11 integration, but GPBar's private runtime currently disables automatic PKCS#11 module discovery.
-A bounded, trusted middleware and signing interface is required before enabling it.
+Smart cards use the same OpenProtect and OpenConnect certificate path as Keychain identities.
+macOS exposes supported token identities through Keychain Services and performs the private-key operations on the token.
+GPBar does not implement card commands, collect PINs, or export keys.
+Native PIN cancellation or signing failure stops the attempt, without an automatic GPBar PIN retry.
+Removing the selected token stops its active connection and invalidates pending signing approval.
+Insert the token, open the certificate picker, and choose Refresh before selecting its client-authentication identity.
+The picker distinguishes token identities from software Keychain identities, including duplicate public certificates.
+The selected token must be present before Connect. Reinsertion never starts a connection automatically.
+Persistent references are resolved again for every signing operation; missing identities fail safely.
+Saved selections from earlier builds have their token metadata resolved before use. Unavailable selections require reinsertion or reselection.
+Token metadata uses attributes-only Keychain queries. Algorithm inspection uses certificate public keys, not private-key attribute copying.
+[Apple token integration](https://developer.apple.com/documentation/cryptotokenkit/using-cryptographic-assets-stored-on-a-smart-card)
+
+Support depends on macOS exposing the card through its built-in driver or an installed CryptoTokenKit driver.
+This does not establish support for every CAC applet or proprietary reader.
+OpenConnect also provides PKCS#11 integration, but GPBar does not load external PKCS#11 modules into its root engine.
+Using the existing native adapter preserves user-session PIN handling across both TLS libraries without adding another token service.
 [OpenConnect PKCS#11 guide](https://www.infradead.org/openconnect/pkcs11.html)
 
 Kerberos server password authentication and Kerberos SSO are separate capabilities.

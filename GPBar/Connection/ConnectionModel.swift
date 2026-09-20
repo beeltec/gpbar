@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import ServiceManagement
 import Network
+import CryptoTokenKit
 
 @MainActor @Observable final class ConnectionModel {
     let preferences = ConnectionPreferences()
@@ -18,6 +19,13 @@ import Network
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
     private(set) var certificateError: String?
+    private let tokenWatcher = TKTokenWatcher()
+    private var availableTokenIDs: Set<String> = []
+    private var certificateMetadataReady = false
+    private var certificateMetadataFailed = false
+    var selectedTokenMissing: Bool {
+        preferences.certificateTokenID.map { !availableTokenIDs.contains($0) } ?? false
+    }
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
     private var quitAfterDisconnect = false
@@ -30,6 +38,37 @@ import Network
     var settingsLocked: Bool { sessionID != nil || phase.isActive }
 
     init() {
+        availableTokenIDs = Set(tokenWatcher.tokenIDs)
+        tokenWatcher.setInsertionHandler { @Sendable [weak self] tokenID in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.availableTokenIDs = Set(self.tokenWatcher.tokenIDs)
+                self.tokenWatcher.addRemovalHandler({ @Sendable [weak self] removedID in
+                    Task { @MainActor [weak self] in self?.tokenRemoved(removedID) }
+                }, forTokenID: tokenID)
+            }
+        }
+        certificateMetadataReady = preferences.certificateReference == nil || preferences.certificateTokenID != nil
+        if !certificateMetadataReady, let reference = preferences.certificateReference {
+            Task {
+                do {
+                    let tokenID = try await KeychainIdentity.tokenID(reference: reference)
+                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
+                    preferences.certificateTokenID = tokenID
+                    certificateMetadataReady = true
+                    availableTokenIDs = Set(tokenWatcher.tokenIDs)
+                    if selectedTokenMissing, sessionID != nil {
+                        disconnect()
+                        error = "The selected token is unavailable. Reinsert it and connect again."
+                    }
+                } catch {
+                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
+                    certificateMetadataFailed = true
+                    if sessionID != nil { disconnect() }
+                    self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
+                }
+            }
+        }
         helper.onEvent = { [weak self] event in self?.receive(event) }
         helper.onInterruption = { [weak self] in
             guard let self else { return }
@@ -40,6 +79,8 @@ import Network
         }
         preferences.onAddressChange = { [weak self] in
             guard let self, !self.settingsLocked else { return }
+            self.certificateMetadataReady = true
+            self.certificateMetadataFailed = false
             self.snapshot = nil
             self.error = nil
             self.authentication.finish()
@@ -75,6 +116,11 @@ import Network
         guard !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
+        guard certificateMetadataReady || preferences.certificateReference == nil else {
+            error = "The saved identity is not ready. Unlock or reinsert it, then select its certificate again."
+            return
+        }
+        guard !selectedTokenMissing else { error = "Insert the selected smart card or hardware token, then try again."; return }
         let newSession = UUID().uuidString
         sessionID = newSession
         engineStartSent = false
@@ -109,7 +155,9 @@ import Network
                     sessionID = nil
                     startPending = false
                     phase = .failed
-                    self.error = "The selected certificate is unavailable or access was denied. Choose a valid certificate or try again."
+                    self.error = preferences.certificateTokenID == nil
+                        ? "The selected certificate is unavailable or access was denied. Choose a valid certificate or try again."
+                        : "The selected token is unavailable or access was denied. Reinsert it, refresh the certificate list, and try again."
                 }
             }
         } else {
@@ -141,19 +189,41 @@ import Network
         certificateError = nil
         Task {
             defer { loadingCertificates = false }
-            do { certificateChoices = try await KeychainIdentity.loadChoices() }
+            do {
+                let choices = try await KeychainIdentity.loadChoices()
+                availableTokenIDs = Set(tokenWatcher.tokenIDs)
+                certificateChoices = choices.filter { choice in
+                    choice.tokenID.map { availableTokenIDs.contains($0) } ?? true
+                }
+            }
             catch { certificateChoices = []; certificateError = "Certificates could not be read from Keychain. Unlock your login Keychain and try again." }
         }
     }
 
-    func selectCertificate(_ choice: CertificateChoice?) {
-        guard !settingsLocked else { return }
+    @discardableResult func selectCertificate(_ choice: CertificateChoice?) -> Bool {
+        guard !settingsLocked else { return false }
+        if let tokenID = choice?.tokenID, !tokenWatcher.tokenIDs.contains(tokenID) {
+            certificateError = "The selected token was removed. Reinsert it and choose Refresh."
+            return false
+        }
         preferences.clearCertificate()
+        certificateMetadataReady = true
+        certificateMetadataFailed = false
         if let choice {
             preferences.certificateReference = choice.reference
             preferences.certificateName = choice.name
             preferences.certificateID = choice.id
+            preferences.certificateTokenID = choice.tokenID
         }
+        return true
+    }
+
+    private func tokenRemoved(_ tokenID: String) {
+        availableTokenIDs = Set(tokenWatcher.tokenIDs)
+        certificateChoices.removeAll { $0.tokenID == tokenID }
+        guard preferences.certificateTokenID == tokenID else { return }
+        if sessionID != nil { disconnect() }
+        error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
     }
 
     private func sign(_ event: EngineEvent, session: String) {
@@ -176,6 +246,11 @@ import Network
             let signature = try? await KeychainIdentity.signature(reference: reference, context: context, scheme: scheme, digest: digest, input: input)
             guard sessionID == session, signatureRequestID == requestID, phase != .disconnecting else { return }
             signatureRequestID = nil
+            if signature == nil, preferences.certificateTokenID != nil {
+                disconnect()
+                error = "Token signing was cancelled or failed. Check the card and its PIN, then connect again."
+                return
+            }
             send(EngineCommand(type: .submitSignature, requestID: requestID, signature: signature))
         }
     }
@@ -305,6 +380,10 @@ import Network
                 if !cleanupRequired { connect(browserOverride: .systemDefault) }
             }
         case .ready: break
+        }
+        if selectedTokenMissing || certificateMetadataFailed, sessionID != nil, phase != .disconnecting {
+            disconnect()
+            error = "The selected smart card or hardware token is unavailable. Reinsert it and connect again."
         }
     }
     private let helper = HelperClient()

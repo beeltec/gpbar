@@ -41,6 +41,9 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     var certificateID: String {
         didSet { defaults.set(certificateID, forKey: "connection.certificateID") }
     }
+    var certificateTokenID: String? {
+        didSet { defaults.set(certificateTokenID, forKey: "connection.certificateTokenID") }
+    }
     var certificateOnly: Bool {
         didSet { defaults.set(certificateOnly, forKey: "connection.certificateOnly") }
     }
@@ -60,6 +63,7 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         certificateReference = defaults.data(forKey: "connection.certificateReference")
         certificateName = defaults.string(forKey: "connection.certificateName") ?? ""
         certificateID = defaults.string(forKey: "connection.certificateID") ?? ""
+        certificateTokenID = defaults.string(forKey: "connection.certificateTokenID")
         certificateOnly = defaults.bool(forKey: "connection.certificateOnly")
         certificateUsername = defaults.string(forKey: "connection.certificateUsername") ?? ""
     }
@@ -87,6 +91,7 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         certificateReference = nil
         certificateName = ""
         certificateID = ""
+        certificateTokenID = nil
         certificateOnly = false
         certificateUsername = ""
     }

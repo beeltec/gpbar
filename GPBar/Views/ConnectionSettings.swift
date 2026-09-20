@@ -86,6 +86,13 @@ struct ConnectionSettings: View {
                         }
                     }
                     if preferences.certificateReference != nil {
+                        if preferences.certificateTokenID != nil {
+                            Label(model.selectedTokenMissing ? "Insert the selected token" : "Token available", systemImage: "smartcard")
+                                .font(.caption)
+                            Text("macOS asks for your PIN when needed. Removing the token stops this connection.")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Toggle("Certificate-only login", isOn: $preferences.certificateOnly)
                         if preferences.certificateOnly {
                             TextField("Certificate username", text: $preferences.certificateUsername, prompt: Text("Optional"))
@@ -185,14 +192,16 @@ private struct CertificatePicker: View {
                 Text(error).foregroundStyle(Color("Failure")).frame(maxWidth: .infinity, minHeight: 180)
             } else if model.certificateChoices.isEmpty {
                 ContentUnavailableView("No supported identities", systemImage: "person.text.rectangle",
-                    description: Text("Ask your administrator for a client certificate and private key in your login Keychain."))
+                    description: Text("Insert your smart card and choose Refresh, or ask your administrator for a client identity in Keychain."))
             } else {
                 List(model.certificateChoices, selection: $selectedID) { choice in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(choice.name).font(.body)
-                        Text(choice.id).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                        Text(choice.tokenID == nil ? "Keychain" : "Smart card or hardware token")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text(choice.fingerprint).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityLabel("SHA-256 fingerprint, \(choice.id)")
+                            .accessibilityLabel("SHA-256 fingerprint, \(choice.fingerprint)")
                     }
                     .padding(.vertical, 6)
                     .tag(choice.id)
@@ -205,7 +214,7 @@ private struct CertificatePicker: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Use certificate") {
                     guard let choice = model.certificateChoices.first(where: { $0.id == selectedID }) else { return }
-                    model.selectCertificate(choice)
+                    guard model.selectCertificate(choice) else { return }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
