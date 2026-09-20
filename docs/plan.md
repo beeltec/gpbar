@@ -12,6 +12,9 @@ Reference implementation: `/Users/beeltec/GlobalProtectNew`
 
 Build a native SwiftUI application that lives in the macOS menu bar.
 Users can connect, finish browser login, inspect their connection, and disconnect without opening Terminal.
+The application is a general GlobalProtect client, with a connection address supplied by each user.
+No company portal is hardcoded, preselected, or required.
+For our deployment, the user enters `vpn.example.com`.
 
 Reuse OpenProtect for GlobalProtect authentication and OpenConnect for the tunnel.
 A small Swift helper manages privileged operations and the backend process.
@@ -35,7 +38,7 @@ Paths below are relative to `/Users/beeltec/GlobalProtectNew`.
 | Area | Evidence | Implication |
 | --- | --- | --- |
 | Current connection | `scripts/company-vpn` uses `sudo -E`, `--os mac`, `--hip auto`, and `--reconnect`. | Preserve these connection settings without requiring Terminal. |
-| Initial portal | The wrapper uses `vpn.example.com`. | Offer an SAML-enabled provider preset during setup. Keep the portal editable. |
+| Reference portal | The wrapper uses `vpn.example.com`. | Treat SAML-enabled provider as a validation example. Replace the fixed address with user configuration. |
 | Authentication | `crates/gp-auth/src/saml_paste.rs` opens a browser flow and accepts a `globalprotectcallback:` value. | Add a native sign-in window and structured callback delivery. |
 | Root requirement | `bins/opc/src/main.rs` rejects unprivileged macOS connections. | Running the CLI with Foundation `Process` alone is insufficient. |
 | Control interface | `crates/gp-ipc/src/lib.rs` provides JSON status and disconnect requests. | Existing IPC is useful reference code, but cannot support the full UI lifecycle. |
@@ -59,8 +62,9 @@ This does not establish compatibility with the proposed macOS 14 deployment targ
 ### Included
 
 - One configured portal and one active connection.
-- SAML-enabled provider preset, with editable display name and portal hostname.
-- Browser-based Microsoft/SAML login and gateway OTP entry when requested.
+- User-entered connection address, editable during setup and later in settings.
+- Optional connection display name; use the portal hostname when no name is supplied.
+- Browser-based SAML login through the portal's identity provider and gateway OTP entry when requested.
 - Masked callback paste as a dependable fallback.
 - Connect, cancel, disconnect, and reconnect states.
 - Connection details: portal, gateway, account, assigned IP, interface, and elapsed time.
@@ -82,8 +86,11 @@ This does not establish compatibility with the proposed macOS 14 deployment targ
 - Intel builds, App Store distribution, and a Network Extension implementation.
 - Kill-switch behavior or claims that every application uses the tunnel.
 
-Support the existing portal first.
-Show a clear unsupported-authentication message if another portal requires a deferred authentication method.
+Support user-configured GlobalProtect portals through the included authentication methods.
+Use SAML-enabled provider as the first real compatibility check, not as a product restriction.
+Portal configuration must drive authentication, gateway discovery, HIP, and connection setup without company-specific branches.
+Show a clear unsupported-authentication message if a portal requires a deferred authentication method.
+An editable address does not imply support for every GlobalProtect authentication policy.
 
 ## 4. Architecture decisions
 
@@ -218,6 +225,7 @@ The connection path provides the visual identity.
 ```
 
 Use actual backend values. Omit unavailable fields instead of inventing placeholders in the shipped UI.
+The panel title uses the configured display name or portal hostname; “Work VPN” above is an example name.
 Put longer account names, portal addresses, routes, and interface information in expanded connection details.
 Support text selection and deliberate copy actions for useful technical values.
 
@@ -242,7 +250,7 @@ Support text selection and deliberate copy actions for useful technical values.
 The menu bar symbol must remain legible in light and dark menu bars.
 Use a monochrome template symbol with distinct shapes or badges for disconnected, connected, busy, and attention states.
 Do not depend on color or animation alone.
-Provide an accessibility label such as “GPClient, connected to Work VPN”.
+Build the accessibility label from the actual connection name, such as “GPClient, connected to Work VPN”.
 
 ### Sign-in, settings, and accessibility
 
@@ -254,6 +262,31 @@ Do not embed an identity-provider webview in version one.
 Settings contain the portal, display name, launch-at-login toggle, reconnection preference, and helper status.
 Lock connection settings while a session is active.
 Changing launch-at-login must not connect the VPN.
+
+### Connection address setup and editing
+
+First launch shows an empty “Connection address” field with `vpn.example.com` as its placeholder.
+Explain that users should enter the GlobalProtect portal address supplied by their organization.
+Do not prefill SAML-enabled provider or provide a company-specific preset.
+Keep Connect disabled until a valid address has been saved and the helper is ready.
+
+Accept a hostname or HTTPS origin, including an optional port and trailing slash.
+Trim surrounding whitespace and normalize the value with a URL parser.
+Require a valid host and port; reject plain HTTP, embedded credentials, query strings, fragments, and unsupported paths.
+Use HTTPS when the user enters only a hostname.
+Apply normal certificate validation to the configured host.
+Do not offer an insecure certificate bypass in the initial UI.
+
+Save the address and optional display name in non-secret preferences.
+Restore them when the app restarts.
+Saving an address must not start a connection or contact that portal.
+Pass the saved address through the helper to the backend for each new session.
+
+Make “Edit connection…” accessible from the menu bar panel and settings.
+While connected or connecting, explain that the user must disconnect before changing the address.
+After an address change, clear old connection details, errors, and authentication state.
+Late responses from the previous portal must never populate or authenticate the new connection.
+The first release stores one connection; changing its address replaces that configuration.
 
 Provide keyboard navigation, visible focus, VoiceOver labels, and selectable error details.
 Respect Reduce Motion, Reduce Transparency, and increased contrast.
@@ -333,7 +366,7 @@ Replacing only the first SAML prompt will leave reconnect sessions waiting on in
 3. The helper reserves the single session and starts the bundled engine.
 4. The engine performs portal prelogin and emits an authentication challenge.
 5. The app opens the sign-in window and launches the default browser through `NSWorkspace`.
-6. The user completes Microsoft login and any browser MFA.
+6. The user completes their organization's identity-provider login and any browser MFA.
 7. A callback reaches the active challenge through native URL handling or explicit paste.
 8. The engine validates its structure and submits the credential through the existing portal flow.
 9. The app handles any separate gateway OTP challenge.
@@ -402,7 +435,7 @@ Never use `pkill`, `killall`, or a broad search for OpenProtect processes.
 Detect existing CLI sessions or conflicting VPN state and explain the conflict.
 Do not adopt or disconnect another client's session automatically.
 
-HIP reporting must remain compatible with the current portal.
+HIP reporting must follow the selected portal and gateway requirements.
 Inspect the bundled HIP wrapper, its execution user, and any invoked utilities.
 Report actual supported device facts; do not invent compliance data.
 
@@ -567,6 +600,7 @@ Tasks:
 - Build the existing engine with real OpenConnect support.
 - Confirm macOS 14 build compatibility for Swift, Rust, and native libraries.
 - Exercise the existing SAML-enabled provider flow on an approved real Mac and account.
+- Validate another GlobalProtect portal when an approved environment is available; record any compatibility limits if it is unavailable.
 - Record gateway login, HIP, route setup, DNS, disconnect, and reconnect behavior.
 - Verify callback ownership with the official client installed.
 - Prove a signed helper can register, require approval, and accept authenticated XPC.
@@ -584,6 +618,7 @@ Tasks:
 
 - Create the application and helper targets with shared build settings.
 - Implement the menu bar scene, settings, and persistent sign-in window.
+- Implement empty first-run connection setup, address validation, saved configuration, and Edit connection.
 - Implement the design tokens and connection path component.
 - Create the typed connection state model.
 - Use SwiftUI preview data for visual development only.
@@ -619,6 +654,7 @@ Tasks:
 - Add ownership checks and the single-session controller.
 - Launch only verified bundled code with a controlled environment.
 - Bridge typed app commands to the engine and forward sanitized state.
+- Pass the saved portal address through every connection stage; remove the reference wrapper's fixed company address.
 - Implement child supervision, timeouts, and protocol-version mismatch handling.
 - Reject conflicting sessions and unsafe settings.
 - Reattach the application to an existing owned session after relaunch.
@@ -688,9 +724,14 @@ Keep real callback tokens and company network details out of committed screensho
 
 | Scenario | Required result |
 | --- | --- |
-| First launch | Setup explains the helper and accurately shows registration and approval status. |
+| First launch | Setup requests a connection address, explains the helper, and accurately shows registration and approval status. |
+| Address entry | A hostname or HTTPS origin is accepted; invalid or unsupported input produces a clear inline error. |
+| Address persistence | The saved address and display name survive app restart; saving never connects automatically. |
+| Address change | The next session uses the new portal throughout authentication and gateway discovery, with no stale account or session data. |
+| Active-session editing | Address changes remain disabled until disconnect and cleanup finish. |
 | Approval declined or later revoked | Connection remains unavailable with a working route to System Settings. |
-| Microsoft browser login | The connection completes through the native sign-in flow. |
+| Browser login | The configured portal's identity-provider flow completes; Microsoft login works for the SAML-enabled provider reference deployment. |
+| Another portal | An approved second portal works through supported authentication, or its specific unsupported requirement is documented. |
 | Paste callback | Long valid callbacks work; malformed input produces a useful error without exposing the value. |
 | Callback conflicts | The official client remains usable; fallback paste does not depend on scheme ownership. |
 | OTP challenge | The challenge appears once, accepts input, and supports cancellation. |
@@ -747,7 +788,10 @@ Size the remaining phases after Phase 0 has produced real evidence.
 The first release is complete when all of these conditions hold:
 
 - The app is accessible from the macOS menu bar and uses native SwiftUI views.
-- The real SAML-enabled provider connection works without Terminal or developer tools.
+- Users can enter, save, and later edit their GlobalProtect connection address.
+- The configured address drives every connection stage; the application contains no fixed company portal or provider-specific behavior.
+- The real SAML-enabled provider reference connection works through user configuration without Terminal or developer tools.
+- Supported authentication methods and observed portal compatibility limits are documented.
 - The user can finish browser login and any gateway challenge inside the intended flow.
 - The helper accepts only the intended signed application and owning user.
 - Connection status reflects confirmed backend state, including uncertainty and cleanup failure.
