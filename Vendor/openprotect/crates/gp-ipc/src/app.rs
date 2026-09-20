@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]

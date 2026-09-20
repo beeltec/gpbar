@@ -2,10 +2,10 @@
 
 Research date: 2026-09-20. Scope: GPBar on macOS.
 
-The saved sign-in changes require app, helper, and engine protocol version 4.
+The saved sign-in changes require app, helper, and engine protocol version 5.
 Update all three components together. Older components reject the version mismatch.
 For development builds in different folders, disconnect and remove the old helper through the old app before launching the new build.
-An old registered helper cannot process version 4 requests.
+An old registered helper cannot process version 5 requests.
 
 GPBar does not have full authentication parity with the official GlobalProtect app.
 The available live provider uses SAML. Other methods below have no live compatibility evidence.
@@ -128,6 +128,9 @@ Keychain access runs on a serial queue and does not request interactive unlock d
 Cookie operations temporarily disable legacy Keychain interaction and restore its previous setting before returning.
 Certificate operations use the same queue, so this process-wide setting cannot suppress an overlapping GPBar signing prompt.
 Unavailable storage falls back to fresh sign-in and displays a storage message.
+The helper tracks unconfirmed Keychain updates by user, portal, and revision. It retains no cookie in this tracking state.
+The app acknowledges successful storage updates. After XPC reconnection, it removes unconfirmed records before allowing their reuse.
+Tracking survives session completion while the helper remains running. It is not persisted across helper restarts.
 Legacy Keychain access-control and interaction APIs produce SDK deprecation warnings. The data-protection alternative needs separately provisioned entitlements.
 [Apple Keychain implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
 

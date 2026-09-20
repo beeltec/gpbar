@@ -19,6 +19,7 @@ import CryptoTokenKit
     private(set) var authenticationStorageMessage: String?
     private var authenticationStorageRevision = UUID()
     private var authenticationStorageOperations: [String: UUID] = [:]
+    private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
     private(set) var certificateError: String?
@@ -77,6 +78,7 @@ import CryptoTokenKit
             guard let self else { return }
             self.cancelPendingQuit()
             self.helperVerified = false
+            self.receivedAuthenticationUpdate = nil
             self.lastSequence = 0
             if self.sessionID != nil { self.phase = .unknown }
         }
@@ -204,12 +206,13 @@ import CryptoTokenKit
 
     func forgetSavedAuthentication(portal: String? = nil) {
         guard !settingsLocked else { return }
+        receivedAuthenticationUpdate = nil
         let targets = Set(preferences.pendingAuthenticationRemovals + [portal ?? preferences.portal]).filter { !$0.isEmpty }
         preferences.pendingAuthenticationRemovals = targets.sorted()
         for target in targets { storeAuthentication(nil, portal: target) }
     }
 
-    private func storeAuthentication(_ saved: SavedAuthentication?, portal: String) {
+    private func storeAuthentication(_ saved: SavedAuthentication?, portal: String, cacheRevision: UUID? = nil) {
         guard !portal.isEmpty else { return }
         if !preferences.pendingAuthenticationRemovals.contains(portal) {
             preferences.pendingAuthenticationRemovals.append(portal)
@@ -220,21 +223,36 @@ import CryptoTokenKit
         KeychainAuthentication.replace(saved, portal: portal) { [weak self] success in
             Task { @MainActor in
                 guard let self, self.authenticationStorageOperations[portal] == revision else { return }
-                self.authenticationStorageOperations.removeValue(forKey: portal)
-                if success { self.preferences.pendingAuthenticationRemovals.removeAll { $0 == portal } }
-                if !self.preferences.pendingAuthenticationRemovals.isEmpty {
-                    self.authenticationStorageMessage = "Some saved sign-ins could not be removed. Unlock Keychain and try Forget saved sign-in again."
-                    return
+                if success, let cacheRevision {
+                    let command = EngineCommand(type: .acknowledgeAuthenticationCache, portal: portal, cacheRevision: cacheRevision)
+                    let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion,
+                        sessionID: UUID().uuidString, commandID: UUID().uuidString, command: command)
+                    self.helper.send(envelope) { [weak self] reply in
+                        self?.completeAuthenticationStorage(saved, portal: portal, revision: revision, success: reply.accepted)
+                    }
+                } else {
+                    self.completeAuthenticationStorage(saved, portal: portal, revision: revision, success: success)
                 }
-                guard self.authenticationStorageRevision == revision else {
-                    self.authenticationStorageMessage = nil
-                    return
-                }
-                self.authenticationStorageMessage = success
-                    ? (saved == nil ? "GPBar’s saved sign-in was removed. Browser accounts are unchanged." : "Sign-in saved in Keychain under your VPN’s policy.")
-                    : "Keychain could not be updated. Unlock it and try Forget saved sign-in again."
             }
         }
+    }
+
+    private func completeAuthenticationStorage(_ saved: SavedAuthentication?, portal: String, revision: UUID, success: Bool) {
+        guard authenticationStorageOperations[portal] == revision else { return }
+        authenticationStorageOperations.removeValue(forKey: portal)
+        if !success, receivedAuthenticationUpdate?.portal == portal { receivedAuthenticationUpdate = nil }
+        if success { preferences.pendingAuthenticationRemovals.removeAll { $0 == portal } }
+        if !preferences.pendingAuthenticationRemovals.isEmpty {
+            authenticationStorageMessage = "Some saved sign-ins could not be confirmed. Refresh helper status, unlock Keychain, then try Forget saved sign-in again."
+            return
+        }
+        guard authenticationStorageRevision == revision else {
+            authenticationStorageMessage = nil
+            return
+        }
+        authenticationStorageMessage = success
+            ? (saved == nil ? "GPBar’s saved sign-in was removed. Browser accounts are unchanged." : "Sign-in saved in Keychain under your VPN’s policy.")
+            : "Keychain could not be updated. Unlock it and try Forget saved sign-in again."
     }
 
     func disconnect() {
@@ -402,10 +420,13 @@ import CryptoTokenKit
         if recentEvents.count > 100 { recentEvents.removeFirst() }
         switch event.type {
         case .authenticationCacheChanged:
-            guard event.savedAuthentication.map({ $0.isValid && $0.portal == preferences.portal }) != false else { break }
-            if preferences.rememberAuthentication {
-                storeAuthentication(event.savedAuthentication, portal: preferences.portal)
+            guard let portal = event.server, PortalAddress.normalize(portal) == portal,
+                  let revision = event.cacheRevision else { break }
+            receivedAuthenticationUpdate = AuthenticationCacheUpdate(portal: portal, revision: revision)
+            let saved = event.savedAuthentication.flatMap {
+                $0.isValid && $0.portal == portal && portal == preferences.portal && preferences.rememberAuthentication ? $0 : nil
             }
+            storeAuthentication(saved, portal: portal, cacheRevision: revision)
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:
@@ -497,6 +518,7 @@ import CryptoTokenKit
         guard !checkingHelper, !startPending else { return }
         checkingHelper = true
         let inspectedSessionID = sessionID
+        let inspectedAuthenticationUpdate = receivedAuthenticationUpdate
         helper.inspect { [weak self] result in
             guard let self else { return }
             self.checkingHelper = false
@@ -516,6 +538,18 @@ import CryptoTokenKit
                     if self.sessionID != nil { self.phase = .unknown }
                     self.helperMessage = "The helper could not confirm access for this user."
                     return
+                }
+                guard reply.pendingAuthenticationUpdates.count <= 128,
+                      reply.pendingAuthenticationUpdates.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }) else {
+                    self.helperVerified = false
+                    self.engineAvailable = false
+                    self.helperMessage = "The helper returned an invalid saved sign-in state."
+                    return
+                }
+                for update in reply.pendingAuthenticationUpdates {
+                    if let received = self.receivedAuthenticationUpdate, received.portal == update.portal,
+                       received == update || received != inspectedAuthenticationUpdate { continue }
+                    self.storeAuthentication(nil, portal: update.portal, cacheRevision: update.revision)
                 }
                 self.engineAvailable = reply.engineSessionsAvailable && !reply.sessionBusy
                 if reply.recoveryRequired {
