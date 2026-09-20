@@ -166,6 +166,10 @@ Use `SMAppService.daemon(plistName:)` and an embedded launch daemon property lis
 Set `BundleProgram` to the helper's path inside the application.
 Use a declared Mach service for XPC.
 Check service status at launch and after returning from System Settings.
+Automatically register a missing helper at app launch and inspect its XPC connection without requiring a setup click.
+Reuse an enabled registration across app restarts. Wait for macOS approval when required.
+Removing the helper keeps it removed until explicit setup or the next app launch.
+Loading the helper must not start a VPN session.
 Treat registration, user approval, and a working XPC connection as separate states.
 Apple documents this bundle structure and approval flow. [Helper registration](https://developer.apple.com/documentation/servicemanagement/updating-helper-executables-from-earlier-versions-of-macos)
 

@@ -44,7 +44,8 @@ Swift cancellation is cooperative, and callback wrappers need explicit completio
 ## Observation and view ownership
 
 Use `@Observable` for the shared connection model on the macOS 26 baseline.
-Own the model at application scope using `@State`, then pass it through the environment or explicit parameters.
+Own the model in the application delegate, then pass it through explicit view parameters.
+Start helper setup from `applicationDidFinishLaunching` and refresh approval status from `applicationDidBecomeActive`.
 Use `@Bindable` only where a view needs writable bindings to an observable model.
 Keep local presentation state in the view that owns it.
 Observation updates views according to the properties they read. [Managing model data](https://developer.apple.com/documentation/swiftui/managing-model-data-in-your-app)

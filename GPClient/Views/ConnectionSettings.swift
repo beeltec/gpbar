@@ -132,7 +132,6 @@ struct ConnectionSettings: View {
         .onDisappear {
             if !preferences.addressDraft.isEmpty { preferences.saveAddress() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
         .onAppear { model.refresh() }
     }
 }

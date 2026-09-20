@@ -1,8 +1,8 @@
 import SwiftUI
 
 @main struct GPClientApp: App {
-    @State private var model = ConnectionModel()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    private var model: ConnectionModel { appDelegate.model }
 
     var body: some Scene {
         MenuBarExtra {
@@ -40,8 +40,6 @@ private struct MenuBarLabel: View {
         Image(systemName: symbol)
             .accessibilityLabel("GPClient, \(model.phase.rawValue), \(model.preferences.title)")
             .task {
-                appDelegate.model = model
-                model.refresh()
                 appDelegate.openConnection = {
                     openWindow(id: "connection")
                     NSApp.activate()
@@ -74,10 +72,17 @@ private struct ConnectionCommands: Commands {
 
 @MainActor private final class AppDelegate: NSObject, NSApplicationDelegate {
     var openConnection: (() -> Void)?
-    var model: ConnectionModel?
+    let model = ConnectionModel()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        model.startHelper()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        model.refresh()
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let model else { return .terminateNow }
         if !model.preferences.addressDraft.isEmpty { model.preferences.saveAddress() }
         guard model.settingsLocked else { return .terminateNow }
         let alert = NSAlert()
@@ -91,7 +96,7 @@ private struct ConnectionCommands: Commands {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls { model?.authentication.submitCallback(url.absoluteString) }
+        for url in urls { model.authentication.submitCallback(url.absoluteString) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
