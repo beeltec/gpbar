@@ -46,6 +46,8 @@ The browser initially reported a network transition, so a successful full-page r
 The DNS snapshot matched the original snapshot exactly after disconnect.
 Stable routes matched the baseline, and no routes remained on the former GPClient interface.
 Dynamic neighbor-cache entries were excluded from the stable-route comparison.
+A later final snapshot still matched the stable routes and DNS configuration, except for resolver order numbers assigned by the system.
+Those later order values were preserved.
 
 The user withdrew the proposed internal endpoints and requested only the public-site restriction check.
 No successful internal-service access is claimed.
