@@ -135,6 +135,8 @@ Insert the token, open the certificate picker, and choose Refresh before selecti
 The picker distinguishes token identities from software Keychain identities, including duplicate public certificates.
 The selected token must be present before Connect. Reinsertion never starts a connection automatically.
 Persistent references are resolved again for every signing operation; missing identities fail safely.
+Saved selections from earlier builds have their token metadata resolved before use. Unavailable selections require reinsertion or reselection.
+Token metadata uses attributes-only Keychain queries. Algorithm inspection uses certificate public keys, not private-key attribute copying.
 [Apple token integration](https://developer.apple.com/documentation/cryptotokenkit/using-cryptographic-assets-stored-on-a-smart-card)
 
 Support depends on macOS exposing the card through its built-in driver or an installed CryptoTokenKit driver.

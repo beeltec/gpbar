@@ -39,9 +39,7 @@ enum KeychainIdentity {
                 continuation.resume(with: Result {
                     let context = LAContext()
                     context.interactionNotAllowed = true
-                    let key = try privateKey(resolve(reference: reference, context: context))
-                    guard let attributes = SecKeyCopyAttributes(key) as? [String: Any] else { throw Failure.unavailable }
-                    return attributes[kSecAttrTokenID as String] as? String
+                    return try tokenIdentifier(resolve(reference: reference, context: context), context: context)
                 })
             }
         }
@@ -85,9 +83,9 @@ enum KeychainIdentity {
                   let reference = reference as? Data, reference.count <= 4096 else { continue }
             let data = SecCertificateCopyData(certificate) as Data
             let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            guard let key = try? privateKey(identity),
-                  let attributes = SecKeyCopyAttributes(key) as? [String: Any] else { continue }
-            let tokenID = attributes[kSecAttrTokenID as String] as? String
+            let tokenID: String?
+            do { tokenID = try tokenIdentifier(identity, context: context) }
+            catch { continue }
             let subject = (SecCertificateCopySubjectSummary(certificate) as String?) ?? "Client certificate"
             let name = String(subject.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.prefix(256))
             let choice = CertificateChoice(fingerprint: fingerprint, name: name, reference: reference, tokenID: tokenID)
@@ -101,7 +99,7 @@ enum KeychainIdentity {
         var certificate: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else { throw Failure.unavailable }
         let key = try privateKey(identity)
-        let available = schemes(for: key).filter {
+        let available = schemes(for: try publicKey(identity)).filter {
             guard let algorithm = algorithm(scheme: $0, digest: false) else { return false }
             return SecKeyIsAlgorithmSupported(key, .sign, algorithm)
         }
@@ -124,8 +122,9 @@ enum KeychainIdentity {
         guard !input.isEmpty, input.count <= 65536,
               let length = digestLength(scheme), !digest || input.count == length,
               let algorithm = algorithm(scheme: scheme, digest: digest) else { throw Failure.invalidRequest }
-        let key = try privateKey(resolve(reference: reference, context: context))
-        let available = schemes(for: key)
+        let identity = try resolve(reference: reference, context: context)
+        let key = try privateKey(identity)
+        let available = schemes(for: try publicKey(identity))
         let certificateMatch = digest && scheme == 0x0403 && available.contains { $0 & 0xff == 3 }
         guard (available.contains(scheme) || certificateMatch), SecKeyIsAlgorithmSupported(key, .sign, algorithm) else { throw Failure.unsupported }
         var error: Unmanaged<CFError>?
@@ -158,7 +157,28 @@ enum KeychainIdentity {
         return key
     }
 
+    private static func publicKey(_ identity: SecIdentity) throws -> SecKey {
+        var certificate: SecCertificate?
+        guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess,
+              let certificate, let key = SecCertificateCopyKey(certificate) else { throw Failure.unavailable }
+        return key
+    }
+
+    private static func tokenIdentifier(_ identity: SecIdentity, context: LAContext) throws -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecValueRef as String: try privateKey(identity),
+            kSecReturnAttributes as String: true,
+            kSecUseAuthenticationContext as String: context
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let attributes = result as? [String: Any] else { throw Failure.unavailable }
+        return attributes[kSecAttrTokenID as String] as? String
+    }
+
     private static func schemes(for key: SecKey) -> [UInt16] {
+        // Use public keys only. Legacy private-key attribute copying can attempt a key export.
         guard let attributes = SecKeyCopyAttributes(key) as? [String: Any],
               let type = attributes[kSecAttrKeyType as String] as? String,
               let bits = attributes[kSecAttrKeySizeInBits as String] as? Int else { return [] }
