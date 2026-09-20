@@ -16,6 +16,7 @@ trap 'rm -rf -- "$native_work"' EXIT HUP INT TERM
 tar -xzf "$archive" -C "$native_work"
 cd "$native_work/openconnect-9.21"
 patch -p1 < "$project_root/Packaging/Patches/openconnect-private-hip.patch"
+patch -p1 < "$project_root/Packaging/Patches/openconnect-keychain.patch"
 export MACOSX_DEPLOYMENT_TARGET=26.0
 ./configure --prefix="$project_root/build/native" --enable-shared --disable-static --disable-nls \
     --without-libproxy --without-stoken --without-libpcsclite --without-libpskc --without-gssapi \

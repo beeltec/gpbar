@@ -23,6 +23,7 @@ actor SessionController {
     private var sequence: UInt64 = 0
     private var lastSnapshot: EngineEventEnvelope?
     private var challenge: EngineEventEnvelope?
+    private var signatureRequest: EngineEventEnvelope?
     private var terminal: EngineEventEnvelope?
     private var exitCode: Int32?
     private var stdoutEnded = false
@@ -41,6 +42,7 @@ actor SessionController {
         uiLossTask?.cancel()
         if let completed, completed.0 == userID { observer(completed.1) }
         if let challenge, let bytes = try? JSONEncoder().encode(challenge) { observer(bytes) }
+        if let signatureRequest, let bytes = try? JSONEncoder().encode(signatureRequest) { observer(bytes) }
         if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { observer(bytes) }
         let recoveryRequired = sessionID == nil && ((try? SecureRuntime.hasPendingSessions()) ?? true)
         return (sessionID, false, recoveryRequired)
@@ -51,7 +53,7 @@ actor SessionController {
         observer = nil
         observerID = nil
         observerUser = nil
-        if challenge != nil {
+        if challenge != nil || signatureRequest != nil {
             uiLossTask = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
                 await self?.stop()
@@ -81,6 +83,11 @@ actor SessionController {
             guard process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID, observerUser == userID,
                   let portal = message.command.portal, let normalized = PortalAddress.normalize(portal), normalized == portal,
                   message.command.reconnect != nil else { return CommandReply(accepted: false, code: "start_rejected") }
+            guard message.command.identity?.isValid != false,
+                  message.command.certificateOnly != true || message.command.identity != nil,
+                  message.command.certificateUsername.map({ $0.utf8.count <= 1024 && !$0.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) != false else {
+                return CommandReply(accepted: false, code: "invalid_identity")
+            }
             owner = userID
             completed = nil
             sessionID = message.sessionID
@@ -111,6 +118,13 @@ actor SessionController {
                   let password = message.command.password, !password.isEmpty, password.utf8.count <= 4096 else {
                 return CommandReply(accepted: false, code: "invalid_credentials")
             }
+        }
+        if message.command.type == .submitSignature {
+            guard let signatureRequest, message.command.requestID == signatureRequest.event.requestID,
+                  message.command.signature.map({ !$0.isEmpty && $0.count <= 1024 }) != false else {
+                return CommandReply(accepted: false, code: "signature_expired")
+            }
+            self.signatureRequest = nil
         }
         if message.command.type == .submitCallback || message.command.type == .submitOtp || message.command.type == .submitCredentials {
             guard let challenge, message.command.challengeID == challenge.event.challengeID,
@@ -171,6 +185,7 @@ actor SessionController {
         terminal = nil
         lastSnapshot = nil
         challenge = nil
+        signatureRequest = nil
         exitCode = nil
         stdoutEnded = false
         networkMayHaveChanged = true
@@ -255,6 +270,13 @@ actor SessionController {
             networkMayHaveChanged = true
         }
         switch event.event.type {
+        case .signatureRequired:
+            guard let requestID = event.event.requestID, !requestID.isEmpty, requestID.utf8.count <= 64,
+                  requestID.allSatisfy({ $0.isHexDigit }), event.event.scheme != nil, event.event.digest != nil,
+                  let input = event.event.input, !input.isEmpty, input.count <= 65536 else {
+                throw ControllerError.invalidFrame
+            }
+            signatureRequest = event
         case .authenticationRequired, .otpRequired, .credentialsRequired:
             guard event.event.challengeID != nil else { throw ControllerError.invalidFrame }
             challenge = event
@@ -266,6 +288,7 @@ actor SessionController {
             terminal = event
             networkMayHaveChanged = event.event.cleanup != "not_needed"
             challenge = nil
+            signatureRequest = nil
         default: break
         }
         if event.event.type != .stopped { emit(bytes) }
@@ -347,6 +370,7 @@ actor SessionController {
         errorOutput = nil
         process = nil
         challenge = nil
+        signatureRequest = nil
         if let sessionID {
             sequence += 1
             let state = EngineEventEnvelope(protocolVersion: helperProtocolVersion, sessionID: sessionID, sequence: sequence,
@@ -380,6 +404,7 @@ actor SessionController {
         owner = nil
         lastSnapshot = nil
         challenge = nil
+        signatureRequest = nil
         terminal = nil
         engineURL = nil
         pendingStart = nil

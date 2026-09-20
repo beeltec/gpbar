@@ -4,6 +4,7 @@ struct ConnectionSettings: View {
     @Bindable var model: ConnectionModel
     @Environment(\.openWindow) private var openWindow
     @FocusState private var addressFocused: Bool
+    @State private var choosingCertificate = false
 
     var body: some View {
         @Bindable var preferences = model.preferences
@@ -67,6 +68,37 @@ struct ConnectionSettings: View {
                 .disabled(model.settingsLocked)
 
                 Section {
+                    HStack(alignment: .top) {
+                        Image(systemName: "person.text.rectangle")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(preferences.certificateReference == nil ? "No client certificate" : preferences.certificateName)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Choose a certificate only if your organization requires one. Private keys are not exported.")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        Button("Choose…") {
+                            guard preferences.saveAddress() else { return }
+                            model.loadCertificates()
+                            choosingCertificate = true
+                        }
+                    }
+                    if preferences.certificateReference != nil {
+                        Toggle("Certificate-only login", isOn: $preferences.certificateOnly)
+                        if preferences.certificateOnly {
+                            TextField("Certificate username", text: $preferences.certificateUsername, prompt: Text("Optional"))
+                            Text("Use the username supplied by your administrator if the certificate does not provide one. Server-required browser sign-in still applies.")
+                                .font(.caption).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Button("Remove certificate selection") { model.selectCertificate(nil) }
+                    }
+                } header: { Text("Client certificate") }
+                .disabled(model.settingsLocked)
+
+                Section {
                     Toggle("Reconnect an interrupted session", isOn: $preferences.reconnect)
                         .disabled(model.settingsLocked)
                     Toggle("Launch GPBar at login", isOn: Binding(
@@ -122,6 +154,9 @@ struct ConnectionSettings: View {
         }
         .frame(width: 480)
         .frame(minHeight: 620)
+        .sheet(isPresented: $choosingCertificate) {
+            CertificatePicker(model: model)
+        }
         .onChange(of: addressFocused) { wasFocused, focused in
             if wasFocused && !focused && !preferences.addressDraft.isEmpty { preferences.saveAddress() }
         }
@@ -129,5 +164,55 @@ struct ConnectionSettings: View {
             if !preferences.addressDraft.isEmpty { preferences.saveAddress() }
         }
         .onAppear { model.refresh() }
+    }
+}
+
+private struct CertificatePicker: View {
+    let model: ConnectionModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedID: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Choose a client certificate")
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+            Text("Select the identity supplied by your organization. Compare the SHA-256 fingerprint when names match.")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if model.loadingCertificates {
+                ProgressView("Reading Keychain…").frame(maxWidth: .infinity, minHeight: 180)
+            } else if let error = model.certificateError {
+                Text(error).foregroundStyle(Color("Failure")).frame(maxWidth: .infinity, minHeight: 180)
+            } else if model.certificateChoices.isEmpty {
+                ContentUnavailableView("No supported identities", systemImage: "person.text.rectangle",
+                    description: Text("Ask your administrator for a client certificate and private key in your login Keychain."))
+            } else {
+                List(model.certificateChoices, selection: $selectedID) { choice in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(choice.name).font(.body)
+                        Text(choice.id).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("SHA-256 fingerprint, \(choice.id)")
+                    }
+                    .padding(.vertical, 6)
+                    .tag(choice.id)
+                }
+                .frame(minHeight: 180, idealHeight: 240, maxHeight: 360)
+            }
+            HStack {
+                Button("Refresh") { model.loadCertificates() }.disabled(model.loadingCertificates || model.settingsLocked)
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Use certificate") {
+                    guard let choice = model.certificateChoices.first(where: { $0.id == selectedID }) else { return }
+                    model.selectCertificate(choice)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.settingsLocked || model.loadingCertificates || !model.certificateChoices.contains(where: { $0.id == selectedID }))
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
     }
 }

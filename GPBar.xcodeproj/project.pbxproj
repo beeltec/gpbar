@@ -32,6 +32,7 @@
 		B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */; };
 		BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
 		C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */; };
+		C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */; };
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
@@ -73,6 +74,7 @@
 
 /* Begin PBXFileReference section */
 		05D011F424654D4C425384C4 /* NetworkSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSession.swift; sourceTree = "<group>"; };
+		0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainIdentity.swift; sourceTree = "<group>"; };
 		118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPanel.swift; sourceTree = "<group>"; };
 		43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureRuntime.swift; sourceTree = "<group>"; };
@@ -171,6 +173,7 @@
 			children = (
 				118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */,
 				7A45A7B43AB47061045E5CA7 /* HelperClient.swift */,
+				0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -336,6 +339,7 @@
 				84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */,
 				2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */,
 				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
+				C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */,
 				6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */,
 				83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */,
 				2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */,

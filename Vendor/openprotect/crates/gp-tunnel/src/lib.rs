@@ -6,6 +6,11 @@
 
 use thiserror::Error;
 
+#[cfg(all(target_os = "macos", has_openconnect))]
+mod identity;
+#[cfg(all(target_os = "macos", has_openconnect))]
+pub use identity::install_client_identity;
+
 // Use the real openconnect module when FFI bindings were generated
 // (build.rs emits `cfg(has_openconnect)`). Otherwise fall back to stub.
 #[cfg(has_openconnect)]

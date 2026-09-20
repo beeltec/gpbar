@@ -21,14 +21,25 @@ pub enum PortalLoginResult {
 impl GpBar {
     /// Create a new client from the given parameters.
     pub fn new(gp_params: GpParams) -> Result<Self, AuthError> {
-        Self::build(gp_params, false)
+        Self::build(gp_params, false, None)
     }
 
     pub fn new_for_app(gp_params: GpParams) -> Result<Self, AuthError> {
-        Self::build(gp_params, true)
+        Self::build(gp_params, true, None)
     }
 
-    fn build(gp_params: GpParams, bounded_responses: bool) -> Result<Self, AuthError> {
+    pub fn new_for_app_with_identity(
+        gp_params: GpParams,
+        identity: std::sync::Arc<gp_proto::identity::ClientIdentity>,
+    ) -> Result<Self, AuthError> {
+        Self::build(gp_params, true, Some(identity))
+    }
+
+    fn build(
+        gp_params: GpParams,
+        bounded_responses: bool,
+        identity: Option<std::sync::Arc<gp_proto::identity::ClientIdentity>>,
+    ) -> Result<Self, AuthError> {
         let mut builder = reqwest::Client::builder()
             .user_agent(&gp_params.user_agent)
             .danger_accept_invalid_certs(gp_params.ignore_tls_errors);
@@ -51,8 +62,18 @@ impl GpBar {
             builder = builder.resolve(&host, addr);
         }
 
-        // Mutual TLS: PKCS#12 takes precedence over PEM cert+key.
-        if let Some(p12_path) = &gp_params.client_pkcs12 {
+        if let Some(identity) = identity {
+            if gp_params.ignore_tls_errors || gp_params.client_cert.is_some()
+                || gp_params.client_key.is_some() || gp_params.client_pkcs12.is_some()
+            {
+                return Err(AuthError::Other("conflicting client identity settings".into()));
+            }
+            // TLS signing can wait up to 120 seconds for Keychain approval.
+            builder = builder
+                .connect_timeout(std::time::Duration::from_secs(130))
+                .timeout(std::time::Duration::from_secs(150))
+                .use_preconfigured_tls(crate::identity::tls_config(identity)?);
+        } else if let Some(p12_path) = &gp_params.client_pkcs12 {
             // reqwest + rustls doesn't support PKCS#12 directly
             // (from_pkcs12_der requires native-tls). Convert to PEM
             // via rustls-pemfile + pkcs8. For now, require PEM format

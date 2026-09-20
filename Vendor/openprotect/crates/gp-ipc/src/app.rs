@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -18,6 +18,10 @@ pub enum Command {
     Start {
         portal: String,
         reconnect: bool,
+        identity: Option<CertificateIdentity>,
+        #[serde(default)]
+        certificate_only: bool,
+        certificate_username: Option<String>,
     },
     SubmitCallback {
         challenge_id: String,
@@ -32,9 +36,20 @@ pub enum Command {
         username: String,
         password: String,
     },
+    SubmitSignature {
+        request_id: String,
+        signature: Option<String>,
+    },
     Cancel,
     Disconnect,
     GetSnapshot,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CertificateIdentity {
+    pub certificates: Vec<String>,
+    pub schemes: Vec<u16>,
 }
 
 #[derive(Serialize)]
@@ -73,6 +88,12 @@ pub enum Event<'a> {
         message: &'a str,
         username_label: &'a str,
         password_label: &'a str,
+    },
+    SignatureRequired {
+        request_id: &'a str,
+        scheme: u16,
+        digest: bool,
+        input: &'a str,
     },
     Snapshot {
         snapshot: &'a AppSnapshot,

@@ -22,6 +22,7 @@ pub struct StandardPrelogin {
     pub auth_message: String,
     pub label_username: String,
     pub label_password: String,
+    pub certificate_username: Option<String>,
 }
 
 /// Fields for SAML authentication.
@@ -66,6 +67,7 @@ impl PreloginResponse {
 
         // Standard (password) auth
         Ok(Self::Standard(StandardPrelogin {
+            certificate_username: root.child_text("ccusername").filter(|value| !value.is_empty()).map(str::to_owned),
             region,
             auth_message: root
                 .child_text("authentication-message")

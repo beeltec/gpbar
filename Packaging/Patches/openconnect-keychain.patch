@@ -1,0 +1,19 @@
+--- a/gnutls.c
++++ b/gnutls.c
+@@ -1102,6 +1102,16 @@
+ 
+ #if defined (HAVE_P11KIT) || defined(HAVE_GNUTLS_SYSTEM_KEYS)
+ 	/* Load certificate(s) first... */
++	if (getenv("GPBAR_APP_SESSION") && !strcmp(cert_url, "gpbar-keychain:session")) {
++		err = gnutls_x509_crt_list_import_url(&extra_certs, &nr_extra_certs,
++				cert_url, gnutls_pin_callback, certinfo, 0);
++		if (err || !nr_extra_certs) {
++			ret = -EIO;
++			goto out;
++		}
++		goto got_certs;
++	}
++
+ 	if (cert_is_p11 || cert_is_sys) {
+ 		vpn_progress(vpninfo, PRG_DEBUG,
+ 			     cert_is_p11 ? _("Using PKCS#11 certificate %s\n") :

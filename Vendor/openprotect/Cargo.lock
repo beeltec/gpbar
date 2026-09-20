@@ -585,12 +585,14 @@ dependencies = [
  "libc",
  "md5",
  "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "thiserror",
  "tokio",
  "tracing",
+ "webpki-roots",
  "windows-sys 0.61.2",
 ]
 
@@ -1183,6 +1185,7 @@ name = "opc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.23.1",
  "clap",
  "clap_complete",
  "console",

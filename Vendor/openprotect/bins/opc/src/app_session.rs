@@ -11,6 +11,23 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::unix::pipe::{Receiver, Sender};
 use tokio::sync::{mpsc, watch, Mutex};
 
+mod signing;
+
+struct AuthenticationOptions {
+    identity: Option<Arc<gp_proto::identity::ClientIdentity>>,
+    certificate_only: bool,
+    certificate_username: Option<String>,
+}
+
+impl AuthenticationOptions {
+    fn client(&self, params: GpParams) -> Result<GpBar> {
+        Ok(match &self.identity {
+            Some(identity) => GpBar::new_for_app_with_identity(params, identity.clone())?,
+            None => GpBar::new_for_app(params)?,
+        })
+    }
+}
+
 struct Output {
     pipe: Sender,
     sequence: u64,
@@ -219,11 +236,14 @@ pub async fn run() -> Result<()> {
         .await?;
     let mut input = BufReader::new(input);
     let first = tokio::time::timeout(Duration::from_secs(15), read_command(&mut input)).await??;
-    let Command::Start { portal, reconnect } = first.command else {
+    let Command::Start { portal, reconnect, identity, certificate_only, certificate_username } = first.command else {
         bail!("start required");
     };
     let portal = normalize_portal(&portal)?;
-    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar1") {
+    if (certificate_only && identity.is_none()) || certificate_username.as_ref().is_some_and(|name| name.len() > 1024 || name.contains(char::is_control)) {
+        bail!("invalid certificate settings");
+    }
+    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar2") {
         bail!("patched tunnel support required");
     }
     super::ensure_macos_connect_privileges()?;
@@ -235,6 +255,15 @@ pub async fn run() -> Result<()> {
     }
     let (stop, _) = watch::channel(false);
     let (answers, mut answer_rx) = mpsc::channel(4);
+    let (signature_answers, signature_rx) = mpsc::channel(1);
+    let (identity, signer_task) = match identity {
+        Some(identity) => {
+            let (identity, task) = signing::start(identity, output.clone(), stop.subscribe(), signature_rx)?;
+            (Some(identity), Some(task))
+        }
+        None => (None, None),
+    };
+    let options = AuthenticationOptions { identity, certificate_only, certificate_username };
     let reader_output = output.clone();
     let reader_stop = stop.clone();
     let reader = tokio::spawn(async move {
@@ -292,6 +321,13 @@ pub async fn run() -> Result<()> {
                     otp: false,
                     username: Some(username),
                 }),
+                Command::SubmitSignature { request_id, signature } => {
+                    if !app::valid_id(&request_id) || signature_answers.try_send(signing::Answer { request_id, signature }).is_err() {
+                        let _ = reader_stop.send(true);
+                        return;
+                    }
+                    None
+                }
                 Command::Start { .. } => {
                     let _ = reader_stop.send(true);
                     return;
@@ -305,7 +341,9 @@ pub async fn run() -> Result<()> {
             }
         }
     });
-    let result = run_session(&portal, reconnect, &output, &mut answer_rx, stop.clone()).await;
+    let result = run_session(&portal, reconnect, &output, &mut answer_rx, stop.clone(), &options).await;
+    let _ = stop.send(true);
+    if let Some(task) = signer_task { let _ = task.await; }
     reader.abort();
     let _ = reader.await;
     let mut out = output.lock().await;
@@ -402,16 +440,17 @@ async fn authenticate(
     portal: &str,
     output: &SharedOutput,
     answers: &mut mpsc::Receiver<Answer>,
+    options: &AuthenticationOptions,
 ) -> Result<Authentication> {
     output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
-    let client = GpBar::new_for_app(params.clone())?;
+    let client = options.client(params.clone())?;
     let prelogin = client.prelogin(portal).await?;
-    let (mut credential, mut id) = request_credential(portal, &prelogin, output, answers).await?;
+    let (mut credential, mut id) = request_credential(portal, &prelogin, output, answers, options).await?;
     let mut portal_params = params.clone();
     let mut configuration = None;
     for attempt in 0..=3 {
-        let client = GpBar::new_for_app(portal_params.clone())?;
+        let client = options.client(portal_params.clone())?;
         let result = client.portal_login_for_app(portal, &credential).await?;
         drop(client);
         portal_params.otp = None;
@@ -464,16 +503,16 @@ async fn authenticate(
             || configuration.prelogon_user_auth_cookie == "empty");
     drop(configuration);
     if needs_gateway_login {
-        let gateway_client = GpBar::new_for_app(params.clone())?;
+        let gateway_client = options.client(params.clone())?;
         let prelogin = gateway_client.prelogin(&gateway).await?;
-        let (credential, id) = request_credential(&gateway, &prelogin, output, answers).await?;
+        let (credential, id) = request_credential(&gateway, &prelogin, output, answers, options).await?;
         gateway_credential = credential;
         gateway_challenge = Some(id);
     }
     let mut challenge_count = 0;
     let mut allow_cookie_fallback = gateway_challenge.is_none();
     loop {
-        let gateway_client = GpBar::new_for_app(params.clone())?;
+        let gateway_client = options.client(params.clone())?;
         let result = gateway_client
             .gateway_login(&gateway, &gateway_credential)
             .await;
@@ -507,10 +546,10 @@ async fn authenticate(
             }
             Err(_) if allow_cookie_fallback => {
                 allow_cookie_fallback = false;
-                let gateway_client = GpBar::new_for_app(params.clone())?;
+                let gateway_client = options.client(params.clone())?;
                 let prelogin = gateway_client.prelogin(&gateway).await?;
                 let (credential, id) =
-                    request_credential(&gateway, &prelogin, output, answers).await?;
+                    request_credential(&gateway, &prelogin, output, answers, options).await?;
                 gateway_credential = credential;
                 gateway_challenge = Some(id);
             }
@@ -559,11 +598,20 @@ async fn request_credential(
     prelogin: &PreloginResponse,
     output: &SharedOutput,
     answers: &mut mpsc::Receiver<Answer>,
+    options: &AuthenticationOptions,
 ) -> Result<(Credential, String)> {
     let id = challenge_id()?;
     output.lock().await.phase("authenticating", 0).await?;
     let saml = match prelogin {
         PreloginResponse::Standard(standard) => {
+            if options.certificate_only {
+                let username = standard.certificate_username.clone()
+                    .or_else(|| options.certificate_username.clone()).unwrap_or_default();
+                if username.len() > 1024 || username.contains(char::is_control) {
+                    bail!("invalid certificate username");
+                }
+                return Ok((Credential::Password { username, password: String::new() }, id));
+            }
             let message = prompt(&standard.auth_message, "Enter your VPN credentials.");
             let username_label = prompt(&standard.label_username, "Username");
             let password_label = prompt(&standard.label_password, "Password");
@@ -749,10 +797,11 @@ async fn run_session(
     output: &SharedOutput,
     answers: &mut mpsc::Receiver<Answer>,
     stop_sender: watch::Sender<bool>,
+    options: &AuthenticationOptions,
 ) -> Result<()> {
     let mut stop = stop_sender.subscribe();
     let mut authentication = tokio::select! {
-        result = authenticate(portal, output, answers) => result?,
+        result = authenticate(portal, output, answers, options) => result?,
         _ = stop.wait_for(|v| *v) => return Ok(()),
     };
     let script = std::env::current_exe()?
@@ -813,8 +862,8 @@ async fn run_session(
                 hip_mode: super::HipMode::Auto,
                 hip_script: None,
                 split_dns_zones: Vec::new(),
-                client_cert: None,
-                client_key: None,
+                client_cert: options.identity.as_ref().map(|_| "gpbar-keychain:session".into()),
+                client_key: options.identity.as_ref().map(|_| "gpbar-keychain:session".into()),
                 gateway_ip_pin: None,
                 instance: session_id.clone(),
             });
@@ -892,7 +941,7 @@ async fn run_session(
             super::AttemptOutcome::AuthExpired(_) if reconnect && reauth_count < 2 => {
                 reauth_count += 1;
                 authentication = tokio::select! {
-                    result = authenticate(portal, output, answers) => result?,
+                    result = authenticate(portal, output, answers, options) => result?,
                     _ = stop.wait_for(|v| *v) => return Ok(()),
                 };
             }

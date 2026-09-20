@@ -2,10 +2,10 @@
 
 Research date: 2026-09-20. Scope: GPBar on macOS.
 
-The credential changes require app, helper, and engine protocol version 2.
+The certificate changes require app, helper, and engine protocol version 3.
 Update all three components together. Older components reject the version mismatch.
 For development builds in different folders, disconnect and remove the old helper through the old app before launching the new build.
-An old registered helper cannot process version 2 requests.
+An old registered helper cannot process version 3 requests.
 
 GPBar does not have full authentication parity with the official GlobalProtect app.
 The available live provider uses SAML. Other methods below have no live compatibility evidence.
@@ -20,7 +20,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Token or OTP as the initial password | Server-provided password label and masked credential field. | New implementation; no live provider available. |
 | Portal and gateway MFA challenges | Bounded challenge exchange using `inputStr` and one `passwd` value. Supports XML and existing HTML challenge responses. | New portal support; corrected gateway submission. Push-only and provider-specific exchanges remain unverified. |
 | Different portal and gateway authentication | Separate gateway prelogin and sign-in when portal cookies are absent or rejected. | New implementation; no live provider available. Passwords are not silently forwarded to another host. |
-| Client certificates, including certificates combined with passwords or SAML | Not available in the native app. | Requires identity selection and signing across the user app, HTTP authentication, and tunnel boundaries. |
+| Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
 | Smart cards and CACs | Not available. | Requires non-exportable key operations, PIN handling, and supported middleware. File-based PEM support is not equivalent. |
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
@@ -99,9 +99,32 @@ The implementation follows the established OpenConnect exchange.
 ## Remaining integration requirements
 
 The official macOS app uses client certificates from Keychain.
-GPBar's current HTTP backend accepts file-based PEM identities, while its app mode supplies no certificate identity.
-Adding a certificate picker alone would leave authentication and tunnel setup incomplete.
+GPBar supplies the selected public chain and delegates private-key operations to Apple's Security framework in the user app.
+OpenProtect uses rustls's client-certificate signer. OpenConnect uses GnuTLS's custom-key URL interface through its existing certificate API.
+HIP submission remains on OpenConnect's authenticated TLS session.
+No private key is exported or passed to the root helper.
 [macOS certificate guide](https://docs.paloaltonetworks.com/globalprotect/user-guide/6-3/globalprotect-app-for-mac/enable-the-globalprotect-app-to-use-the-valid-client-certificate)
+
+Select an identity under Client certificate in Edit Connection. The selection is bound to the saved portal and cleared when that address changes.
+Keychain filters identities using Apple's TLS client policy. Code-signing-only certificates are not offered.
+Certificate-only login sends an empty password and uses the server's certificate username, or the optional configured username.
+Server-required SAML and MFA still run. Combined certificate and password login keeps the standard credential prompt.
+RSA keys from 2,048 to 8,192 bits and P-256, P-384, and P-521 EC keys are supported.
+Signing is limited to supported SHA-256, SHA-384, and SHA-512 TLS schemes. SHA-1 and raw RSA operations are rejected.
+Each signing request has a session-bound identifier and a 120-second deadline. Inputs and signatures have separate size limits.
+Certificate-enabled HTTP connections allow 130 seconds for connection setup and 150 seconds per request, including Keychain approval.
+Disconnect invalidates the native authentication context and cancels engine-side signing waits.
+Removing the selection does not delete the Keychain identity.
+
+The native adapter reuses Apple's key operations instead of adding another PKCS#11 provider and user-side token service.
+Existing PKCS#11 providers remain candidates for the separate smart-card ticket.
+[Apple signature API](https://developer.apple.com/documentation/security/seckeycreatesignature(_:_:_:_:)),
+[GnuTLS abstract-key API](https://www.gnutls.org/manual/html_node/Abstract-key-API.html)
+
+The bundled OpenConnect patch uses GnuTLS's existing certificate-chain URL importer for this adapter.
+GnuTLS also decodes PKCS#1 DigestInfo before the adapter requests a supported hash signature. The adapter does not implement ASN.1 parsing.
+[GnuTLS chain import](https://gnutls.org/reference/gnutls-x509.html#gnutls-x509-crt-list-import-url),
+[GnuTLS DigestInfo decoding](https://gnutls.org/reference/gnutls-crypto.html#gnutls-decode-ber-digest-info)
 
 Smart-card support must preserve non-exportable keys.
 OpenConnect provides PKCS#11 integration, but GPBar's private runtime currently disables automatic PKCS#11 module discovery.

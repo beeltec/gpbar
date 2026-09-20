@@ -12,6 +12,12 @@ import Network
     private(set) var engineAvailable = false
     private var sessionID: String?
     private var startPending = false
+    private var engineStartSent = false
+    private var certificateContext: KeychainContext?
+    private var signatureRequestID: String?
+    private(set) var certificateChoices: [CertificateChoice] = []
+    private(set) var loadingCertificates = false
+    private(set) var certificateError: String?
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
     private var quitAfterDisconnect = false
@@ -69,21 +75,109 @@ import Network
         guard !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
-        sessionID = UUID().uuidString
+        let newSession = UUID().uuidString
+        sessionID = newSession
+        engineStartSent = false
         self.browserOverride = browserOverride
         startPending = true
         lastSequence = 0
         error = nil
         snapshot = nil
         phase = .preparing
-        send(EngineCommand(type: .start, portal: preferences.portal, reconnect: preferences.reconnect))
+        var command = EngineCommand(type: .start, portal: preferences.portal, reconnect: preferences.reconnect,
+                                    certificateOnly: preferences.certificateOnly, certificateUsername: preferences.certificateUsername)
+        if let reference = preferences.certificateReference {
+            let context = KeychainContext()
+            certificateContext = context
+            Task {
+                do {
+                    let identity = try await KeychainIdentity.load(reference: reference, context: context)
+                    guard sessionID == newSession else { return }
+                    guard phase == .preparing else {
+                        disconnect()
+                        self.error = "Certificate loading was interrupted. Check the helper and try again."
+                        refresh()
+                        return
+                    }
+                    command.identity = identity
+                    engineStartSent = true
+                    send(command)
+                } catch {
+                    guard sessionID == newSession else { return }
+                    certificateContext?.invalidate()
+                    certificateContext = nil
+                    sessionID = nil
+                    startPending = false
+                    phase = .failed
+                    self.error = "The selected certificate is unavailable or access was denied. Choose a valid certificate or try again."
+                }
+            }
+        } else {
+            engineStartSent = true
+            send(command)
+        }
     }
 
     func disconnect() {
         guard sessionID != nil, phase != .disconnecting else { return }
         phase = .disconnecting
         authentication.finish()
+        certificateContext?.invalidate()
+        certificateContext = nil
+        signatureRequestID = nil
+        if !engineStartSent {
+            sessionID = nil
+            startPending = false
+            phase = .disconnected
+            if quitAfterDisconnect { quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
+            return
+        }
         send(EngineCommand(type: .disconnect))
+    }
+
+    func loadCertificates() {
+        guard !settingsLocked, !loadingCertificates else { return }
+        loadingCertificates = true
+        certificateError = nil
+        Task {
+            defer { loadingCertificates = false }
+            do { certificateChoices = try await KeychainIdentity.loadChoices() }
+            catch { certificateChoices = []; certificateError = "Certificates could not be read from Keychain. Unlock your login Keychain and try again." }
+        }
+    }
+
+    func selectCertificate(_ choice: CertificateChoice?) {
+        guard !settingsLocked else { return }
+        preferences.clearCertificate()
+        if let choice {
+            preferences.certificateReference = choice.reference
+            preferences.certificateName = choice.name
+            preferences.certificateID = choice.id
+        }
+    }
+
+    private func sign(_ event: EngineEvent, session: String) {
+        guard let requestID = event.requestID else { return }
+        if signatureRequestID == requestID { return }
+        if signatureRequestID != nil {
+            certificateContext?.invalidate()
+            certificateContext = nil
+            signatureRequestID = nil
+        }
+        guard phase != .disconnecting, let reference = preferences.certificateReference,
+              let scheme = event.scheme, let digest = event.digest, let input = event.input else {
+            send(EngineCommand(type: .submitSignature, requestID: requestID))
+            return
+        }
+        let context = certificateContext ?? KeychainContext()
+        certificateContext = context
+        signatureRequestID = requestID
+        Task {
+            let signature = try? await KeychainIdentity.signature(reference: reference, context: context, scheme: scheme, digest: digest, input: input)
+            guard sessionID == session, signatureRequestID == requestID, phase != .disconnecting else { return }
+            signatureRequestID = nil
+            send(EngineCommand(type: .submitSignature, requestID: requestID, signature: signature))
+        }
     }
 
     func disconnectAndQuit() {
@@ -124,6 +218,8 @@ import Network
                 self.phase = .unknown
                 self.error = "Connection status is unavailable. Check the helper before starting another session."
             } else if kind == .start {
+                self.certificateContext?.invalidate()
+                self.certificateContext = nil
                 self.phase = .failed
                 self.sessionID = nil
                 self.error = reply.code == "runtime_or_recovery"
@@ -144,8 +240,10 @@ import Network
             guard envelope.event.type == .snapshot || envelope.event.type == .phaseChanged
                     || envelope.event.type == .authenticationRequired || envelope.event.type == .otpRequired
                     || envelope.event.type == .credentialsRequired
+                    || envelope.event.type == .signatureRequired
                     || envelope.event.type == .stopped else { return }
             sessionID = envelope.sessionID
+            engineStartSent = true
             lastSequence = 0
         }
         guard sessionID == envelope.sessionID, envelope.sequence > lastSequence else { return }
@@ -157,6 +255,8 @@ import Network
         }
         if recentEvents.count > 100 { recentEvents.removeFirst() }
         switch event.type {
+        case .signatureRequired:
+            sign(event, session: envelope.sessionID)
         case .phaseChanged:
             if let phase = event.phase {
                 self.phase = phase
@@ -183,6 +283,10 @@ import Network
                 authentication.finish()
             }
         case .stopped:
+            certificateContext?.invalidate()
+            certificateContext = nil
+            signatureRequestID = nil
+            engineStartSent = false
             startPending = false
             completedSessions.append(envelope.sessionID)
             if completedSessions.count > 16 { completedSessions.removeFirst() }
@@ -270,6 +374,10 @@ import Network
                     return
                 }
                 if reply.activeSessionID == nil && self.sessionID != nil && !self.startPending {
+                    self.certificateContext?.invalidate()
+                    self.certificateContext = nil
+                    self.signatureRequestID = nil
+                    self.engineStartSent = false
                     self.sessionID = nil
                     self.lastSequence = 0
                     self.snapshot = nil
@@ -280,6 +388,7 @@ import Network
                 if self.sessionID == nil {
                     if let active = reply.activeSessionID, !self.completedSessions.contains(active) {
                         self.sessionID = active
+                        self.engineStartSent = true
                         self.phase = .unknown
                     } else if self.phase == .unknown { self.phase = .disconnected }
                 }
@@ -328,6 +437,10 @@ import Network
             guard let self else { return }
             self.recovering = false
             if reply.accepted {
+                self.certificateContext?.invalidate()
+                self.certificateContext = nil
+                self.signatureRequestID = nil
+                self.engineStartSent = false
                 self.startPending = false
                 if let sessionID = self.sessionID { self.completedSessions.append(sessionID) }
                 self.sessionID = nil

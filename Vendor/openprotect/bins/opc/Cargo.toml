@@ -11,6 +11,7 @@ name = "opc"
 path = "src/main.rs"
 
 [dependencies]
+base64 = "0.23"
 gp-proto = { workspace = true }
 gp-auth = { workspace = true }
 gp-tunnel = { workspace = true }
