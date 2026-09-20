@@ -12,7 +12,7 @@
 //! This crate produces the XML document. It deliberately does NOT:
 //!
 //! * Submit the report over HTTP — that belongs in the HTTP client
-//!   (`gp-auth::GpClient`) alongside the other `/ssl-vpn/*.esp`
+//!   (`gp-auth::GpBar`) alongside the other `/ssl-vpn/*.esp`
 //!   endpoints.
 //! * Interact with `libopenconnect`'s built-in `--csd-wrapper` hook
 //!   — we do the submission ourselves in Rust for the same

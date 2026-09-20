@@ -32,7 +32,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 use gp_auth::SamlPasteAuthProvider;
 use gp_auth::{
-    AuthContext, AuthProvider, GpClient, OktaAuthConfig, OktaAuthProvider, PasswordAuthProvider,
+    AuthContext, AuthProvider, GpBar, OktaAuthConfig, OktaAuthProvider, PasswordAuthProvider,
 };
 #[cfg(unix)]
 use gp_ipc::{bind_server, read_request, write_response};
@@ -767,7 +767,7 @@ async fn run() -> Result<()> {
     // testing.
     let raw_args: Vec<std::ffi::OsString> = std::env::args_os().collect();
     #[cfg(target_os = "macos")]
-    if raw_args.len() == 2 && raw_args[1] == "--gpclient-hip-input" {
+    if raw_args.len() == 2 && raw_args[1] == "--gpbar-hip-input" {
         return app_session::hip_input().await.map_err(|_| anyhow::anyhow!("HIP input failed"));
     }
     let looks_like_csd_wrapper_invocation = raw_args
@@ -1220,7 +1220,7 @@ async fn diagnose(portal_arg: String, insecure: bool) -> Result<()> {
     let client_os = ClientOs::default();
     let mut gp_params = GpParams::new(client_os);
     gp_params.ignore_tls_errors = insecure;
-    let client = GpClient::new(gp_params.clone()).context("creating HTTP client")?;
+    let client = GpBar::new(gp_params.clone()).context("creating HTTP client")?;
 
     // 4. Portal prelogin (implicitly validates TLS)
     eprint!("  TLS + prelogin ... ");
@@ -2081,7 +2081,7 @@ async fn connect(args: ConnectArgs) -> Result<()> {
     gp_params.client_key = key;
     gp_params.client_pkcs12 = pkcs12;
 
-    let client = GpClient::new(gp_params.clone()).context("creating HTTP client")?;
+    let client = GpBar::new(gp_params.clone()).context("creating HTTP client")?;
 
     // 1b. Recovery sweep for stale NRPT rules left behind by a
     // previous opc that died in a kernel-mode wait (Wintun /
@@ -2237,7 +2237,7 @@ async fn connect(args: ConnectArgs) -> Result<()> {
         let mut attempts = 0u32;
 
         loop {
-            let gw_client = GpClient::new(gw_params.clone()).context("creating gateway client")?;
+            let gw_client = GpBar::new(gw_params.clone()).context("creating gateway client")?;
             let login_result = gw_client
                 .gateway_login(&gateway.address, &gw_cred)
                 .await
@@ -2703,8 +2703,7 @@ struct ReauthResult {
 /// / systemd contexts where no one is watching. The error surfaces
 /// cleanly in that case ("re-authentication failed").
 async fn run_reauth(ctx: &ReauthContext) -> Result<ReauthResult> {
-    let client =
-        GpClient::new(ctx.gp_params.clone()).context("creating HTTP client for re-auth")?;
+    let client = GpBar::new(ctx.gp_params.clone()).context("creating HTTP client for re-auth")?;
 
     // 1. Prelogin
     let prelogin = client
@@ -2784,7 +2783,7 @@ async fn run_reauth(ctx: &ReauthContext) -> Result<ReauthResult> {
     let gw_cred = portal_config.to_gateway_credential();
     let mut gw_params = ctx.gp_params.clone();
     gw_params.is_gateway = true;
-    let gw_client = GpClient::new(gw_params).context("re-auth: creating gateway client")?;
+    let gw_client = GpBar::new(gw_params).context("re-auth: creating gateway client")?;
     let login_result = gw_client
         .gateway_login(&gateway_address, &gw_cred)
         .await
@@ -4038,7 +4037,7 @@ async fn submit_hip_from_rust(
         let addr = std::net::SocketAddr::new(std::net::IpAddr::V4(ip), port);
         gp_params.resolve_override = Some((gateway_hostname(gateway).to_string(), addr));
     }
-    let client = GpClient::new(gp_params).context("creating HIP HTTP client")?;
+    let client = GpBar::new(gp_params).context("creating HIP HTTP client")?;
 
     let md5 = compute_csd_md5(cookie);
 
@@ -4815,7 +4814,7 @@ fn run_tunnel(
         OpenConnectSession::new("PAN GlobalProtect").context("creating openconnect session")?;
 
     session.set_protocol_gp().context("set_protocol_gp")?;
-    if cfg!(target_os = "macos") && std::env::var_os("GPCLIENT_APP_SESSION").is_some() {
+    if cfg!(target_os = "macos") && std::env::var_os("GPBAR_APP_SESSION").is_some() {
         session.set_url(gateway_host).context("set_url")?;
     } else {
         session.set_hostname(gateway_host).context("set_hostname")?;

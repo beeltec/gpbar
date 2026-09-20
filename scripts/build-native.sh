@@ -19,6 +19,6 @@ patch -p1 < "$project_root/Packaging/Patches/openconnect-private-hip.patch"
 export MACOSX_DEPLOYMENT_TARGET=26.0
 ./configure --prefix="$project_root/build/native" --enable-shared --disable-static --disable-nls \
     --without-libproxy --without-stoken --without-libpcsclite --without-libpskc --without-gssapi \
-    --without-gnutls-tss2 --with-vpnc-script=/nonexistent/gpclient-script --with-system-cafile=/etc/ssl/cert.pem
+    --without-gnutls-tss2 --with-vpnc-script=/nonexistent/gpbar-script --with-system-cafile=/etc/ssl/cert.pem
 make -j8
 make install

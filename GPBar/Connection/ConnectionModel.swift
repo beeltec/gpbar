@@ -50,7 +50,7 @@ import Network
                 self.refresh()
             }
         }
-        pathMonitor.start(queue: DispatchQueue(label: "com.beelte.gpclient.network-path"))
+        pathMonitor.start(queue: DispatchQueue(label: "com.beeltec.GPBar.network-path"))
         authentication.onCallback = { [weak self] sessionID, challengeID, callback in
             guard let self, self.sessionID == sessionID else { return }
             self.send(EngineCommand(type: .submitCallback, challengeID: challengeID, callback: callback))
@@ -198,7 +198,7 @@ import Network
         }
     }
     private let helper = HelperClient()
-    private let service = SMAppService.daemon(plistName: "com.beelte.gpclient.helper.plist")
+    private let service = SMAppService.daemon(plistName: "com.beeltec.GPBar.helper.plist")
     private(set) var helperStatus: SMAppService.Status = .notRegistered
     private(set) var helperMessage = "The helper needs your permission to manage VPN connections."
     private(set) var helperVerified = false
@@ -225,7 +225,7 @@ import Network
             if sessionID == nil && phase == .unknown { phase = .disconnected }
             helperVerified = false
             helperMessage = helperStatus == .requiresApproval
-                ? "Allow GPClient in Login Items & Extensions, then return here."
+                ? "Allow GPBar in Login Items & Extensions, then return here."
                 : "The helper needs your permission to manage VPN connections."
             return
         }
@@ -338,7 +338,7 @@ import Network
     var diagnosticText: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
         return """
-        GPClient \(version)
+        GPBar \(version)
         macOS: \(ProcessInfo.processInfo.operatingSystemVersionString)
         Architecture: arm64
         State: \(phase.rawValue)

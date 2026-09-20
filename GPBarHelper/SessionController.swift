@@ -4,7 +4,7 @@ import SystemConfiguration
 
 actor SessionController {
     static let shared = SessionController()
-    private let writeQueue = DispatchQueue(label: "com.beelte.gpclient.engine-input")
+    private let writeQueue = DispatchQueue(label: "com.beeltec.GPBar.engine-input")
     private var pendingWrites = 0
     private var finishing = false
     private var completed: (uid_t, Data)?
@@ -131,7 +131,7 @@ actor SessionController {
         child.executableURL = engine
         child.arguments = ["app-session"]
         child.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": SecureRuntime.directory.path,
-                             "LANG": "en_US.UTF-8", "GPCLIENT_APP_SESSION": "1",
+                             "LANG": "en_US.UTF-8", "GPBAR_APP_SESSION": "1",
                              "GNUTLS_SYSTEM_PRIORITY_FILE": "/dev/null"]
         child.currentDirectoryURL = SecureRuntime.directory
         child.standardInput = commandPipe

@@ -6,14 +6,14 @@ use crate::error::AuthError;
 use crate::hip::cookie_to_form_fields;
 
 /// HTTP client wrapping the GlobalProtect REST-ish API.
-pub struct GpClient {
+pub struct GpBar {
     http: reqwest::Client,
     bounded_responses: bool,
     /// The GP request parameters attached to every call.
     pub gp_params: GpParams,
 }
 
-impl GpClient {
+impl GpBar {
     /// Create a new client from the given parameters.
     pub fn new(gp_params: GpParams) -> Result<Self, AuthError> {
         Self::build(gp_params, false)
@@ -42,7 +42,7 @@ impl GpClient {
         // hijack the gateway hostname out from under us. TLS / SNI
         // still uses the hostname so cert validation is unaffected.
         if let Some((host, addr)) = gp_params.resolve_override.clone() {
-            tracing::debug!("GpClient: resolve override {host} -> {addr}");
+            tracing::debug!("GpBar: resolve override {host} -> {addr}");
             builder = builder.resolve(&host, addr);
         }
 

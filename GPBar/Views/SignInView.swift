@@ -23,7 +23,7 @@ struct SignInView: View {
                 Text(error).foregroundStyle(Color("Failure")).font(.callout).textSelection(.enabled)
             }
             if coordinator.callbackHandlerRequired {
-                Button("Use GPClient for sign-in links") { coordinator.useCallbackHandler() }
+                Button("Use GPBar for sign-in links") { coordinator.useCallbackHandler() }
             }
             if coordinator.isOTP {
                 SecureField("Verification code", text: $coordinator.otp)

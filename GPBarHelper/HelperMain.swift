@@ -97,7 +97,7 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
         }
         guard CommandLine.arguments.count == 1 else { exit(EXIT_FAILURE) }
         guard geteuid() == 0,
-              let requirement = try? SigningIdentity.requirement(for: "com.beelte.gpclient") else { exit(EXIT_FAILURE) }
+              let requirement = try? SigningIdentity.requirement(for: "com.beeltec.GPBar") else { exit(EXIT_FAILURE) }
         let delegate = HelperListener(requirement: requirement)
         let listener = NSXPCListener(machServiceName: helperServiceName)
         listener.setConnectionCodeSigningRequirement(requirement)

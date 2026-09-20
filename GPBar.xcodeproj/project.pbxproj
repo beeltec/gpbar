@@ -1,0 +1,591 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10C60EA437D94C29A082CDBE /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
+		134B70452A3E01A83E50826F /* AuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */; };
+		204E178D1B3259B5BB75E762 /* SecureRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */; };
+		2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F4F75C9EE34C930F864DD2 /* SignInView.swift */; };
+		233C3267215AAFF659A63908 /* HelperMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */; };
+		239FD415686AC2A772F822F5 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
+		261FDB0FBCF637E50820065C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B71A5530BCB89DA27C8676E /* Assets.xcassets */; };
+		2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A45A7B43AB47061045E5CA7 /* HelperClient.swift */; };
+		33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
+		34DF5FFA08C292067C50103F /* ConnectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */; };
+		468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
+		4E0923A29AF0BB7131580FB3 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */; };
+		50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
+		5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */; };
+		5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
+		6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */; };
+		83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
+		8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */; };
+		84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22032C5BBA8F2C25237F631 /* GPBarApp.swift */; };
+		A3354E3F1A2B409D37E104D7 /* ConnectionPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA43745F44E29F4874CD768F /* ConnectionPath.swift */; };
+		A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 554E85928561E10EA94E38BC /* GPBarHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		B29693496FCF7F7E8E236460 /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F339BC676C83BE555B1F2AE4 /* SessionController.swift */; };
+		B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */; };
+		BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
+		C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */; };
+		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
+		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
+		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		09436E7A603F58ADC3D258CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0D79379E5D4AB4F89E3673 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 43B5BEA1F8EEA70315F98E4B;
+			remoteInfo = GPBarHelper;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6025D9000E71931F3A2F26CD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchDaemons;
+			dstSubfolderSpec = 1;
+			files = (
+				8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E687ADD277EE8C9B02D7F947 /* Embed Dependencies */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
+			);
+			name = "Embed Dependencies";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		05D011F424654D4C425384C4 /* NetworkSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkSession.swift; sourceTree = "<group>"; };
+		118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationCoordinator.swift; sourceTree = "<group>"; };
+		17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPanel.swift; sourceTree = "<group>"; };
+		43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureRuntime.swift; sourceTree = "<group>"; };
+		553D6B58F0381EA28CDF2DBB /* GPBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GPBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		554E85928561E10EA94E38BC /* GPBarHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = GPBarHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C4C3956223045607EF9CADC /* PortalAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalAddress.swift; sourceTree = "<group>"; };
+		60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionModel.swift; sourceTree = "<group>"; };
+		61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.beeltec.GPBar.helper.plist; sourceTree = "<group>"; };
+		63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPreferences.swift; sourceTree = "<group>"; };
+		7A45A7B43AB47061045E5CA7 /* HelperClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperClient.swift; sourceTree = "<group>"; };
+		8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSettings.swift; sourceTree = "<group>"; };
+		8B71A5530BCB89DA27C8676E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
+		94131D702B90C08815A2340E /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
+		A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A490690342F7B2351CA3B2F4 /* EngineMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineMessages.swift; sourceTree = "<group>"; };
+		C8F2204076A5B786845CBF4D /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
+		C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperMain.swift; sourceTree = "<group>"; };
+		E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		F22032C5BBA8F2C25237F631 /* GPBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPBarApp.swift; sourceTree = "<group>"; };
+		F339BC676C83BE555B1F2AE4 /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
+		F3F4F75C9EE34C930F864DD2 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		F9864886AF6003FFB04C6349 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FA43745F44E29F4874CD768F /* ConnectionPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPath.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2AAF7E3BA278978AE801C02E /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A490690342F7B2351CA3B2F4 /* EngineMessages.swift */,
+				94131D702B90C08815A2340E /* HelperProtocol.swift */,
+				5C4C3956223045607EF9CADC /* PortalAddress.swift */,
+				C8F2204076A5B786845CBF4D /* SigningIdentity.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		45D367BBD461CE851D61BD24 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F22032C5BBA8F2C25237F631 /* GPBarApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		4A315D92FF1C775320E00FC6 /* GPBar */ = {
+			isa = PBXGroup;
+			children = (
+				F9864886AF6003FFB04C6349 /* Info.plist */,
+				45D367BBD461CE851D61BD24 /* App */,
+				FC6A54099B0BEB75054FBDA4 /* Connection */,
+				E4E08F439F5705734C8D0E5B /* Resources */,
+				BE808B69DEC383CCCB80C2A3 /* Services */,
+				B14FC32CE2435F723F0505B4 /* Views */,
+			);
+			path = GPBar;
+			sourceTree = "<group>";
+		};
+		5A979795FB9EA6B0DCEE9DEA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				553D6B58F0381EA28CDF2DBB /* GPBar.app */,
+				554E85928561E10EA94E38BC /* GPBarHelper */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B14FC32CE2435F723F0505B4 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */,
+				FA43745F44E29F4874CD768F /* ConnectionPath.swift */,
+				8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */,
+				E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */,
+				92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */,
+				F3F4F75C9EE34C930F864DD2 /* SignInView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		BA12FB6AB5CCE84CFC2AAE04 /* GPBarHelper */ = {
+			isa = PBXGroup;
+			children = (
+				C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */,
+				05D011F424654D4C425384C4 /* NetworkSession.swift */,
+				43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */,
+				F339BC676C83BE555B1F2AE4 /* SessionController.swift */,
+			);
+			path = GPBarHelper;
+			sourceTree = "<group>";
+		};
+		BE808B69DEC383CCCB80C2A3 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */,
+				7A45A7B43AB47061045E5CA7 /* HelperClient.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		BEEC98299756F3637CA9F2A5 /* LaunchDaemons */ = {
+			isa = PBXGroup;
+			children = (
+				61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */,
+			);
+			name = LaunchDaemons;
+			path = Packaging/LaunchDaemons;
+			sourceTree = "<group>";
+		};
+		E4E08F439F5705734C8D0E5B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				8B71A5530BCB89DA27C8676E /* Assets.xcassets */,
+				A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */,
+				63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		E74F97DF04B4E22961B319DE = {
+			isa = PBXGroup;
+			children = (
+				4A315D92FF1C775320E00FC6 /* GPBar */,
+				BA12FB6AB5CCE84CFC2AAE04 /* GPBarHelper */,
+				BEEC98299756F3637CA9F2A5 /* LaunchDaemons */,
+				2AAF7E3BA278978AE801C02E /* Shared */,
+				5A979795FB9EA6B0DCEE9DEA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FC6A54099B0BEB75054FBDA4 /* Connection */ = {
+			isa = PBXGroup;
+			children = (
+				60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */,
+				64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */,
+			);
+			path = Connection;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		43B5BEA1F8EEA70315F98E4B /* GPBarHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCCF248989F195C69593D0D3 /* Build configuration list for PBXNativeTarget "GPBarHelper" */;
+			buildPhases = (
+				4550358824E89063370C3DC1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GPBarHelper;
+			packageProductDependencies = (
+			);
+			productName = GPBarHelper;
+			productReference = 554E85928561E10EA94E38BC /* GPBarHelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		CB9497823BE1AE874BD3CE4D /* GPBar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC4C8A7A92A0C7DF9209AD0A /* Build configuration list for PBXNativeTarget "GPBar" */;
+			buildPhases = (
+				951182C36223A91910AEE105 /* Sources */,
+				0995B6C1F3D7D551D14F4FD8 /* Resources */,
+				6025D9000E71931F3A2F26CD /* CopyFiles */,
+				E687ADD277EE8C9B02D7F947 /* Embed Dependencies */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03C7FA1E1493476D5769F49C /* PBXTargetDependency */,
+			);
+			name = GPBar;
+			packageProductDependencies = (
+			);
+			productName = GPBar;
+			productReference = 553D6B58F0381EA28CDF2DBB /* GPBar.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7A0D79379E5D4AB4F89E3673 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					43B5BEA1F8EEA70315F98E4B = {
+						ProvisioningStyle = Manual;
+					};
+					CB9497823BE1AE874BD3CE4D = {
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 1D91B591F4ADCD330A651EC6 /* Build configuration list for PBXProject "GPBar" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E74F97DF04B4E22961B319DE;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5A979795FB9EA6B0DCEE9DEA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CB9497823BE1AE874BD3CE4D /* GPBar */,
+				43B5BEA1F8EEA70315F98E4B /* GPBarHelper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0995B6C1F3D7D551D14F4FD8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				261FDB0FBCF637E50820065C /* Assets.xcassets in Resources */,
+				5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */,
+				C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4550358824E89063370C3DC1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */,
+				233C3267215AAFF659A63908 /* HelperMain.swift in Sources */,
+				BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */,
+				F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */,
+				50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */,
+				204E178D1B3259B5BB75E762 /* SecureRuntime.swift in Sources */,
+				B29693496FCF7F7E8E236460 /* SessionController.swift in Sources */,
+				239FD415686AC2A772F822F5 /* SigningIdentity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		951182C36223A91910AEE105 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				134B70452A3E01A83E50826F /* AuthenticationCoordinator.swift in Sources */,
+				34DF5FFA08C292067C50103F /* ConnectionModel.swift in Sources */,
+				C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */,
+				A3354E3F1A2B409D37E104D7 /* ConnectionPath.swift in Sources */,
+				B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */,
+				EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */,
+				4E0923A29AF0BB7131580FB3 /* DiagnosticsView.swift in Sources */,
+				10C60EA437D94C29A082CDBE /* EngineMessages.swift in Sources */,
+				84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */,
+				2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */,
+				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
+				6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */,
+				83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */,
+				2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */,
+				33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		03C7FA1E1493476D5769F49C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 43B5BEA1F8EEA70315F98E4B /* GPBarHelper */;
+			targetProxy = 09436E7A603F58ADC3D258CE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		07D03B14EB9A005538584931 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = GPBar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.beeltec.GPBar;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		1DE72C0A94100BDF38C93665 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.beeltec.GPBar.helper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		5075817438814CEAE86DF429 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5529053564A6E0F5457F7A23 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AF7F2E69143786E235B36A3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = GPBar/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.beeltec.GPBar;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		E68EF4787542F33DD981E5BE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.beeltec.GPBar.helper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1D91B591F4ADCD330A651EC6 /* Build configuration list for PBXProject "GPBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5529053564A6E0F5457F7A23 /* Debug */,
+				5075817438814CEAE86DF429 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FC4C8A7A92A0C7DF9209AD0A /* Build configuration list for PBXNativeTarget "GPBar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				07D03B14EB9A005538584931 /* Debug */,
+				AF7F2E69143786E235B36A3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FCCF248989F195C69593D0D3 /* Build configuration list for PBXNativeTarget "GPBarHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DE72C0A94100BDF38C93665 /* Debug */,
+				E68EF4787542F33DD981E5BE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7A0D79379E5D4AB4F89E3673 /* Project object */;
+}
