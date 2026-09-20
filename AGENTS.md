@@ -32,6 +32,9 @@ Changes across a process boundary require the guides for both sides.
 ## Engineering rules
 
 - Favor correctness, clarity, and the simplest complete solution.
+- Prefer existing OpenProtect and OpenConnect functionality over new implementations, including when reviewing previously added features.
+- Before adding authentication code, inspect the pinned libraries and document any missing capability or incompatible behavior.
+- Keep custom code limited to required platform integration, security controls, and verified upstream gaps.
 - Apply YAGNI. Do not add frameworks, packages, or abstractions for possible future requirements.
 - Share business rules, not merely similar-looking code. Small duplication can be clearer than the wrong abstraction.
 - Follow the surrounding style. Keep changes to vendored code focused and traceable.

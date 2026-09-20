@@ -129,24 +129,7 @@ impl GpBar {
         portal: &str,
         cred: &Credential,
     ) -> Result<PortalConfig, AuthError> {
-        let url = self.gp_params.login_url(portal);
-        let mut params = self.gp_params.to_params();
-        params.extend(cred.to_params());
-        let host = gp_proto::params::normalize_server(portal).to_string();
-        params.push(("server", host.clone()));
-        params.push(("host", host));
-
-        tracing::debug!("portal config POST {url}");
-        let response = self
-            .http
-            .post(&url)
-            .form(&params)
-            .send()
-            .await?
-            .error_for_status()?;
-        let body = self.read_body(response).await?;
-
-        tracing::trace!("portal config response ({} bytes)", body.len());
+        let body = self.portal_config_response(portal, cred).await?;
         Ok(PortalConfig::parse(&body, portal, cred.username())?)
     }
 
@@ -155,18 +138,7 @@ impl GpBar {
         portal: &str,
         cred: &Credential,
     ) -> Result<PortalLoginResult, AuthError> {
-        let mut params = self.login_params(cred);
-        let host = gp_proto::params::normalize_server(portal);
-        params.push(("server", host.into()));
-        params.push(("host", host.into()));
-        let response = self
-            .http
-            .post(self.gp_params.login_url(portal))
-            .form(&params)
-            .send()
-            .await?
-            .error_for_status()?;
-        let body = self.read_body(response).await?;
+        let body = self.portal_config_response(portal, cred).await?;
         if let Some(GatewayLoginResult::MfaChallenge { message, input_str }) =
             GatewayLoginResult::parse_challenge(&body)?
         {
@@ -186,6 +158,25 @@ impl GpBar {
         Ok(PortalLoginResult::Success(PortalConfig::parse(
             &body, portal, cred.username(),
         )?))
+    }
+
+    async fn portal_config_response(
+        &self,
+        portal: &str,
+        cred: &Credential,
+    ) -> Result<String, AuthError> {
+        let mut params = self.login_params(cred);
+        let host = gp_proto::params::normalize_server(portal);
+        params.push(("server", host.into()));
+        params.push(("host", host.into()));
+        let response = self
+            .http
+            .post(self.gp_params.login_url(portal))
+            .form(&params)
+            .send()
+            .await?
+            .error_for_status()?;
+        self.read_body(response).await
     }
 
     fn login_params(&self, cred: &Credential) -> Vec<(&'static str, String)> {
