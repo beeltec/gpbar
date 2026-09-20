@@ -265,6 +265,7 @@ Use the gear button to open connection settings. Keep only Diagnostics and Quit 
 
 The menu bar symbol must remain legible in light and dark menu bars.
 Use a 19-point globe within a fixed 28-by-22-point image, slightly larger than the original system symbol.
+Center the globe horizontally and vertically within that image, keeping its position fixed when badges appear.
 Disconnected uses a gray globe. Connected uses a white globe with a small checkmark in the upper-right corner.
 Connection work uses a gray globe with an animated `<...>` badge in the same corner.
 Errors and unavailable status use a gray globe with an exclamation mark in that corner.
