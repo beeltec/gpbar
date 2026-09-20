@@ -9,7 +9,7 @@ Keep the deployment target consistent across Swift, Rust, and C libraries.
 Keep `Cargo.lock` and record the features used by release builds.
 Use `cargo build --locked` to prevent unnoticed dependency resolution changes. [Cargo build](https://doc.rust-lang.org/cargo/commands/cargo-build.html)
 
-Keep Apple Silicon and macOS 14 as the planned baseline until the compatibility phase provides evidence for a change.
+Keep Apple Silicon and macOS 26 as the planned baseline until the compatibility phase provides evidence for a change.
 Check SDK availability for every introduced API.
 Do not infer minimum-OS support from a successful build on the newest Mac.
 
