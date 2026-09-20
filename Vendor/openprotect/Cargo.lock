@@ -585,12 +585,14 @@ dependencies = [
  "libc",
  "md5",
  "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "thiserror",
  "tokio",
  "tracing",
+ "webpki-roots",
  "windows-sys 0.61.2",
 ]
 

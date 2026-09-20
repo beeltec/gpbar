@@ -9,6 +9,7 @@ pub mod error;
 pub mod gateway;
 pub mod gateway_config;
 pub mod hip_check;
+pub mod identity;
 pub mod params;
 pub mod portal;
 pub mod prelogin;
