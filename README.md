@@ -7,3 +7,5 @@ Enter your organization's portal address. No company address is built into the a
 
 This is a development implementation. A real tunnel has connected, and normal disconnect restored the observed network state.
 Failure recovery and release validation remain in progress.
+
+See [authentication support](AUTHENTICATION.md) for implemented methods and remaining differences from the official client.
