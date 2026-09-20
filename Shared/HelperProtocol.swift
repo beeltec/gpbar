@@ -21,4 +21,6 @@ struct HelperReply: Codable, Sendable {
     let authorizedUser: Bool
     let engineSessionsAvailable: Bool
     let activeSessionID: String?
+    let sessionBusy: Bool
+    let recoveryRequired: Bool
 }

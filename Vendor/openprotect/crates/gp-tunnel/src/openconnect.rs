@@ -621,10 +621,13 @@ fn cstr_to_opt_string(ptr: *const libc::c_char) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn ok_or_ffi(rc: libc::c_int, op: &str) -> Result<(), TunnelError> {
+fn ok_or_ffi(rc: libc::c_int, op: &'static str) -> Result<(), TunnelError> {
     if rc == 0 {
         Ok(())
     } else {
-        Err(TunnelError::OpenConnect(format!("{op} failed: rc={rc}")))
+        Err(TunnelError::Ffi {
+            operation: op,
+            code: rc,
+        })
     }
 }

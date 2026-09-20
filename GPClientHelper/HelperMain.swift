@@ -26,15 +26,15 @@ final class InspectionService: NSObject, HelperProtocol {
         let connectionID = connectionID
         let events = events
         Task {
-            var activeSessionID: String?
+            var attachment: (sessionID: String?, busy: Bool, recoveryRequired: Bool) = (nil, false, false)
             if authorized {
-                activeSessionID = await SessionController.shared.attach(userID: userID, connectionID: connectionID) { data in
+                attachment = await SessionController.shared.attach(userID: userID, connectionID: connectionID) { data in
                     events.send(data)
                 }
             }
             let response = HelperReply(protocolVersion: helperProtocolVersion, commandID: request.commandID,
                 runningAsRoot: geteuid() == 0, authorizedUser: authorized, engineSessionsAvailable: true,
-                activeSessionID: activeSessionID)
+                activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired)
             reply((try? JSONEncoder().encode(response)) ?? Data())
         }
     }

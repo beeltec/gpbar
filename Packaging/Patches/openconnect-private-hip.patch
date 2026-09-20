@@ -150,3 +150,31 @@
  
  
  	timeout = vpninfo->reconnect_timeout;
+--- a/library.c
++++ b/library.c
+@@ -1573,7 +1573,9 @@
+ 	if (legacy_ifname != vpninfo->ifname)
+ 		free(legacy_ifname);
+ 
+-	script_config_tun(vpninfo, "pre-init");
++	int script_result = script_config_tun(vpninfo, "pre-init");
++	if (getenv("GPCLIENT_APP_SESSION") && script_result)
++		return script_result;
+ 
+ 	tun_fd = os_setup_tun(vpninfo);
+ 	if (tun_fd < 0)
+@@ -1590,7 +1592,13 @@
+ 	if (legacy_ifname != vpninfo->ifname)
+ 		free(legacy_ifname);
+ 
+-	script_config_tun(vpninfo, "connect");
++	script_result = script_config_tun(vpninfo, "connect");
++#ifndef _WIN32
++	if (getenv("GPCLIENT_APP_SESSION") && script_result) {
++		close(tun_fd);
++		return script_result;
++	}
++#endif
+ 
+ 	return openconnect_setup_tun_fd(vpninfo, tun_fd);
+ }

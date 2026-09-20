@@ -301,12 +301,12 @@ pub async fn run() -> Result<()> {
             code: "session_failed", message: "The VPN session could not finish. Check your address, sign-in, and network access.", retryable: true,
         }).await?;
     }
+    out.phase("disconnecting", 0).await?;
     let cleanup = if network_worker("--network-recover").await.is_ok() {
         "restored"
     } else {
         "unverified"
     };
-    out.phase("disconnected", 0).await?;
     out.send(Event::Stopped { cleanup }).await?;
     Ok(())
 }
@@ -447,7 +447,7 @@ async fn authenticate(
     let gateway_credential = configuration.to_gateway_credential();
     let mut params = params;
     params.is_gateway = true;
-    for _ in 0..3 {
+    for attempt in 0..=3 {
         let gateway_client = GpClient::new_for_app(params.clone())?;
         match gateway_client
             .gateway_login(&gateway, &gateway_credential)
@@ -455,6 +455,9 @@ async fn authenticate(
         {
             GatewayLoginResult::Success(cookie) => return Ok(Authentication { gateway, cookie }),
             GatewayLoginResult::MfaChallenge { input_str, .. } => {
+                if attempt == 3 {
+                    bail!("verification code not accepted");
+                }
                 let id = challenge_id()?;
                 output
                     .lock()
@@ -554,9 +557,36 @@ async fn network_worker(mode: &str) -> Result<()> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .kill_on_drop(true);
-    let status = tokio::time::timeout(Duration::from_secs(30), process.status()).await??;
-    if !status.success() {
-        bail!("network operation failed");
+    process.stdout(std::process::Stdio::piped());
+    let result = tokio::time::timeout(Duration::from_secs(30), process.output()).await??;
+    if !result.status.success() {
+        let detail = std::str::from_utf8(&result.stdout).unwrap_or("");
+        let allowed = [
+            "initialization",
+            "configuration",
+            "interface_preflight",
+            "route_ownership",
+            "dns_install",
+            "interface",
+            "route_add",
+            "route_delete",
+            "route_lookup",
+        ];
+        let kinds = [
+            "invalidSession",
+            "invalidConfiguration",
+            "conflict",
+            "command",
+            "verification",
+            "journal",
+            "unknown",
+        ];
+        if let Some((stage, kind)) = detail.split_once(':') {
+            if allowed.contains(&stage) && kinds.contains(&kind) {
+                bail!("Network setup failed at {stage} ({kind}).");
+            }
+        }
+        bail!("Network setup could not be verified.");
     }
     Ok(())
 }
@@ -618,11 +648,11 @@ async fn run_session(
             let task = super::run_tunnel_attempt(super::TunnelAttemptArgs {
                 gateway_host: &authentication.gateway,
                 cookie: &cookie,
-                os: "mac",
+                os: "mac-intel",
                 script: Some(&script),
                 routes: Vec::new(),
                 reconnect_enabled: reconnect,
-                enable_esp: false,
+                enable_esp: true,
                 base: &base,
                 disconnect_rx: stop.clone(),
                 counters: &counters,
@@ -653,15 +683,17 @@ async fn run_session(
                         };
                         let mut out = output.lock().await;
                         if state.state == gp_ipc::SessionState::Connected && out.snapshot.phase != "connected" {
-                            if network_worker("--network-verify").await.is_err() {
+                            if let Err(error) = network_worker("--network-verify").await {
                                 drop(out);
                                 let _ = stop_sender.send(true);
                                 let _ = (&mut task).await;
+                                output.lock().await.send(Event::Failure { code: "network_configuration", message: &error.to_string(), retryable: false }).await?;
                                 bail!("network setup could not be verified");
                             }
                             out.snapshot.interface = state.tun_ifname;
                             out.snapshot.ipv4 = state.local_ipv4;
                             let result = async {
+                                out.failure_reported = false;
                                 out.phase("connected", attempt).await?;
                                 out.snapshot().await
                             }.await;
@@ -679,6 +711,18 @@ async fn run_session(
         };
         if *stop.borrow() {
             return Ok(());
+        }
+        if let super::AttemptOutcome::Err(ref error) = outcome {
+            let (code, message) = tunnel_failure(error);
+            output
+                .lock()
+                .await
+                .send(Event::Failure {
+                    code: &code,
+                    message: &message,
+                    retryable: reconnect && attempt < 9,
+                })
+                .await?;
         }
         match outcome {
             super::AttemptOutcome::Ok | super::AttemptOutcome::UserCancel => return Ok(()),
@@ -700,4 +744,34 @@ async fn run_session(
             _ => bail!("tunnel failed"),
         }
     }
+}
+
+fn tunnel_failure(error: &anyhow::Error) -> (String, String) {
+    for cause in error.chain() {
+        if let Some(gp_tunnel::TunnelError::Ffi { operation, code }) =
+            cause.downcast_ref::<gp_tunnel::TunnelError>()
+        {
+            return (
+                format!("tunnel_{operation}_{code}"),
+                format!("VPN setup failed at {operation} (code {code})."),
+            );
+        }
+    }
+    let stage = error
+        .chain()
+        .find_map(|cause| match cause.to_string().as_str() {
+            "creating openconnect session" => Some("runtime"),
+            "set_protocol_gp" => Some("protocol"),
+            "set_url" => Some("gateway_address"),
+            "set_os_spoof" => Some("client_platform"),
+            "set_cookie" => Some("session_credential"),
+            "make_cstp_connection" => Some("gateway_connection"),
+            "setup_tun_device" => Some("network_configuration"),
+            _ => None,
+        })
+        .unwrap_or("tunnel");
+    (
+        format!("tunnel_{stage}"),
+        format!("VPN setup failed during {stage}."),
+    )
 }

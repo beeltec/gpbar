@@ -150,11 +150,16 @@ import Network
         case .phaseChanged:
             if let phase = event.phase {
                 self.phase = phase
-                if phase == .connecting { authentication.finish() }
+                if phase != .authenticating && phase != .unknown { authentication.finish() }
                 if phase == .connected { error = nil }
             }
         case .snapshot:
-            if let snapshot = event.snapshot { self.snapshot = snapshot; phase = snapshot.phase }
+            if let snapshot = event.snapshot {
+                self.snapshot = snapshot
+                phase = snapshot.phase
+                if phase != .authenticating && phase != .unknown { authentication.finish() }
+                if phase == .connected { error = nil }
+            }
         case .authenticationRequired, .otpRequired:
             phase = .authenticating
             authentication.begin(sessionID: envelope.sessionID, event: event, preferences: preferences, browserOverride: browserOverride)
@@ -223,7 +228,17 @@ import Network
             switch result {
             case .success(let reply):
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
-                self.engineAvailable = reply.engineSessionsAvailable
+                self.engineAvailable = reply.engineSessionsAvailable && !reply.sessionBusy
+                if reply.recoveryRequired {
+                    self.cleanupRequired = true
+                    self.phase = .failed
+                    self.error = "An earlier VPN session needs network recovery. Open diagnostics."
+                }
+                if reply.sessionBusy {
+                    self.phase = .unknown
+                    self.helperMessage = "Another user's VPN session is stopping. Check again shortly."
+                    return
+                }
                 if self.sessionID == nil {
                     if let active = reply.activeSessionID, !self.completedSessions.contains(active) {
                         self.sessionID = active

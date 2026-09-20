@@ -33,8 +33,8 @@ actor SessionController {
     private var escalationTask: Task<Void, Never>?
     private var uiLossTask: Task<Void, Never>?
 
-    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> String? {
-        guard owner == nil || owner == userID else { return sessionID }
+    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> (sessionID: String?, busy: Bool, recoveryRequired: Bool) {
+        guard owner == nil || owner == userID else { return (nil, true, false) }
         self.observer = observer
         observerID = connectionID
         observerUser = userID
@@ -42,7 +42,8 @@ actor SessionController {
         if let completed, completed.0 == userID { observer(completed.1) }
         if let challenge, let bytes = try? JSONEncoder().encode(challenge) { observer(bytes) }
         if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { observer(bytes) }
-        return sessionID
+        let recoveryRequired = sessionID == nil && ((try? SecureRuntime.hasPendingSessions()) ?? true)
+        return (sessionID, false, recoveryRequired)
     }
 
     func detach(connectionID: UUID) {
@@ -100,6 +101,9 @@ actor SessionController {
             return CommandReply(accepted: true, code: nil)
         }
         guard currentConsoleUser() == userID else { return CommandReply(accepted: false, code: "user_not_active") }
+        if message.command.type == .getSnapshot && pendingStart != nil {
+            return CommandReply(accepted: true, code: nil)
+        }
         if message.command.type == .submitCallback || message.command.type == .submitOtp {
             guard let challenge, message.command.challengeID == challenge.event.challengeID,
                   (message.command.type == .submitCallback && challenge.event.type == .authenticationRequired && message.command.callback != nil)
@@ -281,6 +285,7 @@ actor SessionController {
 
     private func stop() async {
         guard let sessionID, let process, process.isRunning else { return }
+        if let engineURL { try? SecureRuntime.cancelNetworkWork(engine: engineURL) }
         if escalationTask == nil {
             escalationTask = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(10)) } catch { return }

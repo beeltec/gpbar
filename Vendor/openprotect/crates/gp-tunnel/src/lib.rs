@@ -26,7 +26,11 @@ pub fn openconnect_version() -> Option<String> {
         if version.is_null() {
             return None;
         }
-        Some(unsafe { std::ffi::CStr::from_ptr(version) }.to_string_lossy().into_owned())
+        Some(
+            unsafe { std::ffi::CStr::from_ptr(version) }
+                .to_string_lossy()
+                .into_owned(),
+        )
     }
     #[cfg(not(has_openconnect))]
     None
@@ -43,6 +47,8 @@ pub fn openconnect_version() -> Option<String> {
 /// cookie would flap forever.
 #[derive(Debug, Error)]
 pub enum TunnelError {
+    #[error("{operation} failed: rc={code}")]
+    Ffi { operation: &'static str, code: i32 },
     /// Generic error from libopenconnect. Caller may retry for
     /// transient cases (default policy in the reconnect loop).
     #[error("openconnect error: {0}")]

@@ -10,6 +10,7 @@ final class NetworkSession {
         let interface: String
         let gateway: String?
         var applied = false
+        var interfaceIndex: UInt32?
     }
     struct Value: Codable {
         let key: String
@@ -32,10 +33,12 @@ final class NetworkSession {
     private let store: SCDynamicStore
     private var journal: Journal
     private let lockFD: Int32
+    private var configuring = false
+    private var operation = "initialization"
 
     init() throws {
         guard geteuid() == 0, let executable = Bundle.main.executableURL else { throw Failure.invalidSession }
-        directory = executable.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        directory = executable.standardizedFileURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         guard directory.deletingLastPathComponent() == SecureRuntime.directory.appendingPathComponent("Sessions", isDirectory: true),
               UUID(uuidString: directory.lastPathComponent) != nil else { throw Failure.invalidSession }
         let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
@@ -66,7 +69,12 @@ final class NetworkSession {
     func run(mode: String) throws {
         if mode == "--network-recover" { try cleanup(); return }
         if mode == "--network-verify" {
-            guard journal.ready else { throw Failure.verification }
+            guard journal.ready else {
+                if let data = try? Data(contentsOf: directory.appendingPathComponent("failure.txt")), data.count <= 256 {
+                    try? FileHandle.standardOutput.write(contentsOf: data)
+                }
+                throw Failure.verification
+            }
             for route in journal.routes {
                 guard try owns(route) else { throw Failure.verification }
             }
@@ -81,7 +89,12 @@ final class NetworkSession {
         case "connect", "reconnect":
             try cleanup()
             do { try configure(environment) }
-            catch { try? cleanup(); throw error }
+            catch {
+                let kind = (error as? Failure).map { String(describing: $0) } ?? "unknown"
+                try? Data("\(operation):\(kind)".utf8).write(to: directory.appendingPathComponent("failure.txt"), options: .atomic)
+                try? cleanup()
+                throw error
+            }
         case "disconnect": try cleanup()
         case "attempt-reconnect": journal.ready = false; try save()
         default: throw Failure.invalidConfiguration
@@ -89,6 +102,9 @@ final class NetworkSession {
     }
 
     private func configure(_ environment: [String: String]) throws {
+        configuring = true
+        operation = "configuration"
+        defer { configuring = false }
         guard let device = environment["TUNDEV"], device.hasPrefix("utun"),
               !device.dropFirst(4).isEmpty, device.dropFirst(4).allSatisfy(\.isNumber), device.count < 16,
               if_nametoindex(device) != 0,
@@ -100,10 +116,18 @@ final class NetworkSession {
         guard (576...9000).contains(mtu) else { throw Failure.invalidConfiguration }
         let gateway6 = gateway.contains(":")
         let outside = try lookup(gateway + (gateway6 ? "/128" : "/32"), ipv6: gateway6)
-        guard let outsideInterface = outside["interface"], !outsideInterface.hasPrefix("utun"),
-              let outsideGateway = outside["gateway"] else { throw Failure.conflict }
+        guard let outsideInterface = outside["interface"], !outsideInterface.hasPrefix("utun") else { throw Failure.conflict }
+        let outsideGateway = try Self.routeGateway(outside, ipv6: gateway6)
         let current = try command("/sbin/ifconfig", [device])
-        guard !current.contains("\n\tinet "), !current.contains("\n\tinet6 ") else { throw Failure.conflict }
+        operation = "interface_preflight"
+        let existingIPv6 = current.split(separator: "\n").map { $0.split(whereSeparator: { $0.isWhitespace }) }
+            .filter { $0.first == "inet6" }
+        guard !current.contains("\n\tinet "), existingIPv6.allSatisfy({ fields in
+            guard fields.count > 1 else { return false }
+            let address = String(fields[1].split(separator: "%")[0])
+            var bytes = [UInt8](repeating: 0, count: 16)
+            return inet_pton(AF_INET6, address, &bytes) == 1 && bytes[0] == 0xfe && bytes[1] & 0xc0 == 0x80
+        }) else { throw Failure.conflict }
         journal.interface = device
         journal.interfaceIndex = if_nametoindex(device)
         journal.address = address
@@ -144,8 +168,8 @@ final class NetworkSession {
                         try add(Route(network: network, ipv6: ipv6, interface: device, gateway: nil))
                     } else {
                         let original = try lookup(network, ipv6: ipv6)
-                        guard let interface = original["interface"], !interface.hasPrefix("utun"),
-                              let gateway = original["gateway"] else { throw Failure.conflict }
+                        guard let interface = original["interface"], !interface.hasPrefix("utun") else { throw Failure.conflict }
+                        let gateway = try Self.routeGateway(original, ipv6: ipv6)
                         if !Self.exact(original, network: network, ipv6: ipv6) {
                             try add(Route(network: network, ipv6: ipv6, interface: interface, gateway: gateway))
                         }
@@ -176,7 +200,11 @@ final class NetworkSession {
         try run(mode: "--network-verify")
     }
 
-    private func add(_ route: Route) throws {
+    private func add(_ requested: Route) throws {
+        operation = "route_ownership"
+        var route = requested
+        route.interfaceIndex = if_nametoindex(route.interface)
+        guard route.interfaceIndex != 0 else { throw Failure.invalidConfiguration }
         if journal.routes.contains(where: { $0.network == route.network && $0.ipv6 == route.ipv6 }) { return }
         guard journal.routes.count < 2048 else { throw Failure.invalidConfiguration }
         if Self.exact(try lookup(route.network, ipv6: route.ipv6), network: route.network, ipv6: route.ipv6) { throw Failure.conflict }
@@ -199,6 +227,8 @@ final class NetworkSession {
     }
 
     private func install(_ key: String, _ dictionary: [String: Any]) throws {
+        operation = "dns_install"
+        guard !Self.cancelled(directory) else { throw Failure.command }
         guard SCDynamicStoreCopyValue(store, key as CFString) == nil else { throw Failure.conflict }
         guard SCError() == kSCStatusNoKey else { throw Failure.command }
         let data = try PropertyListSerialization.data(fromPropertyList: dictionary, format: .binary, options: 0)
@@ -219,7 +249,7 @@ final class NetworkSession {
         }
         while let route = journal.routes.last {
             if try owns(route) {
-                guard route.applied || route.gateway == nil else { throw Failure.conflict }
+                guard route.applied || (route.gateway == nil && route.interface == journal.interface) else { throw Failure.conflict }
                 var arguments = ["-n", "delete", route.ipv6 ? "-inet6" : "-inet", "-net", route.network]
                 if let gateway = route.gateway { arguments.append(gateway) }
                 else { arguments += ["-interface", route.interface] }
@@ -256,12 +286,21 @@ final class NetworkSession {
     }
 
     private func owns(_ route: Route) throws -> Bool {
-        if route.gateway == nil {
-            guard if_nametoindex(route.interface) == journal.interfaceIndex else { return false }
-        }
+        let expectedIndex = route.interfaceIndex ?? (route.interface == journal.interface ? journal.interfaceIndex : nil)
+        guard let expectedIndex, if_nametoindex(route.interface) == expectedIndex else { return false }
         let current = try lookup(route.network, ipv6: route.ipv6)
-        return Self.exact(current, network: route.network, ipv6: route.ipv6)
-            && current["interface"] == route.interface && (route.gateway == nil || current["gateway"] == route.gateway)
+        guard Self.exact(current, network: route.network, ipv6: route.ipv6),
+              current["interface"] == route.interface else { return false }
+        return try Self.routeGateway(current, ipv6: route.ipv6) == route.gateway
+    }
+
+    private static func routeGateway(_ values: [String: String], ipv6: Bool) throws -> String? {
+        guard values["flags"]?.contains("GATEWAY") == true else { return nil }
+        guard let gateway = values["gateway"] else { throw Failure.invalidConfiguration }
+        let components = gateway.split(separator: "%", omittingEmptySubsequences: false)
+        guard components.count <= 2, let address = components.first, ip(String(address), ipv6: ipv6),
+              components.count == 1 || (ipv6 && String(components[1]) == values["interface"]) else { throw Failure.invalidConfiguration }
+        return gateway
     }
 
     private func lookup(_ network: String, ipv6: Bool) throws -> [String: String] {
@@ -333,7 +372,14 @@ final class NetworkSession {
         guard fsync(parent) == 0 else { throw Failure.journal }
     }
 
+    private static func cancelled(_ directory: URL) -> Bool {
+        FileManager.default.fileExists(atPath: directory.appendingPathComponent("cancelled").path)
+            || !SecureRuntime.engineIsRunning(in: directory)
+    }
+
     @discardableResult private func command(_ path: String, _ arguments: [String], allowMissingRoute: Bool = false) throws -> String {
+        operation = path == "/sbin/route" ? "route_" + (arguments.contains("add") ? "add" : arguments.contains("delete") ? "delete" : "lookup") : "interface"
+        if configuring && Self.cancelled(directory) { throw Failure.command }
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: path)
@@ -342,14 +388,29 @@ final class NetworkSession {
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = pipe
         process.standardError = pipe
-        let timedOut = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        let timedOut = DispatchWorkItem { if process.isRunning { kill(process.processIdentifier, SIGKILL) } }
+        let sessionDirectory = directory
+        let observesCancellation = configuring
+        let cancellation = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+        cancellation.schedule(deadline: .now(), repeating: .milliseconds(250))
+        cancellation.setEventHandler {
+            if observesCancellation && Self.cancelled(sessionDirectory) && process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+            }
+        }
+        cancellation.resume()
+        defer { cancellation.cancel() }
         try process.run()
         try pipe.fileHandleForWriting.close()
         DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: timedOut)
-        defer { timedOut.cancel(); try? pipe.fileHandleForReading.close() }
+        defer { timedOut.cancel(); cancellation.cancel(); try? pipe.fileHandleForReading.close() }
         var bytes = Data()
         while let chunk = try pipe.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty {
-            guard bytes.count + chunk.count < 128 * 1024 else { process.terminate(); throw Failure.command }
+            guard bytes.count + chunk.count < 128 * 1024 else {
+                if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                process.waitUntilExit()
+                throw Failure.command
+            }
             bytes.append(chunk)
         }
         process.waitUntilExit()

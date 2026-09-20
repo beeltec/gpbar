@@ -5,6 +5,14 @@ import Darwin
 enum SecureRuntime {
     static let directory = URL(fileURLWithPath: "/Library/Application Support/GPClient", isDirectory: true)
 
+    static func hasPendingSessions() throws -> Bool {
+        let sessions = directory.appendingPathComponent("Sessions", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: sessions.path) else { return false }
+        try ensurePrivateDirectory(directory)
+        try ensurePrivateDirectory(sessions)
+        return try !FileManager.default.contentsOfDirectory(at: sessions, includingPropertiesForKeys: nil).isEmpty
+    }
+
     static func recoverInactiveSessions() throws {
         try ensurePrivateDirectory(directory)
         let sessions = directory.appendingPathComponent("Sessions", isDirectory: true)
@@ -53,6 +61,17 @@ enum SecureRuntime {
             try? FileManager.default.removeItem(at: session)
             throw error
         }
+    }
+
+    static func cancelNetworkWork(engine: URL) throws {
+        try Data().write(to: sessionDirectory(engine).appendingPathComponent("cancelled"), options: .atomic)
+    }
+
+    static func engineIsRunning(in session: URL) -> Bool {
+        guard let data = try? Data(contentsOf: session.appendingPathComponent("engine.json")), data.count < 16384,
+              let recorded = try? JSONDecoder().decode(ProcessIdentity.self, from: data),
+              let current = try? processIdentity(recorded.pid) else { return false }
+        return current == recorded
     }
 
     static func recordProcess(_ pid: pid_t, engine: URL) throws {
