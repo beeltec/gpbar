@@ -176,6 +176,7 @@ impl GatewayLoginResult {
             domain: get(7),
             preferred_ip: get(15),
             computer: Some(computer.to_string()),
+            user_auth_cookie: get(16),
         }))
     }
 

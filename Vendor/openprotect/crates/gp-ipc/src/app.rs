@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -22,6 +22,9 @@ pub enum Command {
         #[serde(default)]
         certificate_only: bool,
         certificate_username: Option<String>,
+        #[serde(default)]
+        remember_authentication: bool,
+        saved_authentication: Option<Box<SavedAuthentication>>,
     },
     SubmitCallback {
         challenge_id: String,
@@ -50,6 +53,26 @@ pub enum Command {
 pub struct CertificateIdentity {
     pub certificates: Vec<String>,
     pub schemes: Vec<u16>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SavedAuthentication {
+    pub portal: String,
+    pub username: String,
+    pub computer: String,
+    pub portal_cookie: Option<RetainedCookie>,
+    pub gateway_cookie: Option<RetainedCookie>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RetainedCookie {
+    pub server: String,
+    pub username: String,
+    pub value: String,
+    pub issued_at: u64,
+    pub expires_at: u64,
 }
 
 #[derive(Serialize)]
@@ -94,6 +117,9 @@ pub enum Event<'a> {
         scheme: u16,
         digest: bool,
         input: &'a str,
+    },
+    AuthenticationCacheChanged {
+        saved_authentication: Option<&'a SavedAuthentication>,
     },
     Snapshot {
         snapshot: &'a AppSnapshot,

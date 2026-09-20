@@ -32,6 +32,7 @@ enum PortalAddress {
         guard validHost else { return nil }
         url.scheme = "https"
         url.host = host.lowercased()
+        if url.port == 443 { url.port = nil }
         url.path = ""
         return url.string
     }

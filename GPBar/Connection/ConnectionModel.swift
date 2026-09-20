@@ -16,6 +16,9 @@ import CryptoTokenKit
     private var engineStartSent = false
     private var certificateContext: KeychainContext?
     private var signatureRequestID: String?
+    private(set) var authenticationStorageMessage: String?
+    private var authenticationStorageRevision = UUID()
+    private var authenticationStorageOperations: [String: UUID] = [:]
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
     private(set) var certificateError: String?
@@ -77,13 +80,14 @@ import CryptoTokenKit
             self.lastSequence = 0
             if self.sessionID != nil { self.phase = .unknown }
         }
-        preferences.onAddressChange = { [weak self] in
+        preferences.onAddressChange = { [weak self] previousPortal in
             guard let self, !self.settingsLocked else { return }
             self.certificateMetadataReady = true
             self.certificateMetadataFailed = false
             self.snapshot = nil
             self.error = nil
             self.authentication.finish()
+            self.forgetSavedAuthentication(portal: previousPortal)
         }
         authentication.onCancel = { [weak self] in self?.disconnect() }
         authentication.onRetryExternally = { [weak self] in
@@ -132,6 +136,32 @@ import CryptoTokenKit
         phase = .preparing
         var command = EngineCommand(type: .start, portal: preferences.portal, reconnect: preferences.reconnect,
                                     certificateOnly: preferences.certificateOnly, certificateUsername: preferences.certificateUsername)
+        command.rememberAuthentication = preferences.rememberAuthentication
+        if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
+            KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
+                Task { @MainActor in
+                    guard let self, self.sessionID == newSession else { return }
+                    guard self.phase == .preparing else {
+                        self.disconnect()
+                        self.error = "Saved sign-in loading was interrupted. Check the helper and try again."
+                        self.refresh()
+                        return
+                    }
+                    var command = command
+                    switch result {
+                    case .success(let saved): command.savedAuthentication = saved
+                    case .failure: self.authenticationStorageMessage = "Saved sign-in is unavailable. Unlock Keychain to use it. This attempt uses fresh sign-in."
+                    }
+                    self.start(command, session: newSession)
+                }
+            }
+        } else {
+            start(command, session: newSession)
+        }
+    }
+
+    private func start(_ initialCommand: EngineCommand, session newSession: String) {
+        var command = initialCommand
         if let reference = preferences.certificateReference {
             let context = KeychainContext()
             certificateContext = context
@@ -163,6 +193,47 @@ import CryptoTokenKit
         } else {
             engineStartSent = true
             send(command)
+        }
+    }
+
+    func setRememberAuthentication(_ enabled: Bool) {
+        guard !settingsLocked else { return }
+        preferences.rememberAuthentication = enabled
+        if !enabled { forgetSavedAuthentication() }
+    }
+
+    func forgetSavedAuthentication(portal: String? = nil) {
+        guard !settingsLocked else { return }
+        let targets = Set(preferences.pendingAuthenticationRemovals + [portal ?? preferences.portal]).filter { !$0.isEmpty }
+        preferences.pendingAuthenticationRemovals = targets.sorted()
+        for target in targets { storeAuthentication(nil, portal: target) }
+    }
+
+    private func storeAuthentication(_ saved: SavedAuthentication?, portal: String) {
+        guard !portal.isEmpty else { return }
+        if !preferences.pendingAuthenticationRemovals.contains(portal) {
+            preferences.pendingAuthenticationRemovals.append(portal)
+        }
+        let revision = UUID()
+        authenticationStorageRevision = revision
+        authenticationStorageOperations[portal] = revision
+        KeychainAuthentication.replace(saved, portal: portal) { [weak self] success in
+            Task { @MainActor in
+                guard let self, self.authenticationStorageOperations[portal] == revision else { return }
+                self.authenticationStorageOperations.removeValue(forKey: portal)
+                if success { self.preferences.pendingAuthenticationRemovals.removeAll { $0 == portal } }
+                if !self.preferences.pendingAuthenticationRemovals.isEmpty {
+                    self.authenticationStorageMessage = "Some saved sign-ins could not be removed. Unlock Keychain and try Forget saved sign-in again."
+                    return
+                }
+                guard self.authenticationStorageRevision == revision else {
+                    self.authenticationStorageMessage = nil
+                    return
+                }
+                self.authenticationStorageMessage = success
+                    ? (saved == nil ? "GPBar’s saved sign-in was removed. Browser accounts are unchanged." : "Sign-in saved in Keychain under your VPN’s policy.")
+                    : "Keychain could not be updated. Unlock it and try Forget saved sign-in again."
+            }
         }
     }
 
@@ -330,6 +401,12 @@ import CryptoTokenKit
         }
         if recentEvents.count > 100 { recentEvents.removeFirst() }
         switch event.type {
+        case .authenticationCacheChanged:
+            guard phase != .disconnecting,
+                  event.savedAuthentication.map({ $0.isValid && $0.portal == preferences.portal }) != false else { break }
+            if preferences.rememberAuthentication {
+                storeAuthentication(event.savedAuthentication, portal: preferences.portal)
+            }
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:

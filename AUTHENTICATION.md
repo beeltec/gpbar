@@ -2,10 +2,10 @@
 
 Research date: 2026-09-20. Scope: GPBar on macOS.
 
-The certificate changes require app, helper, and engine protocol version 3.
+The saved sign-in changes require app, helper, and engine protocol version 4.
 Update all three components together. Older components reject the version mismatch.
 For development builds in different folders, disconnect and remove the old helper through the old app before launching the new build.
-An old registered helper cannot process version 3 requests.
+An old registered helper cannot process version 4 requests.
 
 GPBar does not have full authentication parity with the official GlobalProtect app.
 The available live provider uses SAML. Other methods below have no live compatibility evidence.
@@ -26,7 +26,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
 | Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
 | MFA notifications for protected non-browser resources | Not available. | This is a separate post-connection notification and authentication protocol. |
-| Authentication cookie persistence | Session memory only. | Persistent cookie storage and policy handling are not implemented. |
+| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Implementation in progress; review and live validation are pending. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
 
 The official client supports local, external, certificate, and multi-factor authentication.
@@ -95,6 +95,46 @@ MFA replaces the password value and retains the challenge state.
 It does not append another conflicting password field.
 The implementation follows the established OpenConnect exchange.
 [OpenConnect authentication source](https://gitlab.com/openconnect/openconnect/-/blob/master/auth-globalprotect.c)
+
+### Saved sign-in
+
+Remember sign-in when allowed is off by default. It does not store passwords or browser cookies.
+OpenProtect still sends the authentication requests. Existing credential serialization carries the saved authentication-override cookie.
+The gateway parser reads the optional user-authentication cookie from JNLP argument 16, matching OpenConnect's existing field mapping.
+The separate tunnel `authcookie` is never persisted.
+[OpenConnect field mapping](https://gitlab.com/openconnect/openconnect/-/blob/v9.21/auth-globalprotect.c)
+
+Storage requires explicit portal permission to save credentials, accept cookies, and generate cookies, plus a recognized cookie lifetime.
+Missing, duplicate, unsupported, and invalid policy values disable persistence.
+The current parser recognizes minute, hour, and day lifetime fields. Unsupported policy forms use fresh authentication.
+The portal lifetime limits local retention. Each server separately enforces its own cookie lifetime and source-IP restrictions.
+A cached cookie never establishes authentication by itself; the server must accept it.
+Rejected cookies are removed before fresh sign-in. Challenge responses still use the existing native authentication flow.
+[Official cookie behavior](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/how-does-the-app-know-what-credentials-to-supply),
+[Captured portal policy](https://gitlab.com/openconnect/openconnect/-/issues/387)
+
+Records bind the portal, account, endpoint origin, and engine computer identifier.
+Gateway cookies are sent only to their recorded gateway after the portal returns that gateway again.
+Cookies with retained timestamps do not receive a later local expiry during reuse, MFA, or fallback.
+A shorter returned retention policy also shortens their local expiry.
+After an expired record is removed, fresh authentication can create a new local record. Server-side cookie expiry remains authoritative.
+macOS Keychain encrypts the stored record. GPBar uses a private service name and its signed application's access control.
+Replacement deletes the previous item and creates a new item with private access. A conflicting insertion fails without writing new secrets.
+The current distribution uses the user's non-synchronizing, file-based Keychain without adding restricted provisioning entitlements.
+A local hash of the Mac's host UUID rejects records moved to another Mac. This value is never sent to the VPN or diagnostics.
+Keychain access runs on a serial queue and does not request interactive unlock during connection setup.
+Cookie operations temporarily disable legacy Keychain interaction and restore its previous setting before returning.
+Certificate operations use the same queue, so this process-wide setting cannot suppress an overlapping GPBar signing prompt.
+Unavailable storage falls back to fresh sign-in and displays a storage message.
+Legacy Keychain access-control and interaction APIs produce SDK deprecation warnings. The data-protection alternative needs separately provisioned entitlements.
+[Apple Keychain implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
+
+Forget saved sign-in removes GPBar's cookie record for the configured portal. It does not sign out external browser accounts.
+Turning off Remember sign-in or changing the portal also requests removal. Removal failures remain visible so the user can retry.
+Disconnect does not mean sign out. It preserves allowed cookies for a later user-started connection.
+Expired records are not used, and fully expired records are removed when accessed.
+The official client likewise distinguishes disconnecting from clearing authentication cookies through sign-out.
+[Official sign-out behavior](https://knowledgebase.paloaltonetworks.com/KCSArticleDetail?id=kA14u0000004M5MCAU)
 
 ## Remaining integration requirements
 

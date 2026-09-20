@@ -88,6 +88,9 @@ actor SessionController {
                   message.command.certificateUsername.map({ $0.utf8.count <= 1024 && !$0.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) != false else {
                 return CommandReply(accepted: false, code: "invalid_identity")
             }
+            guard message.command.savedAuthentication.map({ message.command.rememberAuthentication == true && $0.isValid && $0.portal == portal }) != false else {
+                return CommandReply(accepted: false, code: "invalid_saved_authentication")
+            }
             owner = userID
             completed = nil
             sessionID = message.sessionID
@@ -270,6 +273,13 @@ actor SessionController {
             networkMayHaveChanged = true
         }
         switch event.event.type {
+        case .authenticationCacheChanged:
+            if event.event.savedAuthentication?.isValid == false {
+                let cleared = EngineEventEnvelope(protocolVersion: event.protocolVersion, sessionID: event.sessionID,
+                    sequence: event.sequence, event: EngineEvent(type: .authenticationCacheChanged))
+                emit(try JSONEncoder().encode(cleared))
+                return
+            }
         case .signatureRequired:
             guard let requestID = event.event.requestID, !requestID.isEmpty, requestID.utf8.count <= 64,
                   requestID.allSatisfy({ $0.isHexDigit }), event.event.scheme != nil, event.event.digest != nil,

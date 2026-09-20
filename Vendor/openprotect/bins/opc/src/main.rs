@@ -6622,6 +6622,7 @@ mod tests {
             domain: None,
             preferred_ip: None,
             computer: Some("host".to_string()),
+            user_auth_cookie: None,
         }
     }
 
@@ -6725,6 +6726,7 @@ mod tests {
             domain: None,
             preferred_ip: None,
             computer: None,
+            user_auth_cookie: None,
         });
         // `.` is preserved.
         assert!(cookie.contains("authcookie=eyJ_base-64.url.chars"));
