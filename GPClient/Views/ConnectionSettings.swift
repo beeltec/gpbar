@@ -8,12 +8,12 @@ struct ConnectionSettings: View {
     var body: some View {
         @Bindable var preferences = model.preferences
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "network")
-                    .font(.system(size: 27, weight: .light))
-                    .foregroundStyle(Color.accentColor)
+            HStack(alignment: .center, spacing: 14) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .scaledToFit()
                     .frame(width: 44, height: 44)
-                    .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityHidden(true)
                 Text("Edit Connection")
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
                 Spacer()

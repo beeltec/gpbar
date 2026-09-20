@@ -242,6 +242,8 @@ Use actual backend values. Omit unavailable fields instead of inventing placehol
 The panel title uses the configured display name or portal hostname; “Work VPN” above is an example name.
 Put longer account names, portal addresses, routes, and interface information in expanded connection details.
 Support text selection and deliberate copy actions for useful technical values.
+Left-align both connection-detail labels and values in shared columns. Let long gateway names wrap within the panel.
+Use the gear button to open connection settings. Keep only Diagnostics and Quit in the panel footer.
 
 ### State-specific behavior
 
@@ -285,6 +287,7 @@ Closing the owned sign-in window before authentication completes cancels that lo
 
 Settings contain the portal, display name, browser choice, launch-at-login toggle, reconnection preference, and helper status.
 Name the settings window and its heading “Edit Connection”. Do not add a subtitle claim.
+Show the application icon beside the heading and center them vertically.
 Persist browser choice with the other non-secret preferences.
 Lock connection settings while a session is active.
 Changing launch-at-login must not connect the VPN.
@@ -313,7 +316,7 @@ Keep the address until the user changes it, including after disconnect, cancelle
 Saving an address must not start a connection or contact that portal.
 Pass the saved address through the helper to the backend for each new session.
 
-Make “Edit connection…” accessible from the menu bar panel and settings.
+Make connection settings accessible through the panel's gear button and the application's “Edit Connection…” command.
 While connected or connecting, explain that the user must disconnect before changing the address.
 After an address change, clear old connection details, errors, and authentication state.
 Late responses from the previous portal must never populate or authenticate the new connection.

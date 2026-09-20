@@ -50,9 +50,22 @@ struct ConnectionPanel: View {
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 if let snapshot = model.snapshot, model.phase == .connected {
-                    VStack(spacing: 8) {
-                        if let gateway = snapshot.gateway { LabeledContent("Gateway", value: gateway) }
-                        if let address = snapshot.ipv4 { LabeledContent("VPN address", value: address) }
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                        if let gateway = snapshot.gateway {
+                            GridRow(alignment: .firstTextBaseline) {
+                                Text("Gateway")
+                                Text(gateway)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        if let address = snapshot.ipv4 {
+                            GridRow(alignment: .firstTextBaseline) {
+                                Text("VPN address")
+                                Text(address)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
                     }
                     .font(.caption).textSelection(.enabled)
                 }
@@ -62,7 +75,6 @@ struct ConnectionPanel: View {
                 }
                 Divider()
                 HStack {
-                    Button("Edit connection…") { settings() }
                     Spacer()
                     Button("Diagnostics…") { openWindow(id: "diagnostics"); NSApp.activate() }
                     Button("Quit") { NSApp.terminate(nil) }
