@@ -277,8 +277,13 @@ Use HTTPS when the user enters only a hostname.
 Apply normal certificate validation to the configured host.
 Do not offer an insecure certificate bypass in the initial UI.
 
-Save the address and optional display name in non-secret preferences.
-Restore them when the app restarts.
+Automatically save a valid address when the user submits the field or leaves it; no separate Save action is required.
+Store the address and optional display name in `UserDefaults` for the current macOS user.
+Connect must validate and save any pending address edit before starting the session.
+Incomplete or invalid edits must not overwrite the last saved address or silently connect to it.
+Restore the saved values after app restarts, Mac reboots, and application updates.
+Show address setup only when no saved address exists; otherwise open with the saved connection ready to use.
+Keep the address until the user changes it, including after disconnect, cancelled login, or connection failure.
 Saving an address must not start a connection or contact that portal.
 Pass the saved address through the helper to the backend for each new session.
 
@@ -726,7 +731,9 @@ Keep real callback tokens and company network details out of committed screensho
 | --- | --- |
 | First launch | Setup requests a connection address, explains the helper, and accurately shows registration and approval status. |
 | Address entry | A hostname or HTTPS origin is accepted; invalid or unsupported input produces a clear inline error. |
-| Address persistence | The saved address and display name survive app restart; saving never connects automatically. |
+| Address persistence | Valid entry saves automatically. App restart, reboot, and updates retain it without repeating address setup. |
+| Invalid address edit | The saved address remains intact; Connect shows validation errors instead of using an older address silently. |
+| Session ends or fails | Disconnect, cancelled login, and connection failure retain the saved address; saving never connects automatically. |
 | Address change | The next session uses the new portal throughout authentication and gateway discovery, with no stale account or session data. |
 | Active-session editing | Address changes remain disabled until disconnect and cleanup finish. |
 | Approval declined or later revoked | Connection remains unavailable with a working route to System Settings. |
@@ -789,6 +796,7 @@ The first release is complete when all of these conditions hold:
 
 - The app is accessible from the macOS menu bar and uses native SwiftUI views.
 - Users can enter, save, and later edit their GlobalProtect connection address.
+- A valid entered address saves automatically and remains available across restarts until the user changes it.
 - The configured address drives every connection stage; the application contains no fixed company portal or provider-specific behavior.
 - The real SAML-enabled provider reference connection works through user configuration without Terminal or developer tools.
 - Supported authentication methods and observed portal compatibility limits are documented.
