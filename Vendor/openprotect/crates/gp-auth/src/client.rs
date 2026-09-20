@@ -68,7 +68,11 @@ impl GpBar {
             {
                 return Err(AuthError::Other("conflicting client identity settings".into()));
             }
-            builder = builder.use_preconfigured_tls(crate::identity::tls_config(identity)?);
+            // TLS signing can wait up to 120 seconds for Keychain approval.
+            builder = builder
+                .connect_timeout(std::time::Duration::from_secs(130))
+                .timeout(std::time::Duration::from_secs(150))
+                .use_preconfigured_tls(crate::identity::tls_config(identity)?);
         } else if let Some(p12_path) = &gp_params.client_pkcs12 {
             // reqwest + rustls doesn't support PKCS#12 directly
             // (from_pkcs12_der requires native-tls). Convert to PEM

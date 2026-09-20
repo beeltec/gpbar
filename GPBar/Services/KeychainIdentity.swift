@@ -9,14 +9,34 @@ struct CertificateChoice: Identifiable, Sendable {
     let reference: Data
 }
 
-struct CertificateIdentity: Codable, Sendable {
-    let certificates: [Data]
-    let schemes: [UInt16]
+// Keychain work uses one serial queue. Only LAContext's pending-operation cancellation crosses that queue.
+final class KeychainContext: @unchecked Sendable {
+    fileprivate let value = LAContext()
+    func invalidate() { value.invalidate() }
 }
 
 enum KeychainIdentity {
+    private static let queue = DispatchQueue(label: "com.beeltec.GPBar.keychain")
     enum Failure: Error {
         case unavailable, unsupported, invalidRequest, accessDenied
+    }
+
+    static func loadChoices() async throws -> [CertificateChoice] {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { continuation.resume(with: Result { try choices() }) }
+        }
+    }
+
+    static func load(reference: Data, context: KeychainContext) async throws -> CertificateIdentity {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { continuation.resume(with: Result { try prepare(reference: reference, context: context.value) }) }
+        }
+    }
+
+    static func signature(reference: Data, context: KeychainContext, scheme: UInt16, digest: Bool, input: Data) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { continuation.resume(with: Result { try sign(reference: reference, context: context.value, scheme: scheme, digest: digest, input: input) }) }
+        }
     }
 
     static func choices() throws -> [CertificateChoice] {
@@ -25,6 +45,8 @@ enum KeychainIdentity {
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecMatchPolicy as String: SecPolicyCreateSSL(false, nil),
+            kSecMatchTrustedOnly as String: false,
             kSecReturnRef as String: true,
             kSecUseAuthenticationContext as String: context
         ]
@@ -43,6 +65,7 @@ enum KeychainIdentity {
                   let reference = reference as? Data, reference.count <= 4096 else { continue }
             let data = SecCertificateCopyData(certificate) as Data
             let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+            guard !choices.contains(where: { $0.id == fingerprint }) else { continue }
             let subject = (SecCertificateCopySubjectSummary(certificate) as String?) ?? "Client certificate"
             let name = String(subject.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.prefix(256))
             choices.append(CertificateChoice(id: fingerprint, name: name, reference: reference))
@@ -79,7 +102,9 @@ enum KeychainIdentity {
               let length = digestLength(scheme), !digest || input.count == length,
               let algorithm = algorithm(scheme: scheme, digest: digest) else { throw Failure.invalidRequest }
         let key = try privateKey(resolve(reference: reference, context: context))
-        guard schemes(for: key).contains(scheme), SecKeyIsAlgorithmSupported(key, .sign, algorithm) else { throw Failure.unsupported }
+        let available = schemes(for: key)
+        let certificateMatch = digest && scheme == 0x0403 && available.contains { $0 & 0xff == 3 }
+        guard (available.contains(scheme) || certificateMatch), SecKeyIsAlgorithmSupported(key, .sign, algorithm) else { throw Failure.unsupported }
         var error: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(key, algorithm, input as CFData, &error) else {
             _ = error?.takeRetainedValue()

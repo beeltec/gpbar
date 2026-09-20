@@ -32,6 +32,21 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     var reconnect: Bool {
         didSet { defaults.set(reconnect, forKey: "connection.reconnect") }
     }
+    var certificateReference: Data? {
+        didSet { defaults.set(certificateReference, forKey: "connection.certificateReference") }
+    }
+    var certificateName: String {
+        didSet { defaults.set(certificateName, forKey: "connection.certificateName") }
+    }
+    var certificateID: String {
+        didSet { defaults.set(certificateID, forKey: "connection.certificateID") }
+    }
+    var certificateOnly: Bool {
+        didSet { defaults.set(certificateOnly, forKey: "connection.certificateOnly") }
+    }
+    var certificateUsername: String {
+        didSet { defaults.set(certificateUsername, forKey: "connection.certificateUsername") }
+    }
 
     init() {
         defaults.register(defaults: ["connection.reconnect": true])
@@ -42,6 +57,11 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         browser = BrowserChoice(rawValue: defaults.string(forKey: "connection.browser") ?? "") ?? .inApp
         browserID = defaults.string(forKey: "connection.browserID") ?? ""
         reconnect = defaults.bool(forKey: "connection.reconnect")
+        certificateReference = defaults.data(forKey: "connection.certificateReference")
+        certificateName = defaults.string(forKey: "connection.certificateName") ?? ""
+        certificateID = defaults.string(forKey: "connection.certificateID") ?? ""
+        certificateOnly = defaults.bool(forKey: "connection.certificateOnly")
+        certificateUsername = defaults.string(forKey: "connection.certificateUsername") ?? ""
     }
 
     var title: String {
@@ -59,7 +79,15 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         addressDraft = normalized
         addressError = nil
         defaults.set(normalized, forKey: "connection.portal")
-        if changed { onAddressChange?() }
+        if changed { clearCertificate(); onAddressChange?() }
         return true
+    }
+
+    func clearCertificate() {
+        certificateReference = nil
+        certificateName = ""
+        certificateID = ""
+        certificateOnly = false
+        certificateUsername = ""
     }
 }

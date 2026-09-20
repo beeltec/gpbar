@@ -13,6 +13,21 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
+#[cfg(target_os = "macos")]
+extern "C" {
+    /// Install once before starting workers. The callback context must live until process exit.
+    /// Certificate buffers are copied. The callback must not unwind across the C boundary.
+    pub fn openprotect_install_client_identity(
+        certificates: *const *const u8,
+        lengths: *const usize,
+        count: u32,
+        schemes: *const u16,
+        scheme_count: u32,
+        sign: unsafe extern "C" fn(*mut std::ffi::c_void, u16, *const u8, usize, *mut u8, usize, *mut usize) -> i32,
+        context: *mut std::ffi::c_void,
+    ) -> i32;
+}
+
 #[cfg(any(unix, windows))]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 

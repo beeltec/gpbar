@@ -59,7 +59,10 @@ impl ClientIdentity {
     }
 
     pub fn sign(&self, scheme: u16, digest: bool, input: &[u8]) -> Result<Vec<u8>, IdentityError> {
-        if !self.supports(scheme)
+        // OpenConnect uses SHA-256 to match an EC key with its certificate, regardless of curve.
+        let certificate_match =
+            digest && scheme == 0x0403 && self.schemes.iter().any(|scheme| scheme & 0xff == 3);
+        if (!self.supports(scheme) && !certificate_match)
             || input.is_empty()
             || input.len() > 65536
             || (digest && digest_length(scheme) != Some(input.len()))

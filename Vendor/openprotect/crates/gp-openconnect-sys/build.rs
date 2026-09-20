@@ -4,6 +4,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=csrc/progress_shim.c");
+    println!("cargo:rerun-if-changed=csrc/keychain_shim.c");
     println!("cargo:rerun-if-env-changed=OPENCONNECT_DIR");
 
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
@@ -109,4 +110,15 @@ fn main() {
         .file("csrc/progress_shim.c")
         .warnings(true)
         .compile("openprotect_progress_shim");
+
+    if target_os == "macos" {
+        let gnutls = pkg_config::probe_library("gnutls").expect("GPBar requires GnuTLS");
+        cc::Build::new()
+            .file("csrc/keychain_shim.c")
+            .includes(gnutls.include_paths)
+            .warnings(true)
+            .extra_warnings(true)
+            .flag("-Wconversion")
+            .compile("openprotect_keychain_shim");
+    }
 }
