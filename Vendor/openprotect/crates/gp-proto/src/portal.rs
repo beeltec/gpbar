@@ -8,7 +8,7 @@ use crate::xml::XmlNode;
 /// Configuration returned by the portal after authentication.
 ///
 /// Parsed from the `/global-protect/getconfig.esp` response.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PortalConfig {
     /// Portal hostname.
     pub portal: String,
@@ -22,6 +22,7 @@ pub struct PortalConfig {
     pub gateways: Vec<Gateway>,
     /// Configuration digest (opaque hash).
     pub config_digest: Option<String>,
+    pub cookie_lifetime_seconds: Option<u64>,
 }
 
 impl PortalConfig {
@@ -63,6 +64,7 @@ impl PortalConfig {
             prelogon_user_auth_cookie,
             gateways,
             config_digest,
+            cookie_lifetime_seconds: cookie_lifetime_seconds(&root),
         })
     }
 
@@ -87,6 +89,65 @@ impl PortalConfig {
         } else {
             self.gateways.iter().min_by_key(|g| g.priority)
         }
+    }
+}
+
+fn cookie_lifetime_seconds(root: &XmlNode) -> Option<u64> {
+    if root.name != "policy" {
+        return None;
+    }
+    let policy = unique_child(root, "authentication-override")?;
+    let agent = unique_child(root, "agent-config")?;
+    let saved_credentials = unique_child(agent, "save-user-credentials")?;
+    let accept = unique_child(policy, "accept-cookie")?;
+    let generate = unique_child(policy, "generate-cookie")?;
+    if !matches!(saved_credentials.text.as_str(), "1" | "2")
+        || !saved_credentials.children.is_empty()
+        || accept.text != "yes"
+        || !accept.children.is_empty()
+        || generate.text != "yes"
+        || !generate.children.is_empty()
+    {
+        return None;
+    }
+    let lifetime = unique_child(policy, "cookie-lifetime")?;
+    if lifetime.children.len() != 1 || !lifetime.text.is_empty() {
+        return None;
+    }
+    let value = &lifetime.children[0];
+    if !value.children.is_empty() || !value.text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let (unit, maximum) = match value.name.as_str() {
+        "lifetime-in-minutes" => (60, 59),
+        "lifetime-in-hours" => (3600, 72),
+        "lifetime-in-days" => (86400, 365),
+        _ => return None,
+    };
+    let count = value.text.parse::<u64>().ok()?;
+    (1..=maximum).contains(&count).then(|| count * unit)
+}
+
+fn unique_child<'a>(parent: &'a XmlNode, name: &str) -> Option<&'a XmlNode> {
+    let mut children = parent.children.iter().filter(|child| child.name == name);
+    let child = children.next()?;
+    if children.next().is_some() {
+        return None;
+    }
+    Some(child)
+}
+
+impl std::fmt::Debug for PortalConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PortalConfig")
+            .field("portal", &self.portal)
+            .field("username", &self.username)
+            .field("user_auth_cookie", &"[REDACTED]")
+            .field("prelogon_user_auth_cookie", &"[REDACTED]")
+            .field("gateways", &self.gateways)
+            .field("config_digest", &self.config_digest)
+            .field("cookie_lifetime_seconds", &self.cookie_lifetime_seconds)
+            .finish()
     }
 }
 

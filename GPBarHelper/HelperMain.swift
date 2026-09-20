@@ -26,7 +26,7 @@ final class InspectionService: NSObject, HelperProtocol {
         let connectionID = connectionID
         let events = events
         Task {
-            var attachment: (sessionID: String?, busy: Bool, recoveryRequired: Bool) = (nil, false, false)
+            var attachment: (sessionID: String?, busy: Bool, recoveryRequired: Bool, pendingAuthenticationUpdates: [AuthenticationCacheUpdate]) = (nil, false, false, [])
             if authorized {
                 attachment = await SessionController.shared.attach(userID: userID, connectionID: connectionID) { data in
                     events.send(data)
@@ -34,7 +34,8 @@ final class InspectionService: NSObject, HelperProtocol {
             }
             let response = HelperReply(protocolVersion: helperProtocolVersion, commandID: request.commandID,
                 runningAsRoot: geteuid() == 0, authorizedUser: authorized, engineSessionsAvailable: true,
-                activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired)
+                activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired,
+                pendingAuthenticationUpdates: attachment.pendingAuthenticationUpdates)
             reply((try? JSONEncoder().encode(response)) ?? Data())
         }
     }

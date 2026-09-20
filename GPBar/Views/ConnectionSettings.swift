@@ -106,6 +106,21 @@ struct ConnectionSettings: View {
                 .disabled(model.settingsLocked)
 
                 Section {
+                    Toggle("Remember sign-in when allowed", isOn: Binding(
+                        get: { preferences.rememberAuthentication }, set: { model.setRememberAuthentication($0) }
+                    ))
+                    Text("Your VPN controls cookie use and lifetime. GPBar stores allowed cookies in Keychain, never passwords.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Forget saved sign-in") { model.forgetSavedAuthentication() }
+                    if let message = model.authenticationStorageMessage {
+                        Text(message).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } header: { Text("Saved sign-in") }
+                .disabled(model.settingsLocked)
+
+                Section {
                     Toggle("Reconnect an interrupted session", isOn: $preferences.reconnect)
                         .disabled(model.settingsLocked)
                     Toggle("Launch GPBar at login", isOn: Binding(

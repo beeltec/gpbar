@@ -17,6 +17,7 @@ struct EngineCommand: Codable, Sendable {
         case recoverNetwork = "recover_network"
         case submitCredentials = "submit_credentials"
         case submitSignature = "submit_signature"
+        case acknowledgeAuthenticationCache = "acknowledge_authentication_cache"
     }
     let type: Kind
     var portal: String?
@@ -31,11 +32,16 @@ struct EngineCommand: Codable, Sendable {
     var certificateUsername: String?
     var requestID: String?
     var signature: Data?
+    var rememberAuthentication: Bool?
+    var savedAuthentication: SavedAuthentication?
+    var cacheRevision: UUID?
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
         case identity, certificateOnly = "certificate_only", certificateUsername = "certificate_username"
         case requestID = "request_id", signature
+        case rememberAuthentication = "remember_authentication", savedAuthentication = "saved_authentication"
+        case cacheRevision = "cache_revision"
     }
 }
 
@@ -56,6 +62,7 @@ struct EngineEvent: Codable, Sendable {
         case authenticationCompleted = "authentication_completed", otpRequired = "otp_required", snapshot, failure, stopped
         case credentialsRequired = "credentials_required"
         case signatureRequired = "signature_required"
+        case authenticationCacheChanged = "authentication_cache_changed"
     }
     let type: Kind
     var openconnectVersion: String?
@@ -75,12 +82,16 @@ struct EngineEvent: Codable, Sendable {
     var scheme: UInt16?
     var digest: Bool?
     var input: Data?
+    var savedAuthentication: SavedAuthentication?
+    var cacheRevision: UUID?
 
     enum CodingKeys: String, CodingKey {
         case type, openconnectVersion = "openconnect_version", phase, attempt, challengeID = "challenge_id"
         case launchURL = "launch_url", message, snapshot, code, retryable, cleanup
         case server, usernameLabel = "username_label", passwordLabel = "password_label"
         case requestID = "request_id", scheme, digest, input
+        case savedAuthentication = "saved_authentication"
+        case cacheRevision = "cache_revision"
     }
 }
 

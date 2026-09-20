@@ -22,7 +22,7 @@ final class KeychainContext: @unchecked Sendable {
 }
 
 enum KeychainIdentity {
-    private static let queue = DispatchQueue(label: "com.beeltec.GPBar.keychain")
+    private static let queue = UserKeychain.queue
     enum Failure: Error {
         case unavailable, unsupported, invalidRequest, accessDenied
     }

@@ -11,15 +11,35 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::unix::pipe::{Receiver, Sender};
 use tokio::sync::{mpsc, watch, Mutex};
 
+mod cookies;
 mod signing;
 
 struct AuthenticationOptions {
     identity: Option<Arc<gp_proto::identity::ClientIdentity>>,
     certificate_only: bool,
     certificate_username: Option<String>,
+    remember_authentication: bool,
+    saved_authentication: Mutex<Option<app::SavedAuthentication>>,
 }
 
 impl AuthenticationOptions {
+    async fn save(
+        &self,
+        saved: Option<app::SavedAuthentication>,
+        output: &SharedOutput,
+    ) -> Result<()> {
+        let saved = saved.filter(|saved| cookies::valid(saved, &saved.portal, &saved.computer));
+        output
+            .lock()
+            .await
+            .send(Event::AuthenticationCacheChanged {
+                saved_authentication: saved.as_ref(),
+            })
+            .await?;
+        *self.saved_authentication.lock().await = saved;
+        Ok(())
+    }
+
     fn client(&self, params: GpParams) -> Result<GpBar> {
         Ok(match &self.identity {
             Some(identity) => GpBar::new_for_app_with_identity(params, identity.clone())?,
@@ -236,11 +256,32 @@ pub async fn run() -> Result<()> {
         .await?;
     let mut input = BufReader::new(input);
     let first = tokio::time::timeout(Duration::from_secs(15), read_command(&mut input)).await??;
-    let Command::Start { portal, reconnect, identity, certificate_only, certificate_username } = first.command else {
+    let Command::Start {
+        portal,
+        reconnect,
+        identity,
+        certificate_only,
+        certificate_username,
+        remember_authentication,
+        saved_authentication,
+    } = first.command
+    else {
         bail!("start required");
     };
     let portal = normalize_portal(&portal)?;
-    if (certificate_only && identity.is_none()) || certificate_username.as_ref().is_some_and(|name| name.len() > 1024 || name.contains(char::is_control)) {
+    if saved_authentication.as_ref().is_some_and(|saved| {
+        !remember_authentication || !cookies::valid(saved, &portal, &saved.computer)
+    }) {
+        bail!("invalid saved authentication");
+    }
+    let saved_authentication = saved_authentication
+        .map(|saved| *saved)
+        .filter(|saved| saved.computer == GpParams::new(ClientOs::Mac).computer);
+    if (certificate_only && identity.is_none())
+        || certificate_username
+            .as_ref()
+            .is_some_and(|name| name.len() > 1024 || name.contains(char::is_control))
+    {
         bail!("invalid certificate settings");
     }
     if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar2") {
@@ -258,12 +299,19 @@ pub async fn run() -> Result<()> {
     let (signature_answers, signature_rx) = mpsc::channel(1);
     let (identity, signer_task) = match identity {
         Some(identity) => {
-            let (identity, task) = signing::start(identity, output.clone(), stop.subscribe(), signature_rx)?;
+            let (identity, task) =
+                signing::start(identity, output.clone(), stop.subscribe(), signature_rx)?;
             (Some(identity), Some(task))
         }
         None => (None, None),
     };
-    let options = AuthenticationOptions { identity, certificate_only, certificate_username };
+    let options = AuthenticationOptions {
+        identity,
+        certificate_only,
+        certificate_username,
+        remember_authentication,
+        saved_authentication: Mutex::new(saved_authentication),
+    };
     let reader_output = output.clone();
     let reader_stop = stop.clone();
     let reader = tokio::spawn(async move {
@@ -321,8 +369,18 @@ pub async fn run() -> Result<()> {
                     otp: false,
                     username: Some(username),
                 }),
-                Command::SubmitSignature { request_id, signature } => {
-                    if !app::valid_id(&request_id) || signature_answers.try_send(signing::Answer { request_id, signature }).is_err() {
+                Command::SubmitSignature {
+                    request_id,
+                    signature,
+                } => {
+                    if !app::valid_id(&request_id)
+                        || signature_answers
+                            .try_send(signing::Answer {
+                                request_id,
+                                signature,
+                            })
+                            .is_err()
+                    {
                         let _ = reader_stop.send(true);
                         return;
                     }
@@ -341,9 +399,19 @@ pub async fn run() -> Result<()> {
             }
         }
     });
-    let result = run_session(&portal, reconnect, &output, &mut answer_rx, stop.clone(), &options).await;
+    let result = run_session(
+        &portal,
+        reconnect,
+        &output,
+        &mut answer_rx,
+        stop.clone(),
+        &options,
+    )
+    .await;
     let _ = stop.send(true);
-    if let Some(task) = signer_task { let _ = task.await; }
+    if let Some(task) = signer_task {
+        let _ = task.await;
+    }
     reader.abort();
     let _ = reader.await;
     let mut out = output.lock().await;
@@ -442,45 +510,89 @@ async fn authenticate(
     answers: &mut mpsc::Receiver<Answer>,
     options: &AuthenticationOptions,
 ) -> Result<Authentication> {
+    match authenticate_once(portal, output, answers, options).await {
+        Err(error) if error.is::<cookies::Expired>() => {
+            options.save(None, output).await?;
+            authenticate_once(portal, output, answers, options).await
+        }
+        result => result,
+    }
+}
+
+async fn authenticate_once(
+    portal: &str,
+    output: &SharedOutput,
+    answers: &mut mpsc::Receiver<Answer>,
+    options: &AuthenticationOptions,
+) -> Result<Authentication> {
     output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
     let client = options.client(params.clone())?;
-    let prelogin = client.prelogin(portal).await?;
-    let (mut credential, mut id) = request_credential(portal, &prelogin, output, answers, options).await?;
+    let mut prelogin = client.prelogin(portal).await?;
+    let mut saved = options.saved_authentication.lock().await.clone();
+    let mut history = saved.clone();
+    if let Some(saved) = &mut saved {
+        saved.portal_cookie = saved.portal_cookie.take().filter(cookies::current);
+        saved.gateway_cookie = saved.gateway_cookie.take().filter(cookies::current);
+    }
+    let cached_portal = saved
+        .as_ref()
+        .and_then(|saved| saved.portal_cookie.as_ref().map(cookies::credential));
+    let mut allow_cached_fallback = cached_portal.is_some();
+    let (mut credential, mut completed_challenge) = match cached_portal {
+        Some(credential) => (credential, None),
+        None => {
+            let (credential, id) =
+                request_credential(portal, &prelogin, output, answers, options).await?;
+            (credential, Some(id))
+        }
+    };
     let mut portal_params = params.clone();
-    let mut configuration = None;
-    for attempt in 0..=3 {
+    let mut challenge_count = 0;
+    let configuration = loop {
+        cookies::check_credential(&credential, history.as_ref())?;
         let client = options.client(portal_params.clone())?;
-        let result = client.portal_login_for_app(portal, &credential).await?;
+        let result = client.portal_login_for_app(portal, &credential).await;
         drop(client);
         portal_params.otp = None;
         match result {
-            gp_auth::client::PortalLoginResult::Success(config) => {
-                configuration = Some(config);
-                break;
-            }
-            gp_auth::client::PortalLoginResult::Challenge { message, input_str } => {
-                if attempt == 3 {
+            Ok(gp_auth::client::PortalLoginResult::Success(config)) => break config,
+            Ok(gp_auth::client::PortalLoginResult::Challenge { message, input_str }) => {
+                if challenge_count == 3 {
                     bail!("too many authentication challenges");
                 }
+                challenge_count += 1;
+                allow_cached_fallback = false;
                 if let Credential::Password { password, .. } = &mut credential {
                     password.clear();
                 }
                 portal_params.input_str = Some(input_str);
                 let (otp, challenge) = request_otp(portal, &message, output, answers).await?;
                 portal_params.otp = Some(otp);
-                id = challenge;
+                completed_challenge = Some(challenge);
             }
+            Err(_) if allow_cached_fallback => {
+                options.save(None, output).await?;
+                saved = None;
+                allow_cached_fallback = false;
+                prelogin = options.client(params.clone())?.prelogin(portal).await?;
+                let (fresh, id) =
+                    request_credential(portal, &prelogin, output, answers, options).await?;
+                credential = fresh;
+                completed_challenge = Some(id);
+            }
+            Err(error) => return Err(error.into()),
         }
-    }
-    let configuration = configuration.context("portal authentication failed")?;
+    };
     drop(credential);
     drop(portal_params);
-    output
-        .lock()
-        .await
-        .send(Event::AuthenticationCompleted { challenge_id: &id })
-        .await?;
+    if let Some(id) = completed_challenge {
+        output
+            .lock()
+            .await
+            .send(Event::AuthenticationCompleted { challenge_id: &id })
+            .await?;
+    }
     if configuration.gateways.len() > 128 {
         bail!("too many gateways");
     }
@@ -493,25 +605,93 @@ async fn authenticate(
             .gateway
             .address,
     )?;
+    let lifetime = configuration
+        .cookie_lifetime_seconds
+        .filter(|_| options.remember_authentication);
+    if let (Some(history), Some(lifetime)) = (&mut history, lifetime) {
+        for cookie in [
+            history.portal_cookie.as_mut(),
+            history.gateway_cookie.as_mut(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            cookie.expires_at = cookie
+                .expires_at
+                .min(cookie.issued_at.saturating_add(lifetime));
+        }
+    }
+    let mut updated = lifetime.map(|lifetime| {
+        let previous = saved
+            .as_ref()
+            .filter(|saved| saved.username == configuration.username);
+        app::SavedAuthentication {
+            portal: portal.into(),
+            username: configuration.username.clone(),
+            computer: params.computer.clone(),
+            portal_cookie: cookies::retain(
+                portal,
+                &configuration.username,
+                &configuration.user_auth_cookie,
+                lifetime,
+                cookies::previous(history.as_ref(), &configuration.user_auth_cookie),
+            ),
+            gateway_cookie: previous
+                .and_then(|saved| saved.gateway_cookie.as_ref())
+                .filter(|cookie| cookie.server == gateway)
+                .and_then(|cookie| {
+                    cookies::retain(
+                        &gateway,
+                        &cookie.username,
+                        &cookie.value,
+                        lifetime,
+                        Some(cookie),
+                    )
+                }),
+        }
+    });
+    options.save(updated.clone(), output).await?;
     let mut gateway_credential = configuration.to_gateway_credential();
+    let has_portal_cookie = [
+        &configuration.user_auth_cookie,
+        &configuration.prelogon_user_auth_cookie,
+    ]
+    .into_iter()
+    .any(|cookie| !cookie.is_empty() && cookie != "empty" && cookie != "(null)");
+    let mut fresh_portal_credential = None;
+    let cached_gateway = updated
+        .as_ref()
+        .and_then(|saved| saved.gateway_cookie.as_ref().map(cookies::credential));
+    if let Some(credential) = cached_gateway {
+        let previous = std::mem::replace(&mut gateway_credential, credential);
+        if has_portal_cookie {
+            fresh_portal_credential = Some(previous);
+        }
+    }
     let mut params = params;
     params.is_gateway = true;
     let mut gateway_challenge = None;
-    let needs_gateway_login = (configuration.user_auth_cookie.is_empty()
-        || configuration.user_auth_cookie == "empty")
+    let needs_gateway_login = updated
+        .as_ref()
+        .is_none_or(|saved| saved.gateway_cookie.is_none())
+        && (configuration.user_auth_cookie.is_empty() || configuration.user_auth_cookie == "empty")
         && (configuration.prelogon_user_auth_cookie.is_empty()
             || configuration.prelogon_user_auth_cookie == "empty");
     drop(configuration);
     if needs_gateway_login {
         let gateway_client = options.client(params.clone())?;
         let prelogin = gateway_client.prelogin(&gateway).await?;
-        let (credential, id) = request_credential(&gateway, &prelogin, output, answers, options).await?;
+        let (credential, id) =
+            request_credential(&gateway, &prelogin, output, answers, options).await?;
         gateway_credential = credential;
         gateway_challenge = Some(id);
     }
     let mut challenge_count = 0;
     let mut allow_cookie_fallback = gateway_challenge.is_none();
+    let gateway_history = updated.clone();
     loop {
+        cookies::check_credential(&gateway_credential, history.as_ref())?;
+        cookies::check_credential(&gateway_credential, gateway_history.as_ref())?;
         let gateway_client = options.client(params.clone())?;
         let result = gateway_client
             .gateway_login(&gateway, &gateway_credential)
@@ -520,6 +700,20 @@ async fn authenticate(
         params.otp = None;
         match result {
             Ok(GatewayLoginResult::Success(cookie)) => {
+                if let (Some(saved), Some(lifetime)) = (&mut updated, lifetime) {
+                    if let Some(value) = &cookie.user_auth_cookie {
+                        let previous = [
+                            cookies::previous(Some(saved), value),
+                            cookies::previous(history.as_ref(), value),
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .min_by_key(|cookie| cookie.expires_at);
+                        saved.gateway_cookie =
+                            cookies::retain(&gateway, &cookie.username, value, lifetime, previous);
+                    }
+                }
+                options.save(updated, output).await?;
                 drop(gateway_credential);
                 if let Some(id) = gateway_challenge {
                     output
@@ -531,6 +725,11 @@ async fn authenticate(
                 return Ok(Authentication { gateway, cookie });
             }
             Ok(GatewayLoginResult::MfaChallenge { input_str, message }) => {
+                fresh_portal_credential = None;
+                if let Some(saved) = &mut updated {
+                    saved.gateway_cookie = None;
+                }
+                options.save(updated.clone(), output).await?;
                 if challenge_count == 3 {
                     bail!("verification code not accepted");
                 }
@@ -545,6 +744,14 @@ async fn authenticate(
                 gateway_challenge = Some(challenge);
             }
             Err(_) if allow_cookie_fallback => {
+                if let Some(saved) = &mut updated {
+                    saved.gateway_cookie = None;
+                }
+                options.save(updated.clone(), output).await?;
+                if let Some(credential) = fresh_portal_credential.take() {
+                    gateway_credential = credential;
+                    continue;
+                }
                 allow_cookie_fallback = false;
                 let gateway_client = options.client(params.clone())?;
                 let prelogin = gateway_client.prelogin(&gateway).await?;
@@ -605,12 +812,21 @@ async fn request_credential(
     let saml = match prelogin {
         PreloginResponse::Standard(standard) => {
             if options.certificate_only {
-                let username = standard.certificate_username.clone()
-                    .or_else(|| options.certificate_username.clone()).unwrap_or_default();
+                let username = standard
+                    .certificate_username
+                    .clone()
+                    .or_else(|| options.certificate_username.clone())
+                    .unwrap_or_default();
                 if username.len() > 1024 || username.contains(char::is_control) {
                     bail!("invalid certificate username");
                 }
-                return Ok((Credential::Password { username, password: String::new() }, id));
+                return Ok((
+                    Credential::Password {
+                        username,
+                        password: String::new(),
+                    },
+                    id,
+                ));
             }
             let message = prompt(&standard.auth_message, "Enter your VPN credentials.");
             let username_label = prompt(&standard.label_username, "Username");
@@ -862,8 +1078,14 @@ async fn run_session(
                 hip_mode: super::HipMode::Auto,
                 hip_script: None,
                 split_dns_zones: Vec::new(),
-                client_cert: options.identity.as_ref().map(|_| "gpbar-keychain:session".into()),
-                client_key: options.identity.as_ref().map(|_| "gpbar-keychain:session".into()),
+                client_cert: options
+                    .identity
+                    .as_ref()
+                    .map(|_| "gpbar-keychain:session".into()),
+                client_key: options
+                    .identity
+                    .as_ref()
+                    .map(|_| "gpbar-keychain:session".into()),
                 gateway_ip_pin: None,
                 instance: session_id.clone(),
             });

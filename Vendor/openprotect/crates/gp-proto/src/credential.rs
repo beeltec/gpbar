@@ -106,6 +106,7 @@ pub struct AuthCookie {
     pub domain: Option<String>,
     pub preferred_ip: Option<String>,
     pub computer: Option<String>,
+    pub user_auth_cookie: Option<String>,
 }
 
 impl std::fmt::Debug for Credential {
@@ -148,6 +149,10 @@ impl std::fmt::Debug for AuthCookie {
             .field("domain", &self.domain)
             .field("preferred_ip", &self.preferred_ip)
             .field("computer", &self.computer)
+            .field(
+                "user_auth_cookie",
+                &self.user_auth_cookie.as_ref().map(|_| "[REDACTED]"),
+            )
             .finish()
     }
 }

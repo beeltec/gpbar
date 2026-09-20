@@ -15,6 +15,8 @@ actor SessionController {
     private var errorOutput: FileHandle?
     private var engineURL: URL?
     private var owner: uid_t?
+    private var sessionPortal: String?
+    private var pendingAuthenticationUpdates: [uid_t: [String: AuthenticationCacheUpdate]] = [:]
     private var sessionID: String?
     private var observer: (@Sendable (Data) -> Void)?
     private var observerID: UUID?
@@ -34,8 +36,9 @@ actor SessionController {
     private var escalationTask: Task<Void, Never>?
     private var uiLossTask: Task<Void, Never>?
 
-    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> (sessionID: String?, busy: Bool, recoveryRequired: Bool) {
-        guard owner == nil || owner == userID else { return (nil, true, false) }
+    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> (sessionID: String?, busy: Bool, recoveryRequired: Bool, pendingAuthenticationUpdates: [AuthenticationCacheUpdate]) {
+        let pending = Array(pendingAuthenticationUpdates[userID, default: [:]].values)
+        guard owner == nil || owner == userID else { return (nil, true, false, pending) }
         self.observer = observer
         observerID = connectionID
         observerUser = userID
@@ -45,7 +48,7 @@ actor SessionController {
         if let signatureRequest, let bytes = try? JSONEncoder().encode(signatureRequest) { observer(bytes) }
         if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { observer(bytes) }
         let recoveryRequired = sessionID == nil && ((try? SecureRuntime.hasPendingSessions()) ?? true)
-        return (sessionID, false, recoveryRequired)
+        return (sessionID, false, recoveryRequired, pending)
     }
 
     func detach(connectionID: UUID) {
@@ -67,6 +70,19 @@ actor SessionController {
               message.protocolVersion == helperProtocolVersion,
               UUID(uuidString: message.sessionID) != nil,
               UUID(uuidString: message.commandID) != nil else { return CommandReply(accepted: false, code: "invalid_command") }
+        if message.command.type == .acknowledgeAuthenticationCache {
+            guard currentConsoleUser() == userID, let portal = message.command.portal,
+                  let revision = message.command.cacheRevision else {
+                return CommandReply(accepted: false, code: "invalid_cache_acknowledgement")
+            }
+            if pendingAuthenticationUpdates[userID]?[portal]?.revision == revision {
+                pendingAuthenticationUpdates[userID]?.removeValue(forKey: portal)
+                if pendingAuthenticationUpdates[userID]?.isEmpty == true {
+                    pendingAuthenticationUpdates.removeValue(forKey: userID)
+                }
+            }
+            return CommandReply(accepted: true, code: nil)
+        }
         if message.command.type == .recoverNetwork {
             guard process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID else {
                 return CommandReply(accepted: false, code: "session_active")
@@ -88,7 +104,18 @@ actor SessionController {
                   message.command.certificateUsername.map({ $0.utf8.count <= 1024 && !$0.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) != false else {
                 return CommandReply(accepted: false, code: "invalid_identity")
             }
+            guard message.command.savedAuthentication.map({ message.command.rememberAuthentication == true && $0.isValid && $0.portal == portal }) != false else {
+                return CommandReply(accepted: false, code: "invalid_saved_authentication")
+            }
+            guard message.command.savedAuthentication == nil || pendingAuthenticationUpdates[userID]?[portal] == nil else {
+                return CommandReply(accepted: false, code: "authentication_cache_unconfirmed")
+            }
+            guard pendingAuthenticationUpdates[userID, default: [:]].count < 128
+                    || pendingAuthenticationUpdates[userID]?[portal] != nil else {
+                return CommandReply(accepted: false, code: "authentication_cache_cleanup_required")
+            }
             owner = userID
+            sessionPortal = portal
             completed = nil
             sessionID = message.sessionID
             do {
@@ -96,6 +123,7 @@ actor SessionController {
                 return CommandReply(accepted: true, code: nil)
             } catch {
                 owner = nil
+                sessionPortal = nil
                 sessionID = nil
                 return CommandReply(accepted: false, code: error is SecureRuntime.RuntimeError ? "runtime_or_recovery" : "engine_start_failed")
             }
@@ -270,6 +298,20 @@ actor SessionController {
             networkMayHaveChanged = true
         }
         switch event.event.type {
+        case .authenticationCacheChanged:
+            guard let owner, let portal = sessionPortal else { throw ControllerError.invalidFrame }
+            let update = AuthenticationCacheUpdate(portal: portal, revision: UUID())
+            pendingAuthenticationUpdates[owner, default: [:]][portal] = update
+            var payload = event.event
+            if payload.savedAuthentication.map({ $0.isValid && $0.portal == portal }) == false {
+                payload.savedAuthentication = nil
+            }
+            payload.server = portal
+            payload.cacheRevision = update.revision
+            let delivery = EngineEventEnvelope(protocolVersion: event.protocolVersion, sessionID: event.sessionID,
+                sequence: event.sequence, event: payload)
+            emit(try JSONEncoder().encode(delivery))
+            return
         case .signatureRequired:
             guard let requestID = event.event.requestID, !requestID.isEmpty, requestID.utf8.count <= 64,
                   requestID.allSatisfy({ $0.isHexDigit }), event.event.scheme != nil, event.event.digest != nil,
@@ -402,6 +444,7 @@ actor SessionController {
         }
         sessionID = nil
         owner = nil
+        sessionPortal = nil
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil

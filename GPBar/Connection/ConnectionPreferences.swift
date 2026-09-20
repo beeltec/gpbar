@@ -15,7 +15,7 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
 }
 
 @MainActor @Observable final class ConnectionPreferences {
-    @ObservationIgnored var onAddressChange: (() -> Void)?
+    @ObservationIgnored var onAddressChange: ((String) -> Void)?
     private let defaults = UserDefaults.standard
     private(set) var portal: String
     var addressDraft: String
@@ -31,6 +31,12 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     }
     var reconnect: Bool {
         didSet { defaults.set(reconnect, forKey: "connection.reconnect") }
+    }
+    var rememberAuthentication: Bool {
+        didSet { defaults.set(rememberAuthentication, forKey: "connection.rememberAuthentication") }
+    }
+    var pendingAuthenticationRemovals: [String] {
+        didSet { defaults.set(pendingAuthenticationRemovals, forKey: "connection.pendingAuthenticationRemovals") }
     }
     var certificateReference: Data? {
         didSet { defaults.set(certificateReference, forKey: "connection.certificateReference") }
@@ -60,6 +66,8 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         browser = BrowserChoice(rawValue: defaults.string(forKey: "connection.browser") ?? "") ?? .inApp
         browserID = defaults.string(forKey: "connection.browserID") ?? ""
         reconnect = defaults.bool(forKey: "connection.reconnect")
+        rememberAuthentication = defaults.bool(forKey: "connection.rememberAuthentication")
+        pendingAuthenticationRemovals = defaults.stringArray(forKey: "connection.pendingAuthenticationRemovals") ?? []
         certificateReference = defaults.data(forKey: "connection.certificateReference")
         certificateName = defaults.string(forKey: "connection.certificateName") ?? ""
         certificateID = defaults.string(forKey: "connection.certificateID") ?? ""
@@ -79,11 +87,12 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
             return false
         }
         let changed = portal != normalized
+        let previousPortal = portal
         portal = normalized
         addressDraft = normalized
         addressError = nil
         defaults.set(normalized, forKey: "connection.portal")
-        if changed { clearCertificate(); onAddressChange?() }
+        if changed { clearCertificate(); onAddressChange?(previousPortal) }
         return true
     }
 
