@@ -80,6 +80,20 @@ The connected white globe and checkmark were not observed during a live tunnel i
 Reduce Motion, VoiceOver, and light-menu-bar appearance still need live checks for these icons.
 Screenshot artifacts remain under ignored build output. No automated tests were added or run.
 
+## Connection layout update
+
+Development build `connection-layout-v1` used the same macOS host, toolchain, signing team, and backend listed above.
+The complete app built and passed strict signature verification.
+
+- Live settings showed the application icon beside the vertically centered “Edit Connection” heading.
+- The user completed SAML-enabled provider sign-in and opened the connected menu bar panel.
+- Gateway and VPN address labels shared a left edge. Their values shared a separate left-aligned column.
+- The long gateway name wrapped inside the panel without clipping.
+- The footer contained Diagnostics and Quit. The duplicate Edit connection action was absent.
+- Clicking the gear opened Edit Connection and preserved the active connection.
+- The validation connection was disconnected after the visual checks.
+- Both parallel reviews found no concrete layout or navigation regressions. No automated tests were created or run.
+
 ## Still required
 
 - Extend route and DNS restoration checks to forced failures and helper restart.
