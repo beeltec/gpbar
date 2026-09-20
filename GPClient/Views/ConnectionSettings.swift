@@ -14,12 +14,8 @@ struct ConnectionSettings: View {
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 44, height: 44)
                     .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Your connection")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text("One address. Your chosen sign-in browser.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
+                Text("Edit Connection")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                 Spacer()
             }
             .padding(24)

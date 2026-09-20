@@ -63,6 +63,23 @@ Settings then showed verified identity and user access. Diagnostics remained Dis
 The existing macOS approval was reused. First approval and revoked approval were not repeated for this change.
 Parallel lifecycle and ServiceManagement reviews found no concrete issues in the startup change.
 
+## Globe icon update
+
+Development builds `globe-icons-v1` and `globe-icons-v2` used the same host, toolchain, signing team, and backend as above.
+The final build passed compilation and strict signature verification.
+
+- The native window title and heading read “Edit Connection”. The previous subtitle was absent.
+- Native screen captures showed the larger gray globe while disconnected.
+- A connection to `vpn.invalid` failed and showed an upper-right exclamation mark. The saved Reference provider address was restored afterward.
+- Reference provider sign-in showed the upper-right `<...>` badge. Two native screen captures showed different illuminated dots with fixed globe geometry.
+- Cancelling sign-in restored Connect and stopped the engine.
+- Two parallel review rounds checked drawing, accessibility, state mapping, and animation lifetime.
+- Review identified low white-stroke contrast on light backgrounds. A narrow dark outline was added; the second round found no concrete issues.
+
+The connected white globe and checkmark were not observed during a live tunnel in these builds; user sign-in was not completed.
+Reduce Motion, VoiceOver, and light-menu-bar appearance still need live checks for these icons.
+Screenshot artifacts remain under ignored build output. No automated tests were added or run.
+
 ## Still required
 
 - Extend route and DNS restoration checks to forced failures and helper restart.

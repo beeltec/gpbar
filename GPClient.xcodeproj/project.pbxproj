@@ -27,6 +27,7 @@
 		696CDF624757AD356D8FF6D8 /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203B2F7A2A45018DA1A5D456 /* SessionController.swift */; };
 		7C932B6ED6D681B255079661 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD9EE334FC6F2F2BD210DBF /* HelperProtocol.swift */; };
 		7EAC62C28517C7308A4F563C /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 968C5DF8AF531223EAAB9401 /* ConnectionSettings.swift */; };
+		A587594068DBC173DB2145A0 /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3202F43D4AE5D98A572351E /* MenuBarStatusIcon.swift */; };
 		AD55019244707F0BCD44DDA5 /* HelperMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4C41654E383863A19A1538 /* HelperMain.swift */; };
 		B82CA0E6207F15310C09A59D /* ConnectionPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2885CBCF660525742BDD048B /* ConnectionPath.swift */; };
 		C062076D6C6A575E8661FAD4 /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = D080E43C5CED9BACE170035C /* EngineMessages.swift */; };
@@ -96,6 +97,7 @@
 		DCC0352654DF91C519F0CB44 /* ConnectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionModel.swift; sourceTree = "<group>"; };
 		EBD0D7FA3D945D80856FFCBC /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F13A384F61657E130939E410 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		F3202F43D4AE5D98A572351E /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -146,6 +148,7 @@
 				2885CBCF660525742BDD048B /* ConnectionPath.swift */,
 				968C5DF8AF531223EAAB9401 /* ConnectionSettings.swift */,
 				F13A384F61657E130939E410 /* DiagnosticsView.swift */,
+				F3202F43D4AE5D98A572351E /* MenuBarStatusIcon.swift */,
 				4DDB7AAAEB1D9F27EF6168AD /* SignInView.swift */,
 			);
 			path = Views;
@@ -333,6 +336,7 @@
 				5FAA15F83FC5B863859B5940 /* GPClientApp.swift in Sources */,
 				EDE5D40CBABB08F75F6C5185 /* HelperClient.swift in Sources */,
 				7C932B6ED6D681B255079661 /* HelperProtocol.swift in Sources */,
+				A587594068DBC173DB2145A0 /* MenuBarStatusIcon.swift in Sources */,
 				3AF75170AAA03161062782D6 /* PortalAddress.swift in Sources */,
 				36BA6CBC14AEA5A9F98CF002 /* SignInView.swift in Sources */,
 				1FA974DE13D74CB5B6D9DF78 /* SigningIdentity.swift in Sources */,
