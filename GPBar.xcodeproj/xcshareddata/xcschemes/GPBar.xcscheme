@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "61D9284B522177FD5FEB256E"
-               BuildableName = "GPClient.app"
-               BlueprintName = "GPClient"
-               ReferencedContainer = "container:GPClient.xcodeproj">
+               BlueprintIdentifier = "CB9497823BE1AE874BD3CE4D"
+               BuildableName = "GPBar.app"
+               BlueprintName = "GPBar"
+               ReferencedContainer = "container:GPBar.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "61D9284B522177FD5FEB256E"
-            BuildableName = "GPClient.app"
-            BlueprintName = "GPClient"
-            ReferencedContainer = "container:GPClient.xcodeproj">
+            BlueprintIdentifier = "CB9497823BE1AE874BD3CE4D"
+            BuildableName = "GPBar.app"
+            BlueprintName = "GPBar"
+            ReferencedContainer = "container:GPBar.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "61D9284B522177FD5FEB256E"
-            BuildableName = "GPClient.app"
-            BlueprintName = "GPClient"
-            ReferencedContainer = "container:GPClient.xcodeproj">
+            BlueprintIdentifier = "CB9497823BE1AE874BD3CE4D"
+            BuildableName = "GPBar.app"
+            BlueprintName = "GPBar"
+            ReferencedContainer = "container:GPBar.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "61D9284B522177FD5FEB256E"
-            BuildableName = "GPClient.app"
-            BlueprintName = "GPClient"
-            ReferencedContainer = "container:GPClient.xcodeproj">
+            BlueprintIdentifier = "CB9497823BE1AE874BD3CE4D"
+            BuildableName = "GPBar.app"
+            BlueprintName = "GPBar"
+            ReferencedContainer = "container:GPBar.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

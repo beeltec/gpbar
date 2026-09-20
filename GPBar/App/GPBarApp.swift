@@ -1,6 +1,6 @@
 import SwiftUI
 
-@main struct GPClientApp: App {
+@main struct GPBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private var model: ConnectionModel { appDelegate.model }
 
@@ -38,7 +38,7 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
-            .accessibilityLabel("GPClient, \(model.phase.rawValue), \(model.preferences.title)")
+            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.preferences.title)")
             .task {
                 appDelegate.openConnection = {
                     openWindow(id: "connection")
@@ -79,8 +79,8 @@ private struct ConnectionCommands: Commands {
         if !model.preferences.addressDraft.isEmpty { model.preferences.saveAddress() }
         guard model.settingsLocked else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Disconnect and quit GPClient?"
-        alert.informativeText = "Your VPN session will stop before GPClient quits."
+        alert.messageText = "Disconnect and quit GPBar?"
+        alert.informativeText = "Your VPN session will stop before GPBar quits."
         alert.addButton(withTitle: "Disconnect and Quit")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }

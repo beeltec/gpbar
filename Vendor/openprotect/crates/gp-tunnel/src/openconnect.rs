@@ -131,7 +131,7 @@ impl OpenConnectSession {
         }
 
         #[cfg(target_os = "macos")]
-        if std::env::var_os("GPCLIENT_APP_SESSION").is_some() {
+        if std::env::var_os("GPBAR_APP_SESSION").is_some() {
             // This fixed OS trust file avoids Homebrew's certificate and module paths.
             let rc = unsafe {
                 sys::openconnect_set_system_trust(inner, 0);

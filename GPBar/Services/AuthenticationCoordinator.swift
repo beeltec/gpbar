@@ -140,7 +140,7 @@ import WebKit
                   let handler = NSWorkspace.shared.urlForApplication(toOpen: callback),
                   Bundle(url: handler)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
                 callbackHandlerRequired = true
-                error = "GPClient must handle sign-in links for this browser. This changes the callback handler used by other VPN clients."
+                error = "GPBar must handle sign-in links for this browser. This changes the callback handler used by other VPN clients."
                 return
             }
             NSWorkspace.shared.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { @Sendable [weak self] _, error in

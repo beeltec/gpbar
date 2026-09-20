@@ -29,9 +29,9 @@ After the corresponding project targets exist, use the narrow checks relevant to
 | Shell | Use the script's shell syntax check and ShellCheck where its dialect is supported. |
 | Property lists | Use `plutil -lint` on changed property-list files. |
 | Binary dependencies | Inspect shipped executables and dylibs with `otool -L`. |
-| Final signature | `codesign --verify --deep --strict --verbose=2 /path/to/GPClient.app`. |
-| Gatekeeper | `spctl --assess --type execute --verbose=2 /path/to/GPClient.app`. |
-| Notarization ticket | `xcrun stapler validate /path/to/GPClient.app`. |
+| Final signature | `codesign --verify --deep --strict --verbose=2 /path/to/GPBar.app`. |
+| Gatekeeper | `spctl --assess --type execute --verbose=2 /path/to/GPBar.app`. |
+| Notarization ticket | `xcrun stapler validate /path/to/GPBar.app`. |
 
 Paths in the table are examples; resolve actual artifacts before running checks.
 Do not use `cargo test`, `swift test`, or `xcodebuild test` for this workflow.

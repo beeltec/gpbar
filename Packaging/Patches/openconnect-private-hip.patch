@@ -13,7 +13,7 @@
  #if !defined(_WIN32) && !defined(__native_client__)
  	int pipefd[2];
 +	int secretfd[2] = {-1, -1};
-+	int private_hip = getenv("GPCLIENT_APP_SESSION") != NULL;
++	int private_hip = getenv("GPBAR_APP_SESSION") != NULL;
  	int ret;
  	pid_t child;
  #endif
@@ -105,7 +105,7 @@
  
  		hip_argv[i++] = openconnect_utf8_to_legacy(vpninfo, vpninfo->csd_wrapper);
 +		if (private_hip) {
-+			hip_argv[i++] = "--gpclient-hip-input";
++			hip_argv[i++] = "--gpbar-hip-input";
 +		} else {
  		hip_argv[i++] = "--cookie";
  		hip_argv[i++] = vpninfo->cookie;
@@ -125,7 +125,7 @@
  	 * https://gitlab.com/gnutls/gnutls/-/issues/1798
  	 */
 -	if (gnutls_pkcs11_init(GNUTLS_PKCS11_FLAG_AUTO, NULL) < 0) {
-+	if (gnutls_pkcs11_init(getenv("GPCLIENT_APP_SESSION") ? GNUTLS_PKCS11_FLAG_MANUAL : GNUTLS_PKCS11_FLAG_AUTO, NULL) < 0) {
++	if (gnutls_pkcs11_init(getenv("GPBAR_APP_SESSION") ? GNUTLS_PKCS11_FLAG_MANUAL : GNUTLS_PKCS11_FLAG_AUTO, NULL) < 0) {
  		/* Non-fatal: continue even if PKCS#11 init fails */
  	}
  #endif
@@ -135,7 +135,7 @@
  	v="$v"-unknown
  fi
  
-+v="v9.21-gpclient1"
++v="v9.21-gpbar1"
 +
  echo "const char openconnect_version_str[] = \"$v\";" > $1
  echo "New version: $v"
@@ -145,7 +145,7 @@
  	int tun_up = tun_is_up(vpninfo);
  
  	openconnect_close_https(vpninfo, 0);
-+	if (getenv("GPCLIENT_APP_SESSION"))
++	if (getenv("GPBAR_APP_SESSION"))
 +		return -EIO;
  
  
@@ -158,7 +158,7 @@
  
 -	script_config_tun(vpninfo, "pre-init");
 +	int script_result = script_config_tun(vpninfo, "pre-init");
-+	if (getenv("GPCLIENT_APP_SESSION") && script_result)
++	if (getenv("GPBAR_APP_SESSION") && script_result)
 +		return script_result;
  
  	tun_fd = os_setup_tun(vpninfo);
@@ -170,7 +170,7 @@
 -	script_config_tun(vpninfo, "connect");
 +	script_result = script_config_tun(vpninfo, "connect");
 +#ifndef _WIN32
-+	if (getenv("GPCLIENT_APP_SESSION") && script_result) {
++	if (getenv("GPBAR_APP_SESSION") && script_result) {
 +		close(tun_fd);
 +		return script_result;
 +	}

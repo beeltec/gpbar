@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
-use gp_auth::{saml_common::parse_globalprotect_callback, GpClient};
+use gp_auth::{saml_common::parse_globalprotect_callback, GpBar};
 use gp_ipc::app::{self, AppSnapshot, Command, CommandEnvelope, Event, EventEnvelope};
 use gp_proto::{AuthCookie, ClientOs, GatewayLoginResult, GpParams, PreloginResponse};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -222,7 +222,7 @@ pub async fn run() -> Result<()> {
         bail!("start required");
     };
     let portal = normalize_portal(&portal)?;
-    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpclient1") {
+    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar1") {
         bail!("patched tunnel support required");
     }
     super::ensure_macos_connect_privileges()?;
@@ -388,7 +388,7 @@ async fn authenticate(
 ) -> Result<Authentication> {
     output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
-    let client = GpClient::new_for_app(params.clone())?;
+    let client = GpBar::new_for_app(params.clone())?;
     let prelogin = client.prelogin(portal).await?;
     let PreloginResponse::Saml(ref saml) = prelogin else {
         output
@@ -397,7 +397,7 @@ async fn authenticate(
             .send(Event::Failure {
                 code: "unsupported_authentication",
                 message:
-                    "This portal requires an authentication method that GPClient does not support.",
+                    "This portal requires an authentication method that GPBar does not support.",
                 retryable: false,
             })
             .await?;
@@ -448,7 +448,7 @@ async fn authenticate(
     let mut params = params;
     params.is_gateway = true;
     for attempt in 0..=3 {
-        let gateway_client = GpClient::new_for_app(params.clone())?;
+        let gateway_client = GpBar::new_for_app(params.clone())?;
         match gateway_client
             .gateway_login(&gateway, &gateway_credential)
             .await?
@@ -547,7 +547,7 @@ async fn network_worker(mode: &str) -> Result<()> {
     let helper = std::env::current_exe()?
         .parent()
         .context("missing executable directory")?
-        .join("GPClientHelper");
+        .join("GPBarHelper");
     let mut process = tokio::process::Command::new(helper);
     process
         .arg(mode)

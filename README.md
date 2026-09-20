@@ -1,4 +1,4 @@
-# GPClient
+# GPBar
 
 A native menu bar client for GlobalProtect on Apple Silicon and macOS 26 or newer.
 

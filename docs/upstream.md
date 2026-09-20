@@ -9,7 +9,7 @@ Upstream is <https://github.com/kyaky/openprotect>.
 
 `Vendor/openprotect` preserves the supplied tree, including macOS changes and upstream tests.
 It does not include the prebuilt binary or company-specific connection wrappers.
-`upstream-files.json` records SHA-256 hashes before GPClient changes.
+`upstream-files.json` records SHA-256 hashes before GPBar changes.
 The reference tree was clean when captured on 2026-09-20.
 The reference repository does not identify its individual patches against upstream.
 Do not treat its upstream revision claim as evidence that the supplied files equal upstream.
@@ -31,12 +31,13 @@ OpenConnect 9.21 was installed through Homebrew.
 The initial library targets macOS 26.0 and links to additional Homebrew libraries.
 The package inventory is recorded in `runtime-inputs.json`.
 Bundling must inspect the actual dependency closure and preserve its notices.
-The installed package alone is not a redistributable GPClient release.
+The installed package alone is not a redistributable GPBar release.
 
 ## Local changes
 
 The import commit contains no local source changes. Later commits add:
 
+- GPBar product identifiers, environment variables, and the `GpBar` authentication client type.
 - A bounded, versioned application session protocol over inherited pipes.
 - Cancellable SAML and OTP challenges for initial authentication and reauthentication.
 - Bounded HTTP/XML parsing and strict callback handling.
@@ -49,7 +50,7 @@ Its SHA-256 is pinned in `runtime-inputs.json` and the native build script.
 `Packaging/Patches/openconnect-private-hip.patch` carries the local C changes.
 Application mode moves HIP inputs into a private pipe and assigns reconnect ownership to the engine.
 It also disables automatic PKCS#11 discovery for application sessions.
-The patched runtime identifies itself as `v9.21-gpclient1`.
+The patched runtime identifies itself as `v9.21-gpbar1`.
 
 `Packaging/vpnc-script` calls the native journal worker.
 The imported upstream script remains unchanged as a reference and is not the application's mutation path.

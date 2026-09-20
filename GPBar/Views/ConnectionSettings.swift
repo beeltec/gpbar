@@ -59,7 +59,7 @@ struct ConnectionSettings: View {
                         }
                     }
                     Text(preferences.browser == .inApp
-                         ? "Sign in within GPClient. Some organizations require an external browser."
+                         ? "Sign in within GPBar. Some organizations require an external browser."
                          : "Callback capture and automatic tab closure depend on your browser.")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -69,10 +69,10 @@ struct ConnectionSettings: View {
                 Section {
                     Toggle("Reconnect an interrupted session", isOn: $preferences.reconnect)
                         .disabled(model.settingsLocked)
-                    Toggle("Launch GPClient at login", isOn: Binding(
+                    Toggle("Launch GPBar at login", isOn: Binding(
                         get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }
                     ))
-                    Text("Launching GPClient does not connect the VPN.")
+                    Text("Launching GPBar does not connect the VPN.")
                         .font(.caption).foregroundStyle(.secondary)
                 } header: { Text("On this Mac") }
 
@@ -104,7 +104,7 @@ struct ConnectionSettings: View {
             }
             .formStyle(.grouped)
             HStack {
-                Text("GPClient · Development build").foregroundStyle(.secondary)
+                Text("GPBar · Development build").foregroundStyle(.secondary)
                 Spacer()
                 Button("Diagnostics…") { openWindow(id: "diagnostics") }
                     .buttonStyle(.plain)

@@ -20,7 +20,7 @@ struct DiagnosticsView: View {
                 if let address = snapshot.ipv4 { LabeledContent("VPN address", value: address) }
             }
             if model.cleanupRequired || model.phase == .unknown {
-                Text("GPClient restores only the network changes recorded for its sessions.")
+                Text("GPBar restores only the network changes recorded for its sessions.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button(model.recovering ? "Checking network…" : "Recover network") { model.recoverNetwork() }
                     .disabled(model.recovering || !model.helperVerified)
@@ -56,7 +56,7 @@ struct DiagnosticsView: View {
         let text = model.diagnosticText
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "GPClient-diagnostics.txt"
+        panel.nameFieldStringValue = "GPBar-diagnostics.txt"
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             do { try text.write(to: url, atomically: true, encoding: .utf8); exportError = nil }

@@ -46,7 +46,7 @@ final class NetworkSession {
               attributes[.ownerAccountID] as? Int == 0,
               let mode = attributes[.posixPermissions] as? Int, mode & 0o077 == 0 else { throw Failure.invalidSession }
         journalURL = directory.appendingPathComponent("network.json")
-        guard let store = SCDynamicStoreCreate(nil, "GPClient" as CFString, nil, nil) else { throw Failure.command }
+        guard let store = SCDynamicStoreCreate(nil, "GPBar" as CFString, nil, nil) else { throw Failure.command }
         self.store = store
         lockFD = open(directory.appendingPathComponent("network.lock").path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard lockFD >= 0 else { throw Failure.journal }
@@ -183,7 +183,7 @@ final class NetworkSession {
         if !servers.isEmpty {
             let domains = (environment["CISCO_SPLIT_DNS"] ?? "").split(whereSeparator: { $0.isWhitespace || $0 == "," }).map(String.init)
             guard domains.count <= 128, domains.allSatisfy(Self.domain) else { throw Failure.invalidConfiguration }
-            let key = "State:/Network/Service/GPClient-\(directory.lastPathComponent)"
+            let key = "State:/Network/Service/GPBar-\(directory.lastPathComponent)"
             var dns: [String: Any] = ["ServerAddresses": servers, "SupplementalMatchDomains": domains.isEmpty ? [""] : domains,
                                      "SupplementalMatchOrders": Array(repeating: 100000, count: max(1, domains.count)), "InterfaceName": device]
             if let domain = environment["CISCO_DEF_DOMAIN"], !domain.isEmpty {

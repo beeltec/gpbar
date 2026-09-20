@@ -25,7 +25,7 @@ Build success does not establish runtime compatibility.
 
 ## How to apply the guidance
 
-The imperative rules in these files are GPClient implementation requirements.
+The imperative rules in these files are GPBar implementation requirements.
 Citations explain the underlying API behavior or upstream recommendation.
 They do not mean that each project-specific design is required by Apple or another maintainer.
 

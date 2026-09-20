@@ -46,7 +46,7 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
 
     var title: String {
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return name.isEmpty ? (URL(string: portal)?.host ?? "GPClient") : name
+        return name.isEmpty ? (URL(string: portal)?.host ?? "GPBar") : name
     }
 
     @discardableResult func saveAddress() -> Bool {

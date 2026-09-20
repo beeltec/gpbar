@@ -15,7 +15,7 @@ No automated tests were added or run.
 | Quit and relaunch | The valid address and selected browser remained saved. |
 | Browser picker | All three modes were available. A specific installed browser could be selected. |
 | Default browser launch | AuthenticationServices opened Microsoft login in Brave Origin's private authentication window. |
-| Default browser cancellation | Build `live-v12` cancelled the attempt, closed GPClient's sign-in window, and restored Connect without crashing. |
+| Default browser cancellation | Build `live-v12` cancelled the attempt, closed GPBar's sign-in window, and restored Connect without crashing. |
 | Quit during sign-in | Build `live-v14` displayed Disconnect and Quit, completed cancellation, and exited with no engine process remaining. |
 | Final development build | Build `live-v15` registered its helper, reached Microsoft login during a helper-refresh check, and cancelled back to Connect. |
 | Helper registration | The authorized development helper registered and passed signature, root, and console-user inspection. |
@@ -32,7 +32,7 @@ No automated tests were added or run.
 | Dark appearance | Native settings and sign-in rendered with readable controls, scrolling, and visible keyboard focus. |
 
 The user completed Microsoft sign-in and Authenticator approval in the embedded browser.
-GPClient captured the callback automatically, fetched portal configuration, and completed gateway login.
+GPBar captured the callback automatically, fetched portal configuration, and completed gateway login.
 The owned sign-in window closed automatically.
 
 External browser cancellation exposed a Swift callback-isolation crash in an earlier build.
@@ -47,7 +47,7 @@ While connected, the requested public endpoint timed out in the browser and an i
 After disconnect, the endpoint answered HTTPS again; its HEAD response was HTTP 403.
 The browser initially reported a network transition, so a successful full-page render is not yet recorded.
 The DNS snapshot matched the original snapshot exactly after disconnect.
-Stable routes matched the baseline, and no routes remained on the former GPClient interface.
+Stable routes matched the baseline, and no routes remained on the former GPBar interface.
 Dynamic neighbor-cache entries were excluded from the stable-route comparison.
 A later final snapshot still matched the stable routes and DNS configuration, except for resolver order numbers assigned by the system.
 Those later order values were preserved.
@@ -104,6 +104,29 @@ The Swift app built successfully. The complete development bundle passed strict 
 - The UI tool captured settings but could not capture the menu bar for independent visual confirmation.
 - Two parallel `codex review` checks found no concrete drawing, state, animation, or accessibility regressions.
 - No automated tests were added or run. Connected and animated badges were not rechecked live for this position-only change.
+
+## GPBar rename
+
+Development build `rename-v1` used the same macOS host and toolchain listed above.
+The app, helper, and engine used one matching Apple Development signing identity.
+
+- A clean build rebuilt the patched OpenConnect library, Rust engine, Swift app, and privileged helper.
+- The complete bundle passed deep, strict signature verification.
+- Signed identifiers were `com.beeltec.GPBar`, `com.beeltec.GPBar.helper`, and `com.beeltec.GPBar.engine`.
+- The packaged engine reported application-session support, network journaling, protocol 1, and OpenConnect `v9.21-gpbar1`.
+- The previous idle helper was removed before replacing the development app.
+- A local preferences export and import preserved the saved portal and in-app browser choice under the new domain.
+- Settings, menu names, sign-in text, and the launch-at-login label used GPBar.
+- The user approved the renamed helper in macOS settings. GPBar then verified its identity and user access.
+- Connect reached the Microsoft sign-in host through the renamed helper and packaged engine.
+- Cancel closed the owned sign-in window and restored Connect with the helper ready.
+- Cargo check and Clippy passed for the production workspace targets.
+- Shell syntax and property-list checks passed. Tracked paths and content passed the product-name audit.
+- Rustfmt reported existing vendor formatting differences. Comparison against the baseline confirmed no new formatting differences after the rename.
+- Two parallel `codex review` reports found no concrete identity, lifecycle, build, or runtime-contract regressions.
+
+Full tunnel establishment and disconnect cleanup have not yet been repeated for this build.
+No automated tests were added or run.
 
 ## Still required
 

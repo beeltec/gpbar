@@ -12,12 +12,12 @@
 //!
 //! The XML *document* itself is built by `gp-hip`. This module only
 //! provides the md5 helper and the field-name contract — the HTTP
-//! calls live in [`crate::client::GpClient`] because they share the
+//! calls live in [`crate::client::GpBar`] because they share the
 //! same reqwest client and authcookie-as-form-fields convention as
 //! the rest of the GP endpoints.
 
 /// Compute the MD5 `csd` token that
-/// [`crate::client::GpClient::hip_report_check`] sends as the `md5`
+/// [`crate::client::GpBar::hip_report_check`] sends as the `md5`
 /// form field.
 ///
 /// The GP convention (verified against yuezk's reference client)

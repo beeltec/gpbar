@@ -1,4 +1,4 @@
-name: GPClient
+name: GPBar
 options:
   minimumXcodeGenVersion: 2.46.0
   deploymentTarget:
@@ -18,21 +18,21 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES
     SWIFT_STRICT_CONCURRENCY: complete
 targets:
-  GPClient:
+  GPBar:
     type: application
     platform: macOS
     sources:
-      - GPClient
+      - GPBar
       - Shared
-      - path: Packaging/LaunchDaemons/com.beelte.gpclient.helper.plist
+      - path: Packaging/LaunchDaemons/com.beeltec.GPBar.helper.plist
         buildPhase:
           copyFiles:
             destination: wrapper
             subpath: Contents/Library/LaunchDaemons
     info:
-      path: GPClient/Info.plist
+      path: GPBar/Info.plist
       properties:
-        CFBundleDisplayName: GPClient
+        CFBundleDisplayName: GPBar
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
@@ -45,33 +45,33 @@ targets:
         NSHumanReadableCopyright: ''
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.beelte.gpclient
+        PRODUCT_BUNDLE_IDENTIFIER: com.beeltec.GPBar
         COMBINE_HIDPI_IMAGES: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
-      - target: GPClientHelper
+      - target: GPBarHelper
         embed: true
         link: false
         codeSign: true
         copy:
           destination: executables
-  GPClientHelper:
+  GPBarHelper:
     type: tool
     platform: macOS
     sources:
-      - GPClientHelper
+      - GPBarHelper
       - Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.beelte.gpclient.helper
+        PRODUCT_BUNDLE_IDENTIFIER: com.beeltec.GPBar.helper
         SKIP_INSTALL: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         GENERATE_INFOPLIST_FILE: YES
 schemes:
-  GPClient:
+  GPBar:
     build:
       targets:
-        GPClient: all
+        GPBar: all
     run:
       config: Debug
     archive:

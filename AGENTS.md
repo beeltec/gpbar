@@ -1,4 +1,4 @@
-# GPClient agent instructions
+# GPBar agent instructions
 
 ## Read before changing files
 

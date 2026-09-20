@@ -3,7 +3,7 @@ import Security
 import Darwin
 
 enum SecureRuntime {
-    static let directory = URL(fileURLWithPath: "/Library/Application Support/GPClient", isDirectory: true)
+    static let directory = URL(fileURLWithPath: "/Library/Application Support/GPBar", isDirectory: true)
 
     static func hasPendingSessions() throws -> Bool {
         let sessions = directory.appendingPathComponent("Sessions", isDirectory: true)
@@ -34,7 +34,7 @@ enum SecureRuntime {
         try recoverPreviousSessions(in: sessions)
         let session = staging.appendingPathComponent(sessionID, isDirectory: true)
         try FileManager.default.createDirectory(at: session, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-        let destination = session.appendingPathComponent("GPClient.app", isDirectory: true)
+        let destination = session.appendingPathComponent("GPBar.app", isDirectory: true)
         do {
             guard let executable = Bundle.main.executableURL else { throw RuntimeError.invalidBundle }
             let source = executable.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -42,10 +42,10 @@ enum SecureRuntime {
             try FileManager.default.copyItem(at: source, to: destination)
             let attributes = try FileManager.default.attributesOfItem(atPath: destination.path)
             guard attributes[.type] as? FileAttributeType == .typeDirectory else { throw RuntimeError.invalidBundle }
-            try verify(destination, identifier: "com.beelte.gpclient")
+            try verify(destination, identifier: "com.beeltec.GPBar")
             let contents = destination.appendingPathComponent("Contents", isDirectory: true)
             let engine = contents.appendingPathComponent("MacOS/openprotect")
-            try verify(engine, identifier: "com.beelte.gpclient.engine")
+            try verify(engine, identifier: "com.beeltec.GPBar.engine")
             guard let enumerator = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: [.isSymbolicLinkKey]) else {
                 throw RuntimeError.invalidBundle
             }
@@ -56,7 +56,7 @@ enum SecureRuntime {
             }
             let final = sessions.appendingPathComponent(sessionID, isDirectory: true)
             try FileManager.default.moveItem(at: session, to: final)
-            return final.appendingPathComponent("GPClient.app/Contents/MacOS/openprotect")
+            return final.appendingPathComponent("GPBar.app/Contents/MacOS/openprotect")
         } catch {
             try? FileManager.default.removeItem(at: session)
             throw error
@@ -81,7 +81,7 @@ enum SecureRuntime {
     }
 
     static func recover(engine: URL) throws {
-        let helper = engine.deletingLastPathComponent().appendingPathComponent("GPClientHelper")
+        let helper = engine.deletingLastPathComponent().appendingPathComponent("GPBarHelper")
         try verify(helper, identifier: helperServiceName)
         let process = Process()
         process.executableURL = helper
@@ -113,8 +113,8 @@ enum SecureRuntime {
                     if try processIdentity(identity.pid) == identity { throw RuntimeError.recoveryRequired }
                 } else if errno != ESRCH { throw RuntimeError.recoveryRequired }
             }
-            let bundle = session.appendingPathComponent("GPClient.app")
-            try verify(bundle, identifier: "com.beelte.gpclient")
+            let bundle = session.appendingPathComponent("GPBar.app")
+            try verify(bundle, identifier: "com.beeltec.GPBar")
             let engine = bundle.appendingPathComponent("Contents/MacOS/openprotect")
             try recover(engine: engine)
             try removeUnusedSession(engine: engine)

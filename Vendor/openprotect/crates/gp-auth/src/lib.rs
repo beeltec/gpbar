@@ -12,7 +12,7 @@ pub mod password;
 pub mod saml_common;
 pub mod saml_paste;
 
-pub use client::GpClient;
+pub use client::GpBar;
 pub use context::AuthContext;
 pub use error::AuthError;
 pub use okta::{OktaAuthConfig, OktaAuthProvider};

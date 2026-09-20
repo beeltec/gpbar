@@ -2,9 +2,12 @@
 
 Date: 2026-09-20
 
-Working name: GPClient
+Product name: GPBar
 
-Target repository: `/Users/beeltec/workspace/beelte/gpclient`
+Application bundle identifier: `com.beeltec.GPBar`.
+Helper and engine identifiers: `com.beeltec.GPBar.helper` and `com.beeltec.GPBar.engine`.
+
+Target repository: `/Users/beeltec/workspace/beelte/gpbar`
 
 Reference implementation: `/Users/beeltec/GlobalProtectNew`
 
@@ -107,12 +110,12 @@ Automatic continuation after browser login is included in the first release.
 ### Process boundaries
 
 ```text
-GPClient.app — logged-in user
+GPBar.app — logged-in user
   SwiftUI menu bar panel, sign-in window, settings, diagnostics
             |
             | authenticated XPC: typed commands and state events
             v
-GPClientHelper — launchd daemon, root
+GPBarHelper — launchd daemon, root
   Client validation, session ownership, process supervision, recovery
             |
             | private inherited pipes: versioned JSON messages
@@ -274,7 +277,7 @@ Animate the three dots in sequence. Keep them still when Reduce Motion is enable
 Render original image colors so the system does not replace the requested gray and white.
 Give white strokes a narrow dark outline so they remain visible against light menu bars.
 Do not depend on color or animation alone.
-Build the accessibility label from the actual connection name, such as “GPClient, connected to Work VPN”.
+Build the accessibility label from the actual connection name, such as “GPBar, connected to Work VPN”.
 
 ### Sign-in, settings, and accessibility
 
@@ -618,14 +621,14 @@ Do not claim a kill switch, full-tunnel coverage, or DNS leak prevention without
 Proposed structure:
 
 ```text
-GPClient.xcodeproj/
-GPClient/
+GPBar.xcodeproj/
+GPBar/
   App/
   Connection/
   Views/
   Services/
   Resources/Assets.xcassets/
-GPClientHelper/
+GPBarHelper/
   HelperMain.swift
   SessionController.swift
   EngineProcess.swift
@@ -851,7 +854,7 @@ Keep real callback tokens and company network details out of committed screensho
 | Browser closed early | Closing the in-app login window cancels the pending attempt; external cancellation or timeout clears pending state. |
 | Another portal | An approved second portal works through supported authentication, or its specific unsupported requirement is documented. |
 | Paste callback | Long valid callbacks work; malformed input produces a useful error without exposing the value. |
-| Callback conflicts | In-app or managed-session capture reaches GPClient; ordinary external launch explains any required handler selection. |
+| Callback conflicts | In-app or managed-session capture reaches GPBar; ordinary external launch explains any required handler selection. |
 | OTP challenge | The challenge appears once, accepts input, and supports cancellation. |
 | Cancel at each stage | Portal lookup, browser wait, OTP, tunnel setup, and retry backoff stop promptly. |
 | Repeated Connect clicks | Only one engine process and one session exist. |
@@ -897,7 +900,7 @@ Run live networking checks on a controlled Mac where connection changes will not
 | App bundle is moved or replaced | Validate service state and code identity; require an orderly reconnect or helper repair. |
 | Portal policy changes | Surface authentication or HIP failure clearly and retain the existing client as a fallback. |
 | Signing credentials are unavailable | Continue local implementation; external distribution remains blocked until valid credentials exist. |
-| Final product name or Team ID is undecided | Use GPClient as a working name; settle identifiers before signing and callback registration. |
+| Distribution Team ID is undecided | Keep the GPBar identifiers stable and select the distribution signing team before release. |
 
 Do not estimate delivery from UI work alone.
 Authentication integration, privileged execution, runtime packaging, and crash recovery determine the schedule.
