@@ -43,7 +43,7 @@ Swift cancellation is cooperative, and callback wrappers need explicit completio
 
 ## Observation and view ownership
 
-Use `@Observable` for the shared connection model on the macOS 14 baseline.
+Use `@Observable` for the shared connection model on the macOS 26 baseline.
 Own the model at application scope using `@State`, then pass it through the environment or explicit parameters.
 Use `@Bindable` only where a view needs writable bindings to an observable model.
 Keep local presentation state in the view that owns it.

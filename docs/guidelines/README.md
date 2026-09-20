@@ -6,9 +6,9 @@ These guides cover the technologies selected in [the implementation plan](../pla
 They use primary documentation from Apple, Swift, Rust, library maintainers, and standards publishers.
 Source links appear beside the rules they support.
 
-The project currently contains planning documents, not an implemented application.
-Build commands and runtime checks describe work to perform after their targets exist.
-Do not interpret them as completed validation.
+The project now contains a development application and backend integration.
+Use [live validation](../manual-validation.md) for observed results and remaining checks.
+Build success does not establish runtime compatibility.
 
 ## Guide selection
 
@@ -31,7 +31,7 @@ They do not mean that each project-specific design is required by Apple or anoth
 
 Use the API documentation matching the pinned SDK, language mode, crate version, and target OS.
 Links containing `latest` are discovery references, not permission to update dependencies.
-Check API availability before copying examples into the macOS 14 codebase.
+Check API availability before copying examples into the macOS 26 codebase.
 Keep the vendored Rust edition until a separate compatibility change requires migration.
 
 The user's choices take precedence over generic style advice.

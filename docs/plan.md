@@ -22,15 +22,15 @@ Reuse OpenProtect for GlobalProtect authentication and OpenConnect for the tunne
 A small Swift helper manages privileged operations and the backend process.
 The SwiftUI application runs as the logged-in user.
 
-The first release targets Apple Silicon and macOS 14 or newer.
+The first release targets Apple Silicon and macOS 26 or newer.
 Distribute a signed, notarized application with its runtime dependencies included.
 Homebrew and Rust are development dependencies only.
 
-This document proposes implementation work. No VPN connection, privileged installation, or application build was performed during planning.
+This plan records the intended scope. Implementation and observed results are tracked in [live validation](manual-validation.md).
 
-## 2. What exists today
+## 2. Planning baseline
 
-The destination repository is empty and has no existing application structure.
+The destination repository was empty when planning began.
 The reference repository is on `main`, at commit `01e6d13`.
 Its README identifies the OpenProtect source baseline as `04d727620f0485d40e61bac1c243766b8e6b2230`.
 Preserve the supplied source snapshot, including its macOS changes, rather than replacing it with upstream HEAD.
@@ -57,7 +57,7 @@ Paths below are relative to `/Users/beeltec/GlobalProtectNew`.
 
 The source locations for crate paths above are under `source/openprotect/`.
 The local machine has Xcode 27.0 and Swift 6.4 installed.
-This does not establish compatibility with the proposed macOS 14 deployment target.
+This does not establish compatibility with the proposed macOS 26 deployment target.
 
 ## 3. First-release scope
 
@@ -424,7 +424,7 @@ Do not silently change their saved preference.
 On macOS, `ASWebAuthenticationSession` uses a compatible default browser, or Safari as a fallback.
 It is not an embedded browser and cannot select an arbitrary browser application.
 Its callback delivery is scoped to the requesting session, including when applications share a callback scheme. [Web authentication sessions](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession)
-Validate its initializer availability against macOS 14 and its handling of the actual GlobalProtect callback format.
+Validate its initializer availability against macOS 26 and its handling of the actual GlobalProtect callback format.
 Explain any system browser fallback instead of claiming that it used the selected default browser.
 
 Populate the specific-browser picker from installed applications that can handle web URLs.
@@ -681,7 +681,7 @@ Tasks:
 
 - Capture the supplied source baseline and dependency inventory.
 - Build the existing engine with real OpenConnect support.
-- Confirm macOS 14 build compatibility for Swift, Rust, and native libraries.
+- Confirm macOS 26 build compatibility for Swift, Rust, and native libraries.
 - Exercise the existing Reference provider flow on an approved real Mac and account.
 - Validate another GlobalProtect portal when an approved environment is available; record any compatibility limits if it is unavailable.
 - Record gateway login, HIP, route setup, DNS, disconnect, and reconnect behavior.
@@ -697,7 +697,7 @@ Deliverable: `docs/upstream.md`, a compatibility record, and a minimal working h
 
 Exit condition: no unresolved blocker in root access, automatic authentication callbacks, browser selection, runtime packaging, or minimum OS support.
 Document browser cleanup gaps explicitly; a successful callback alone does not complete the requested browser lifecycle.
-If macOS 14 cannot be supported, document the exact dependency before changing the target.
+The user selected macOS 26 on 2026-09-20 after the installed OpenConnect library required that version.
 
 ### Phase 1 — Native application shell
 

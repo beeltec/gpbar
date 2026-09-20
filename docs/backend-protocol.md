@@ -6,6 +6,8 @@ The application and helper require matching Apple signing teams and exact code i
 The helper accepts the active console user and retains that user's session ownership.
 Only one session runs at a time. User switching or logout requests cancellation.
 Events go only to an observer belonging to the session owner.
+Inspection returns an active session ID only to its owner; other users receive a busy indication.
+It also reports leftover session directories that require recovery before another connection starts.
 
 ## Commands
 
@@ -44,6 +46,7 @@ Callbacks are single-use. OTP values are limited to 1,024 bytes.
 ```
 
 `ready` precedes start and has an empty session ID.
+The helper defers snapshot requests until Start has been queued after Ready.
 Other events are `phase_changed`, `authentication_required`, `authentication_completed`, `otp_required`, `snapshot`, `failure`, and `stopped`.
 Sequence numbers increase within a session. Old session events are ignored.
 The helper retains the latest state, pending challenge, and terminal result for reconnection.

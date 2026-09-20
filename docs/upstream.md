@@ -35,4 +35,26 @@ The installed package alone is not a redistributable GPClient release.
 
 ## Local changes
 
-No local source changes at the import commit.
+The import commit contains no local source changes. Later commits add:
+
+- A bounded, versioned application session protocol over inherited pipes.
+- Cancellable SAML and OTP challenges for initial authentication and reauthentication.
+- Bounded HTTP/XML parsing and strict callback handling.
+- Actual runtime capability reporting and a required patched OpenConnect build.
+- Observed macOS HIP facts instead of template posture claims in application mode.
+- Native macOS route/DNS journaling, verification, and conditional cleanup.
+
+OpenConnect 9.21 source is downloaded from its [official release directory](https://www.infradead.org/openconnect/download/).
+Its SHA-256 is pinned in `runtime-inputs.json` and the native build script.
+`Packaging/Patches/openconnect-private-hip.patch` carries the local C changes.
+Application mode moves HIP inputs into a private pipe and assigns reconnect ownership to the engine.
+It also disables automatic PKCS#11 discovery for application sessions.
+The patched runtime identifies itself as `v9.21-gpclient1`.
+
+`Packaging/vpnc-script` calls the native journal worker.
+The imported upstream script remains unchanged as a reference and is not the application's mutation path.
+Native library license files are included under `Packaging/Licenses/Native`.
+
+The application path maps GlobalProtect's macOS identifier to OpenConnect's `mac-intel` platform value.
+The native patch propagates route-worker failures instead of ignoring them during tunnel setup.
+Unix cancellation handles duplicate the command descriptor to prevent descriptor reuse during teardown.
