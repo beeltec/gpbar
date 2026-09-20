@@ -3,6 +3,32 @@ use gp_proto::Credential;
 
 use super::{normalize_portal, SystemTime, UNIX_EPOCH};
 
+#[derive(Debug)]
+pub struct Expired;
+
+impl std::fmt::Display for Expired {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("saved authentication expired")
+    }
+}
+
+impl std::error::Error for Expired {}
+
+pub fn check_credential(
+    credential: &Credential,
+    saved: Option<&SavedAuthentication>,
+) -> Result<(), Expired> {
+    if let Credential::AuthCookie {
+        user_auth_cookie, ..
+    } = credential
+    {
+        if previous(saved, user_auth_cookie).is_some_and(|cookie| !current(cookie)) {
+            return Err(Expired);
+        }
+    }
+    Ok(())
+}
+
 pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

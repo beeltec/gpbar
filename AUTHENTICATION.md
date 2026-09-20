@@ -117,6 +117,8 @@ Records bind the portal, account, endpoint origin, and engine computer identifie
 Gateway cookies are sent only to their recorded gateway after the portal returns that gateway again.
 Cookies with retained timestamps do not receive a later local expiry during reuse, MFA, or fallback.
 A shorter returned retention policy also shortens their local expiry.
+Cookie expiry is checked again before each portal or gateway authentication request, including requests after MFA waits.
+Expiry during authentication clears the cache and allows one fresh authentication attempt.
 After an expired record is removed, fresh authentication can create a new local record. Server-side cookie expiry remains authoritative.
 macOS Keychain encrypts the stored record. GPBar uses a private service name and its signed application's access control.
 Replacement deletes the previous item and creates a new item with private access. A conflicting insertion fails without writing new secrets.

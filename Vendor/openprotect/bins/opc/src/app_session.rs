@@ -510,6 +510,21 @@ async fn authenticate(
     answers: &mut mpsc::Receiver<Answer>,
     options: &AuthenticationOptions,
 ) -> Result<Authentication> {
+    match authenticate_once(portal, output, answers, options).await {
+        Err(error) if error.is::<cookies::Expired>() => {
+            options.save(None, output).await?;
+            authenticate_once(portal, output, answers, options).await
+        }
+        result => result,
+    }
+}
+
+async fn authenticate_once(
+    portal: &str,
+    output: &SharedOutput,
+    answers: &mut mpsc::Receiver<Answer>,
+    options: &AuthenticationOptions,
+) -> Result<Authentication> {
     output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
     let client = options.client(params.clone())?;
@@ -535,6 +550,7 @@ async fn authenticate(
     let mut portal_params = params.clone();
     let mut challenge_count = 0;
     let configuration = loop {
+        cookies::check_credential(&credential, history.as_ref())?;
         let client = options.client(portal_params.clone())?;
         let result = client.portal_login_for_app(portal, &credential).await;
         drop(client);
@@ -659,7 +675,10 @@ async fn authenticate(
     }
     let mut challenge_count = 0;
     let mut allow_cookie_fallback = gateway_challenge.is_none();
+    let gateway_history = updated.clone();
     loop {
+        cookies::check_credential(&gateway_credential, history.as_ref())?;
+        cookies::check_credential(&gateway_credential, gateway_history.as_ref())?;
         let gateway_client = options.client(params.clone())?;
         let result = gateway_client
             .gateway_login(&gateway, &gateway_credential)

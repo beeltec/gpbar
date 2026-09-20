@@ -402,8 +402,7 @@ import CryptoTokenKit
         if recentEvents.count > 100 { recentEvents.removeFirst() }
         switch event.type {
         case .authenticationCacheChanged:
-            guard phase != .disconnecting,
-                  event.savedAuthentication.map({ $0.isValid && $0.portal == preferences.portal }) != false else { break }
+            guard event.savedAuthentication.map({ $0.isValid && $0.portal == preferences.portal }) != false else { break }
             if preferences.rememberAuthentication {
                 storeAuthentication(event.savedAuthentication, portal: preferences.portal)
             }
