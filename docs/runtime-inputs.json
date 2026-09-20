@@ -1,0 +1,110 @@
+{
+  "openconnect": "9.21",
+  "vpnc_script_sha256": "f0c4d936a382f07711263242699b5e2d85d1ace37136bb78785d352997c17742",
+  "native_packages": [
+    {
+      "full_name": "gmp",
+      "version": "6.3.0",
+      "revision": 0,
+      "bottle_rebuild": 1,
+      "pkg_version": "6.3.0",
+      "declared_directly": true
+    },
+    {
+      "full_name": "ca-certificates",
+      "version": "2026-08-13",
+      "revision": 0,
+      "bottle_rebuild": 1,
+      "pkg_version": "2026-08-13",
+      "declared_directly": false
+    },
+    {
+      "full_name": "libunistring",
+      "version": "1.4.2",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "1.4.2",
+      "declared_directly": false
+    },
+    {
+      "full_name": "json-c",
+      "version": "0.19",
+      "revision": 0,
+      "bottle_rebuild": 1,
+      "pkg_version": "0.19",
+      "declared_directly": false
+    },
+    {
+      "full_name": "gettext",
+      "version": "1.0",
+      "revision": 0,
+      "bottle_rebuild": 1,
+      "pkg_version": "1.0",
+      "declared_directly": true
+    },
+    {
+      "full_name": "libidn2",
+      "version": "2.3.8",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "2.3.8",
+      "declared_directly": false
+    },
+    {
+      "full_name": "libtasn1",
+      "version": "4.21.0",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "4.21.0",
+      "declared_directly": false
+    },
+    {
+      "full_name": "nettle",
+      "version": "4.0",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "4.0",
+      "declared_directly": true
+    },
+    {
+      "full_name": "p11-kit",
+      "version": "0.26.5",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "0.26.5",
+      "declared_directly": true
+    },
+    {
+      "full_name": "gnutls",
+      "version": "3.8.13",
+      "revision": 2,
+      "bottle_rebuild": 1,
+      "pkg_version": "3.8.13_2",
+      "declared_directly": true
+    },
+    {
+      "full_name": "libtommath",
+      "version": "1.3.0",
+      "revision": 0,
+      "bottle_rebuild": 0,
+      "pkg_version": "1.3.0",
+      "declared_directly": false
+    },
+    {
+      "full_name": "libtomcrypt",
+      "version": "1.18.2",
+      "revision": 1,
+      "bottle_rebuild": 0,
+      "pkg_version": "1.18.2_1",
+      "declared_directly": false
+    },
+    {
+      "full_name": "stoken",
+      "version": "0.93",
+      "revision": 2,
+      "bottle_rebuild": 0,
+      "pkg_version": "0.93_2",
+      "declared_directly": true
+    }
+  ]
+}
