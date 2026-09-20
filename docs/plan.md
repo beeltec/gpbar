@@ -16,7 +16,7 @@ Build a native SwiftUI application that lives in the macOS menu bar.
 Users can connect, finish browser login, inspect their connection, and disconnect without opening Terminal.
 The application is a general GlobalProtect client, with a connection address supplied by each user.
 No company portal is hardcoded, preselected, or required.
-For our deployment, the user enters `vpn.example.com`.
+Use `vpn.example.com` as a documentation example. Users enter the address supplied by their organization.
 
 Reuse OpenProtect for GlobalProtect authentication and OpenConnect for the tunnel.
 A small Swift helper manages privileged operations and the backend process.
@@ -40,7 +40,7 @@ Paths below are relative to `/Users/beeltec/GlobalProtectNew`.
 | Area | Evidence | Implication |
 | --- | --- | --- |
 | Current connection | `scripts/company-vpn` uses `sudo -E`, `--os mac`, `--hip auto`, and `--reconnect`. | Preserve these connection settings without requiring Terminal. |
-| Reference portal | The wrapper uses `vpn.example.com`. | Treat SAML-enabled provider as a validation example. Replace the fixed address with user configuration. |
+| Reference portal | The wrapper uses a fixed portal for a SAML-enabled provider. | Use that provider for validation. Replace the fixed address with user configuration. |
 | Authentication | `crates/gp-auth/src/saml_paste.rs` opens a browser flow and accepts a `globalprotectcallback:` value. | Add a native sign-in window and structured callback delivery. |
 | Root requirement | `bins/opc/src/main.rs` rejects unprivileged macOS connections. | Running the CLI with Foundation `Process` alone is insufficient. |
 | Control interface | `crates/gp-ipc/src/lib.rs` provides JSON status and disconnect requests. | Existing IPC is useful reference code, but cannot support the full UI lifecycle. |
@@ -92,7 +92,7 @@ This does not establish compatibility with the proposed macOS 26 deployment targ
 - Kill-switch behavior or claims that every application uses the tunnel.
 
 Support user-configured GlobalProtect portals through the included authentication methods.
-Use SAML-enabled provider as the first real compatibility check, not as a product restriction.
+Use a SAML-enabled provider for the first real compatibility check.
 Portal configuration must drive authentication, gateway discovery, HIP, and connection setup without company-specific branches.
 Show a clear unsupported-authentication message if a portal requires a deferred authentication method.
 An editable address does not imply support for every GlobalProtect authentication policy.
@@ -296,7 +296,7 @@ Changing launch-at-login must not connect the VPN.
 
 First launch shows an empty “Connection address” field with `vpn.example.com` as its placeholder.
 Explain that users should enter the GlobalProtect portal address supplied by their organization.
-Do not prefill SAML-enabled provider or provide a company-specific preset.
+Do not prefill a provider address or provide a company-specific preset.
 Keep Connect disabled until a valid address has been saved and the helper is ready.
 
 Accept a hostname or HTTPS origin, including an optional port and trailing slash.
@@ -910,7 +910,7 @@ The first release is complete when all of these conditions hold:
 - Users can enter, save, and later edit their GlobalProtect connection address.
 - A valid entered address saves automatically and remains available across restarts until the user changes it.
 - The configured address drives every connection stage; the application contains no fixed company portal or provider-specific behavior.
-- The real SAML-enabled provider reference connection works through user configuration without Terminal or developer tools.
+- A real connection to the reference SAML-enabled provider works through user configuration without Terminal or developer tools.
 - Supported authentication methods and observed portal compatibility limits are documented.
 - The user can finish browser login and any gateway challenge inside the intended flow.
 - Browser choice persists and supports in-app, system default, and a specific installed browser application.

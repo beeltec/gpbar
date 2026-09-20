@@ -25,7 +25,7 @@ No automated tests were added or run.
 | Removal and automatic startup | Check helper preserved removal during the current run. Relaunch registered the helper again, before any window opened. |
 | Packaged helper | Registration and inspection also worked from the complete signed runtime bundle. |
 | First engine start | Exposed a pipe-reader issue before authentication. The helper recovered and reported failure. |
-| Corrected engine start | Reached SAML-enabled provider's Microsoft sign-in page in the embedded browser. The current hostname was visible. |
+| Corrected engine start | Reached the SAML-enabled provider's Microsoft sign-in page in the embedded browser. The current hostname was visible. |
 | Close sign-in window | Cancelled authentication, closed the owned window, and restored Connect without an error. |
 | Saved SAML-enabled provider address | The manually entered portal and in-app choice survived the next packaged build launch. |
 | Diagnostics | Showed bounded event names and phases without portal or callback data in the export preview. |
@@ -38,7 +38,7 @@ The owned sign-in window closed automatically.
 External browser cancellation exposed a Swift callback-isolation crash in an earlier build.
 The callback now explicitly crosses to the main actor. Live cancellation passed after that correction.
 
-Development build `live-v8` established the first confirmed SAML-enabled provider tunnel.
+Development build `live-v8` established the first confirmed tunnel to the reference SAML-enabled provider.
 The native worker verified its configured routes and SystemConfiguration DNS values before publishing Connected.
 Earlier attempts exposed the OpenConnect platform-name mapping and non-canonical worker-path defects; both were corrected.
 The gateway accepted the observed HIP path, but individual posture-policy coverage remains unverified.

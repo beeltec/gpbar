@@ -4,7 +4,7 @@
 | --- | --- |
 | Apple Silicon, macOS 26.6.2 | Native settings, helper registration, embedded authentication, connection, cancellation, and normal disconnect observed. |
 | macOS 26.0 | Deployment target set; oldest-version runtime check pending. |
-| SAML-enabled provider portal | Authenticated tunnel connected. Gateway accepted HIP submission; individual posture-policy coverage remains unverified. |
+| Reference SAML-enabled provider | Authenticated tunnel connected. Gateway accepted HIP submission; individual posture-policy coverage remains unverified. |
 | Another GlobalProtect portal | No approved second environment supplied. |
 | In-app browser | Microsoft login, automatic callback capture, owned-window closure, and close-to-cancel observed. |
 | Default browser | Brave Origin private login opened; cancellation passed. Authenticated callback completion and successful-login closure remain pending. |
