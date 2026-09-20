@@ -262,7 +262,14 @@ Support text selection and deliberate copy actions for useful technical values.
 | Cleanup failed | “Connection stopped. Network cleanup needs attention.” | Open diagnostics |
 
 The menu bar symbol must remain legible in light and dark menu bars.
-Use a monochrome template symbol with distinct shapes or badges for disconnected, connected, busy, and attention states.
+Use a 19-point globe within a fixed 28-by-22-point image, slightly larger than the original system symbol.
+Disconnected uses a gray globe. Connected uses a white globe with a small checkmark in the upper-right corner.
+Connection work uses a gray globe with an animated `<...>` badge in the same corner.
+Errors and unavailable status use a gray globe with an exclamation mark in that corner.
+Preparing, browser login, reconnecting, disconnecting, and initial helper inspection count as connection work.
+Animate the three dots in sequence. Keep them still when Reduce Motion is enabled.
+Render original image colors so the system does not replace the requested gray and white.
+Give white strokes a narrow dark outline so they remain visible against light menu bars.
 Do not depend on color or animation alone.
 Build the accessibility label from the actual connection name, such as “GPClient, connected to Work VPN”.
 
@@ -277,6 +284,7 @@ Show OTP entry only when requested by the engine.
 Closing the owned sign-in window before authentication completes cancels that login attempt.
 
 Settings contain the portal, display name, browser choice, launch-at-login toggle, reconnection preference, and helper status.
+Name the settings window and its heading “Edit Connection”. Do not add a subtitle claim.
 Persist browser choice with the other non-secret preferences.
 Lock connection settings while a session is active.
 Changing launch-at-login must not connect the VPN.
