@@ -1,0 +1,78 @@
+# Live validation record
+
+Date: 2026-09-20. Host: Apple Silicon, macOS 26.6.2, build 25G83.
+Xcode 27.0 and Swift 6.4. Development signing used a matching personal Apple Development team.
+All interactions below used computer-use controls against the running native application.
+No automated tests were added or run.
+
+## Observed
+
+| Scenario | Result |
+| --- | --- |
+| Initial settings | Empty address, `vpn.example.com` placeholder, in-app browser default, launch at login off. |
+| Save valid address | Whitespace was removed and HTTPS added. The valid address saved without a Save button. |
+| Invalid replacement | An HTTP address with a path showed an error and did not replace the saved address. |
+| Quit and relaunch | The valid address and selected browser remained saved. |
+| Browser picker | All three modes were available. A specific installed browser could be selected. |
+| Default browser launch | AuthenticationServices opened Microsoft login in Brave Origin's private authentication window. |
+| Default browser cancellation | Build `live-v12` cancelled the attempt, closed GPClient's sign-in window, and restored Connect without crashing. |
+| Quit during sign-in | Build `live-v14` displayed Disconnect and Quit, completed cancellation, and exited with no engine process remaining. |
+| Final development build | Build `live-v15` registered its helper, reached Microsoft login during a helper-refresh check, and cancelled back to Connect. |
+| Helper registration | The authorized development helper registered and passed signature, root, and console-user inspection. |
+| Helper removal | Removing the idle helper made its status unverified and disabled removal. |
+| Packaged helper | Registration and inspection also worked from the complete signed runtime bundle. |
+| First engine start | Exposed a pipe-reader issue before authentication. The helper recovered and reported failure. |
+| Corrected engine start | Reached SAML-enabled provider's Microsoft sign-in page in the embedded browser. The current hostname was visible. |
+| Close sign-in window | Cancelled authentication, closed the owned window, and restored Connect without an error. |
+| Saved SAML-enabled provider address | The manually entered portal and in-app choice survived the next packaged build launch. |
+| Diagnostics | Showed bounded event names and phases without portal or callback data in the export preview. |
+| Dark appearance | Native settings and sign-in rendered with readable controls, scrolling, and visible keyboard focus. |
+
+The user completed Microsoft sign-in and Authenticator approval in the embedded browser.
+GPClient captured the callback automatically, fetched portal configuration, and completed gateway login.
+The owned sign-in window closed automatically.
+
+External browser cancellation exposed a Swift callback-isolation crash in an earlier build.
+The callback now explicitly crosses to the main actor. Live cancellation passed after that correction.
+
+Development build `live-v8` established the first confirmed SAML-enabled provider tunnel.
+The native worker verified its configured routes and SystemConfiguration DNS values before publishing Connected.
+Earlier attempts exposed the OpenConnect platform-name mapping and non-canonical worker-path defects; both were corrected.
+The gateway accepted the observed HIP path, but individual posture-policy coverage remains unverified.
+
+While connected, the requested public endpoint timed out in the browser and an independent HTTPS connection attempt.
+After disconnect, the endpoint answered HTTPS again; its HEAD response was HTTP 403.
+The browser initially reported a network transition, so a successful full-page render is not yet recorded.
+The DNS snapshot matched the original snapshot exactly after disconnect.
+Stable routes matched the baseline, and no routes remained on the former GPClient interface.
+Dynamic neighbor-cache entries were excluded from the stable-route comparison.
+A later final snapshot still matched the stable routes and DNS configuration, except for resolver order numbers assigned by the system.
+Those later order values were preserved.
+
+The user withdrew the proposed internal endpoints and requested only the public-site restriction check.
+No successful internal-service access is claimed.
+NetBird was already connected and was not disconnected or changed.
+The official GlobalProtect client was checked only for connection status; it was disconnected.
+
+## Still required
+
+- Extend route and DNS restoration checks to forced failures and helper restart.
+- Check IPv6 separately; no IPv6 compatibility claim is established.
+- Exercise reconnect, reauthentication, sleep/wake, UI loss, helper restart, and forced engine exit on a controlled connection.
+- Complete default-browser and specific-browser login, including each browser's supported cleanup behavior.
+- Inspect the actual menu bar popover, light appearance, VoiceOver, reduced motion, and increased contrast.
+- Check another approved portal when one is available.
+- Validate Developer ID signing, notarization, clean installation, updates, and removal.
+- Run on macOS 26.0 as the oldest supported version.
+
+## Static evidence
+
+The Swift app and helper have built with macOS 26.0 deployment settings.
+The engine has built against patched OpenConnect 9.21 with real bindings.
+The packaged development bundle passed deep, strict code-signature validation.
+Its executable and dylib load paths were relocated into the bundle.
+These are build checks, not live network validation.
+
+Parallel code reviews found defects in cancellation, recovery, observer ownership, reconnect state, and input parsing.
+The final security and lifecycle review reports found no remaining concrete issues after the fixes.
+These reviews and clean Clippy results do not replace the pending live scenarios above.

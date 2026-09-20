@@ -15,7 +15,7 @@ Keep portal authentication logic in the engine; Swift owns browser presentation 
 
 ## In-app WebKit
 
-Host `WKWebView` in SwiftUI through `NSViewRepresentable` on the macOS 14 baseline.
+Host `WKWebView` in SwiftUI through `NSViewRepresentable` on the macOS 26 baseline.
 Use `WKNavigationDelegate` to intercept the callback before navigation.
 Use `WKUIDelegate` for popup and new-window requests belonging to the login attempt.
 Apple documents these responsibilities in [WKNavigationDelegate](https://developer.apple.com/documentation/webkit/wknavigationdelegate) and [WKUIDelegate](https://developer.apple.com/documentation/webkit/wkuidelegate).

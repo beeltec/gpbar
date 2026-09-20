@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # All cargo dependencies can be bumped freely in a single
+      # grouped PR. There is no longer a GUI stack to hold back:
+      # the gtk / webkit2gtk / glib / soup3 / gdk / pango / cairo
+      # / atk / javascriptcore family was removed when openprotect
+      # retired the embedded SAML webview provider in favour of
+      # the headless `--auth-mode paste` and `--auth-mode okta`
+      # flows. If any of those crates ever reappear as a
+      # transitive dep through a future feature, add them back
+      # here as a coordinated group — do NOT let dependabot
+      # file per-crate bumps against the gtk-rs ecosystem,
+      # which is version-locked across its whole binding set.
+      cargo:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

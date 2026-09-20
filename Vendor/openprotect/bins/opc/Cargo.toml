@@ -1,0 +1,53 @@
+[package]
+name = "opc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "OpenProtect — GlobalProtect VPN CLI client"
+
+[[bin]]
+name = "opc"
+path = "src/main.rs"
+
+[dependencies]
+gp-proto = { workspace = true }
+gp-auth = { workspace = true }
+gp-tunnel = { workspace = true }
+gp-config = { workspace = true }
+gp-hip = { workspace = true }
+gp-dns = { workspace = true }
+gp-route = { workspace = true }
+gp-ipc = { workspace = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+console = { workspace = true }
+serde_json = { workspace = true }
+url = "2.5"
+getrandom = "0.4"
+serde_urlencoded = "0.7"
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# Native enumeration for wintun_cleanup: SetupAPI for device discovery
+# (locale-independent — pnputil's text labels are translated on non-en-US
+# Windows) and Toolhelp32 for sibling-process checks (no PowerShell
+# cold-start).
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_System_Diagnostics_ToolHelp",
+    # Process-token elevation check so `opc recover` can tell the user
+    # to re-run as Administrator instead of surfacing a raw os error 5.
+    "Win32_Security",
+    "Win32_System_Threading",
+    # Console control handler (crash_cleanup): clears leaked NRPT DNS on
+    # console-close / logoff / shutdown — runs on a separate thread so it
+    # fires even when the main/tunnel thread is wedged.
+    "Win32_System_Console",
+] }
