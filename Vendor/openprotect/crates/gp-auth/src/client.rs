@@ -13,6 +13,11 @@ pub struct GpBar {
     pub gp_params: GpParams,
 }
 
+pub enum PortalLoginResult {
+    Success(PortalConfig),
+    Challenge { message: String, input_str: String },
+}
+
 impl GpBar {
     /// Create a new client from the given parameters.
     pub fn new(gp_params: GpParams) -> Result<Self, AuthError> {
@@ -143,6 +148,56 @@ impl GpBar {
 
         tracing::trace!("portal config response ({} bytes)", body.len());
         Ok(PortalConfig::parse(&body, portal, cred.username())?)
+    }
+
+    pub async fn portal_login_for_app(
+        &self,
+        portal: &str,
+        cred: &Credential,
+    ) -> Result<PortalLoginResult, AuthError> {
+        let mut params = self.login_params(cred);
+        let host = gp_proto::params::normalize_server(portal);
+        params.push(("server", host.into()));
+        params.push(("host", host.into()));
+        let response = self
+            .http
+            .post(self.gp_params.login_url(portal))
+            .form(&params)
+            .send()
+            .await?
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
+        if let Some(GatewayLoginResult::MfaChallenge { message, input_str }) =
+            GatewayLoginResult::parse_challenge(&body)?
+        {
+            return Ok(PortalLoginResult::Challenge { message, input_str });
+        }
+        let root = gp_proto::xml::XmlNode::parse(&body)?;
+        let gateways = root.find("gateways");
+        let has_gateway = gateways
+            .and_then(|node| node.at("external/list").or_else(|| node.at("internal/list")))
+            .is_some_and(|list| {
+                list.children_named("entry")
+                    .any(|entry| entry.attr("name").is_some_and(|name| !name.is_empty()))
+            });
+        if !matches!(root.name.as_str(), "policy" | "response") || !has_gateway {
+            return Err(AuthError::Failed("portal authentication rejected".into()));
+        }
+        Ok(PortalLoginResult::Success(PortalConfig::parse(
+            &body, portal, cred.username(),
+        )?))
+    }
+
+    fn login_params(&self, cred: &Credential) -> Vec<(&'static str, String)> {
+        let mut params = self.gp_params.to_params();
+        params.retain(|(key, _)| *key != "passwd");
+        params.extend(cred.to_params());
+        if let Some(otp) = &self.gp_params.otp {
+            if let Some((_, password)) = params.iter_mut().find(|(key, _)| *key == "passwd") {
+                *password = otp.clone();
+            }
+        }
+        params
     }
 
     /// Fetch the gateway's tunnel config by POSTing directly to
@@ -309,8 +364,7 @@ impl GpBar {
     ) -> Result<GatewayLoginResult, AuthError> {
         let host = gp_proto::params::normalize_server(gateway);
         let url = format!("https://{host}/ssl-vpn/login.esp");
-        let mut params = self.gp_params.to_params();
-        params.extend(cred.to_params());
+        let mut params = self.login_params(cred);
         params.push(("server", host.to_string()));
 
         tracing::debug!("gateway login POST {url}");

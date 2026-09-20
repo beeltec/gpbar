@@ -818,7 +818,7 @@ async fn run() -> Result<()> {
         Some(Commands::AppSession) => unreachable!("handled before logging setup"),
         Some(Commands::RuntimeInfo) => {
             println!("{}", serde_json::json!({
-                "protocol_version": 1,
+                "protocol_version": gp_ipc::app::VERSION,
                 "engine_version": OPC_VERSION,
                 "openconnect_version": gp_tunnel::openconnect_version(),
                 "app_session": cfg!(target_os = "macos"),

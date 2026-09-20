@@ -112,10 +112,34 @@ impl GatewayLoginResult {
     /// The response is either a JNLP XML document (success) or an HTML page
     /// with JavaScript variables indicating an MFA challenge.
     pub fn parse(body: &str, computer: &str) -> Result<Self, ProtoError> {
-        if body.contains("\"Challenge\"") || body.contains("respStatus = \"Challenge\"") {
-            return Self::parse_mfa(body);
+        if let Some(challenge) = Self::parse_challenge(body)? {
+            return Ok(challenge);
         }
         Self::parse_jnlp(body, computer)
+    }
+
+    pub fn parse_challenge(body: &str) -> Result<Option<Self>, ProtoError> {
+        let challenge = if body.contains("\"Challenge\"") {
+            Some(Self::parse_mfa(body)?)
+        } else {
+            let root = XmlNode::parse(body)?;
+            if root.name != "challenge" {
+                return Ok(None);
+            }
+            Some(Self::MfaChallenge {
+                message: root
+                    .child_text("respmsg")
+                    .unwrap_or("Enter your verification code.")
+                    .into(),
+                input_str: root.child_text("inputstr").unwrap_or_default().into(),
+            })
+        };
+        if let Some(Self::MfaChallenge { input_str, .. }) = &challenge {
+            if input_str.is_empty() || input_str.len() > 4096 || input_str.contains(char::is_control) {
+                return Err(ProtoError::XmlParse("invalid authentication challenge".into()));
+            }
+        }
+        Ok(challenge)
     }
 
     fn parse_jnlp(xml: &str, computer: &str) -> Result<Self, ProtoError> {

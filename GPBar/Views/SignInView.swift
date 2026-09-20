@@ -3,12 +3,14 @@ import WebKit
 
 struct SignInView: View {
     @Bindable var coordinator: AuthenticationCoordinator
+    @FocusState private var focusedField: Field?
+    private enum Field { case username, password, otp }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(coordinator.isOTP ? "Verification code" : "Finish signing in")
+                    Text(coordinator.isOTP ? "Verification code" : coordinator.isCredentials ? "Sign in to your VPN" : "Finish signing in")
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                     if !coordinator.hostname.isEmpty {
                         Label(coordinator.hostname, systemImage: "globe")
@@ -25,8 +27,21 @@ struct SignInView: View {
             if coordinator.callbackHandlerRequired {
                 Button("Use GPBar for sign-in links") { coordinator.useCallbackHandler() }
             }
-            if coordinator.isOTP {
+            if coordinator.isCredentials {
+                Form {
+                    TextField(coordinator.usernameLabel, text: $coordinator.username)
+                        .textContentType(.username).focused($focusedField, equals: .username)
+                        .onSubmit { focusedField = .password }
+                    SecureField(coordinator.passwordLabel, text: $coordinator.password)
+                        .textContentType(.password).focused($focusedField, equals: .password)
+                        .onSubmit { coordinator.submitCredentials() }
+                }
+                .disabled(coordinator.submitted)
+                Button("Sign in") { coordinator.submitCredentials() }
+                    .keyboardShortcut(.defaultAction).disabled(coordinator.submitted)
+            } else if coordinator.isOTP {
                 SecureField("Verification code", text: $coordinator.otp)
+                    .focused($focusedField, equals: .otp)
                     .onSubmit { coordinator.submitOTP() }.disabled(coordinator.submitted)
                 Button("Continue") { coordinator.submitOTP() }.disabled(coordinator.submitted)
             } else if coordinator.isEmbedded, let webView = coordinator.webView {
@@ -35,7 +50,7 @@ struct SignInView: View {
                 Button("Reopen sign-in page") { coordinator.openExternal() }.disabled(coordinator.submitted)
                 Spacer()
             }
-            if !coordinator.isOTP {
+            if !coordinator.isOTP && !coordinator.isCredentials {
                 DisclosureGroup("Troubleshooting") {
                     if coordinator.isEmbedded {
                         Button("Start again in the default browser") { coordinator.onRetryExternally?() }
@@ -53,6 +68,7 @@ struct SignInView: View {
             }
         }
         .padding(20)
+        .onAppear { focusedField = coordinator.isCredentials ? .username : coordinator.isOTP ? .otp : nil }
     }
 }
 

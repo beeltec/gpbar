@@ -59,6 +59,10 @@ import Network
             guard let self, self.sessionID == sessionID else { return }
             self.send(EngineCommand(type: .submitOtp, challengeID: challengeID, otp: otp))
         }
+        authentication.onCredentials = { [weak self] sessionID, challengeID, username, password in
+            guard let self, self.sessionID == sessionID else { return }
+            self.send(EngineCommand(type: .submitCredentials, challengeID: challengeID, username: username, password: password))
+        }
     }
 
     func connect(browserOverride: BrowserChoice? = nil) {
@@ -110,22 +114,23 @@ import Network
         guard let sessionID else { return }
         let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: sessionID,
             commandID: UUID().uuidString, command: command)
+        let kind = command.type
         helper.send(envelope) { [weak self] reply in
             guard let self, self.sessionID == sessionID else { return }
-            if command.type == .start { self.startPending = false }
+            if kind == .start { self.startPending = false }
             guard !reply.accepted else { return }
             self.cancelPendingQuit()
             if reply.code == "command_timeout" || reply.code == "helper_unavailable" {
                 self.phase = .unknown
                 self.error = "Connection status is unavailable. Check the helper before starting another session."
-            } else if command.type == .start {
+            } else if kind == .start {
                 self.phase = .failed
                 self.sessionID = nil
                 self.error = reply.code == "runtime_or_recovery"
                     ? "The VPN runtime could not be verified, or an earlier session needs network recovery. Open diagnostics."
                     : "The VPN session could not start. Check helper access and try again."
             } else {
-                if command.type == .disconnect || command.type == .cancel || command.type == .getSnapshot {
+                if kind == .disconnect || kind == .cancel || kind == .getSnapshot {
                     self.phase = .unknown
                 }
                 self.error = "The command was rejected. Cancel this attempt and try again."
@@ -138,6 +143,7 @@ import Network
         if sessionID == nil {
             guard envelope.event.type == .snapshot || envelope.event.type == .phaseChanged
                     || envelope.event.type == .authenticationRequired || envelope.event.type == .otpRequired
+                    || envelope.event.type == .credentialsRequired
                     || envelope.event.type == .stopped else { return }
             sessionID = envelope.sessionID
             lastSequence = 0
@@ -164,7 +170,7 @@ import Network
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
                 if phase == .connected { error = nil }
             }
-        case .authenticationRequired, .otpRequired:
+        case .authenticationRequired, .otpRequired, .credentialsRequired:
             phase = .authenticating
             authentication.begin(sessionID: envelope.sessionID, event: event, preferences: preferences, browserOverride: browserOverride)
         case .authenticationCompleted:

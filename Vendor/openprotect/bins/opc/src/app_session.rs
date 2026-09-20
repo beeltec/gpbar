@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use gp_auth::{saml_common::parse_globalprotect_callback, GpBar};
 use gp_ipc::app::{self, AppSnapshot, Command, CommandEnvelope, Event, EventEnvelope};
-use gp_proto::{AuthCookie, ClientOs, GatewayLoginResult, GpParams, PreloginResponse};
+use gp_proto::{AuthCookie, ClientOs, Credential, GatewayLoginResult, GpParams, PreloginResponse};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::unix::pipe::{Receiver, Sender};
 use tokio::sync::{mpsc, watch, Mutex};
@@ -60,6 +60,7 @@ struct Answer {
     challenge_id: String,
     value: String,
     otp: bool,
+    username: Option<String>,
 }
 
 struct Authentication {
@@ -273,11 +274,23 @@ pub async fn run() -> Result<()> {
                     challenge_id,
                     value: callback,
                     otp: false,
+                    username: None,
                 }),
                 Command::SubmitOtp { challenge_id, otp } => Some(Answer {
                     challenge_id,
                     value: otp,
                     otp: true,
+                    username: None,
+                }),
+                Command::SubmitCredentials {
+                    challenge_id,
+                    username,
+                    password,
+                } => Some(Answer {
+                    challenge_id,
+                    value: password,
+                    otp: false,
+                    username: Some(username),
                 }),
                 Command::Start { .. } => {
                     let _ = reader_stop.send(true);
@@ -372,7 +385,11 @@ async fn answer(answers: &mut mpsc::Receiver<Answer>, id: &str, otp: bool) -> Re
     let response = tokio::time::timeout(Duration::from_secs(300), answers.recv())
         .await?
         .context("answer channel closed")?;
-    if response.challenge_id != id || response.otp != otp || response.value.is_empty() {
+    if response.challenge_id != id
+        || response.otp != otp
+        || response.username.is_some()
+        || response.value.is_empty()
+    {
         bail!("invalid challenge response");
     }
     if otp && (response.value.len() > 1024 || response.value.contains(char::is_control)) {
@@ -390,21 +407,202 @@ async fn authenticate(
     let params = GpParams::new(ClientOs::Mac);
     let client = GpBar::new_for_app(params.clone())?;
     let prelogin = client.prelogin(portal).await?;
-    let PreloginResponse::Saml(ref saml) = prelogin else {
-        output
-            .lock()
-            .await
-            .send(Event::Failure {
-                code: "unsupported_authentication",
-                message:
-                    "This portal requires an authentication method that GPBar does not support.",
-                retryable: false,
-            })
-            .await?;
-        bail!("unsupported authentication");
+    let (mut credential, mut id) = request_credential(portal, &prelogin, output, answers).await?;
+    let mut portal_params = params.clone();
+    let mut configuration = None;
+    for attempt in 0..=3 {
+        let client = GpBar::new_for_app(portal_params.clone())?;
+        let result = client.portal_login_for_app(portal, &credential).await?;
+        drop(client);
+        portal_params.otp = None;
+        match result {
+            gp_auth::client::PortalLoginResult::Success(config) => {
+                configuration = Some(config);
+                break;
+            }
+            gp_auth::client::PortalLoginResult::Challenge { message, input_str } => {
+                if attempt == 3 {
+                    bail!("too many authentication challenges");
+                }
+                if let Credential::Password { password, .. } = &mut credential {
+                    password.clear();
+                }
+                portal_params.input_str = Some(input_str);
+                let (otp, challenge) = request_otp(portal, &message, output, answers).await?;
+                portal_params.otp = Some(otp);
+                id = challenge;
+            }
+        }
+    }
+    let configuration = configuration.context("portal authentication failed")?;
+    drop(credential);
+    drop(portal_params);
+    output
+        .lock()
+        .await
+        .send(Event::AuthenticationCompleted { challenge_id: &id })
+        .await?;
+    if configuration.gateways.len() > 128 {
+        bail!("too many gateways");
+    }
+    for gateway in &configuration.gateways {
+        normalize_gateway(&gateway.address)?;
+    }
+    let gateway = normalize_gateway(
+        &super::select_gateway(&configuration, prelogin.region(), None)
+            .await?
+            .gateway
+            .address,
+    )?;
+    let mut gateway_credential = configuration.to_gateway_credential();
+    let mut params = params;
+    params.is_gateway = true;
+    let mut gateway_challenge = None;
+    let needs_gateway_login = (configuration.user_auth_cookie.is_empty()
+        || configuration.user_auth_cookie == "empty")
+        && (configuration.prelogon_user_auth_cookie.is_empty()
+            || configuration.prelogon_user_auth_cookie == "empty");
+    drop(configuration);
+    if needs_gateway_login {
+        let gateway_client = GpBar::new_for_app(params.clone())?;
+        let prelogin = gateway_client.prelogin(&gateway).await?;
+        let (credential, id) = request_credential(&gateway, &prelogin, output, answers).await?;
+        gateway_credential = credential;
+        gateway_challenge = Some(id);
+    }
+    let mut challenge_count = 0;
+    let mut allow_cookie_fallback = gateway_challenge.is_none();
+    loop {
+        let gateway_client = GpBar::new_for_app(params.clone())?;
+        let result = gateway_client
+            .gateway_login(&gateway, &gateway_credential)
+            .await;
+        drop(gateway_client);
+        params.otp = None;
+        match result {
+            Ok(GatewayLoginResult::Success(cookie)) => {
+                drop(gateway_credential);
+                if let Some(id) = gateway_challenge {
+                    output
+                        .lock()
+                        .await
+                        .send(Event::AuthenticationCompleted { challenge_id: &id })
+                        .await?;
+                }
+                return Ok(Authentication { gateway, cookie });
+            }
+            Ok(GatewayLoginResult::MfaChallenge { input_str, message }) => {
+                if challenge_count == 3 {
+                    bail!("verification code not accepted");
+                }
+                challenge_count += 1;
+                allow_cookie_fallback = false;
+                if let Credential::Password { password, .. } = &mut gateway_credential {
+                    password.clear();
+                }
+                params.input_str = Some(input_str);
+                let (otp, challenge) = request_otp(&gateway, &message, output, answers).await?;
+                params.otp = Some(otp);
+                gateway_challenge = Some(challenge);
+            }
+            Err(_) if allow_cookie_fallback => {
+                allow_cookie_fallback = false;
+                let gateway_client = GpBar::new_for_app(params.clone())?;
+                let prelogin = gateway_client.prelogin(&gateway).await?;
+                let (credential, id) =
+                    request_credential(&gateway, &prelogin, output, answers).await?;
+                gateway_credential = credential;
+                gateway_challenge = Some(id);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+fn prompt(value: &str, fallback: &str) -> String {
+    let value: String = value
+        .chars()
+        .filter(|c| {
+            !c.is_control() && !matches!(*c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        })
+        .take(512)
+        .collect();
+    if value.trim().is_empty() {
+        fallback.into()
+    } else {
+        value
+    }
+}
+
+async fn request_otp(
+    server: &str,
+    message: &str,
+    output: &SharedOutput,
+    answers: &mut mpsc::Receiver<Answer>,
+) -> Result<(String, String)> {
+    let id = challenge_id()?;
+    let message = prompt(message, "Enter your verification code.");
+    let mut out = output.lock().await;
+    out.phase("authenticating", 0).await?;
+    out.send(Event::OtpRequired {
+        challenge_id: &id,
+        message: &message,
+        server,
+    })
+    .await?;
+    drop(out);
+    Ok((answer(answers, &id, true).await?, id))
+}
+
+async fn request_credential(
+    server: &str,
+    prelogin: &PreloginResponse,
+    output: &SharedOutput,
+    answers: &mut mpsc::Receiver<Answer>,
+) -> Result<(Credential, String)> {
+    let id = challenge_id()?;
+    output.lock().await.phase("authenticating", 0).await?;
+    let saml = match prelogin {
+        PreloginResponse::Standard(standard) => {
+            let message = prompt(&standard.auth_message, "Enter your VPN credentials.");
+            let username_label = prompt(&standard.label_username, "Username");
+            let password_label = prompt(&standard.label_password, "Password");
+            output
+                .lock()
+                .await
+                .send(Event::CredentialsRequired {
+                    challenge_id: &id,
+                    server,
+                    message: &message,
+                    username_label: &username_label,
+                    password_label: &password_label,
+                })
+                .await?;
+            let response = tokio::time::timeout(Duration::from_secs(300), answers.recv())
+                .await?
+                .context("answer channel closed")?;
+            let username = response.username.context("username required")?;
+            if response.challenge_id != id
+                || response.otp
+                || username.is_empty()
+                || username.len() > 1024
+                || username.contains(char::is_control)
+                || response.value.is_empty()
+                || response.value.len() > 4096
+            {
+                bail!("invalid credential response");
+            }
+            return Ok((
+                Credential::Password {
+                    username,
+                    password: response.value,
+                },
+                id,
+            ));
+        }
+        PreloginResponse::Saml(saml) => saml,
     };
     let body = gp_auth::saml_paste::build_app_launch_body(saml)?;
-    let id = challenge_id()?;
     let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).await?;
     let authority = listener.local_addr()?.to_string();
     let path = format!("/{}", challenge_id()?);
@@ -426,53 +624,7 @@ async fn authenticate(
     let credential = parse_globalprotect_callback(&raw)
         .context("invalid callback")?
         .into_credential();
-    let configuration = client.portal_config(portal, &credential).await?;
-    output
-        .lock()
-        .await
-        .send(Event::AuthenticationCompleted { challenge_id: &id })
-        .await?;
-    if configuration.gateways.len() > 128 {
-        bail!("too many gateways");
-    }
-    for gateway in &configuration.gateways {
-        normalize_gateway(&gateway.address)?;
-    }
-    let gateway = normalize_gateway(
-        &super::select_gateway(&configuration, prelogin.region(), None)
-            .await?
-            .gateway
-            .address,
-    )?;
-    let gateway_credential = configuration.to_gateway_credential();
-    let mut params = params;
-    params.is_gateway = true;
-    for attempt in 0..=3 {
-        let gateway_client = GpBar::new_for_app(params.clone())?;
-        match gateway_client
-            .gateway_login(&gateway, &gateway_credential)
-            .await?
-        {
-            GatewayLoginResult::Success(cookie) => return Ok(Authentication { gateway, cookie }),
-            GatewayLoginResult::MfaChallenge { input_str, .. } => {
-                if attempt == 3 {
-                    bail!("verification code not accepted");
-                }
-                let id = challenge_id()?;
-                output
-                    .lock()
-                    .await
-                    .send(Event::OtpRequired {
-                        challenge_id: &id,
-                        message: "Enter the verification code requested by your organization.",
-                    })
-                    .await?;
-                params.input_str = Some(input_str);
-                params.otp = Some(answer(answers, &id, true).await?);
-            }
-        }
-    }
-    bail!("verification code not accepted")
+    Ok((credential, id))
 }
 
 fn normalize_gateway(value: &str) -> Result<String> {
