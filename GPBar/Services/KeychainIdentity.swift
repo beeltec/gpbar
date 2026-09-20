@@ -33,6 +33,20 @@ enum KeychainIdentity {
         }
     }
 
+    static func tokenID(reference: Data) async throws -> String? {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    let context = LAContext()
+                    context.interactionNotAllowed = true
+                    let key = try privateKey(resolve(reference: reference, context: context))
+                    guard let attributes = SecKeyCopyAttributes(key) as? [String: Any] else { throw Failure.unavailable }
+                    return attributes[kSecAttrTokenID as String] as? String
+                })
+            }
+        }
+    }
+
     static func load(reference: Data, context: KeychainContext) async throws -> CertificateIdentity {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { continuation.resume(with: Result { try prepare(reference: reference, context: context.value) }) }

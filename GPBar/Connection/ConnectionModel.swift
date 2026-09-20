@@ -21,6 +21,8 @@ import CryptoTokenKit
     private(set) var certificateError: String?
     private let tokenWatcher = TKTokenWatcher()
     private var availableTokenIDs: Set<String> = []
+    private var certificateMetadataReady = false
+    private var certificateMetadataFailed = false
     var selectedTokenMissing: Bool {
         preferences.certificateTokenID.map { !availableTokenIDs.contains($0) } ?? false
     }
@@ -37,13 +39,34 @@ import CryptoTokenKit
 
     init() {
         availableTokenIDs = Set(tokenWatcher.tokenIDs)
-        tokenWatcher.setInsertionHandler { [weak self] tokenID in
+        tokenWatcher.setInsertionHandler { @Sendable [weak self] tokenID in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.availableTokenIDs = Set(self.tokenWatcher.tokenIDs)
-                self.tokenWatcher.addRemovalHandler({ [weak self] removedID in
+                self.tokenWatcher.addRemovalHandler({ @Sendable [weak self] removedID in
                     Task { @MainActor [weak self] in self?.tokenRemoved(removedID) }
                 }, forTokenID: tokenID)
+            }
+        }
+        certificateMetadataReady = preferences.certificateReference == nil || preferences.certificateTokenID != nil
+        if !certificateMetadataReady, let reference = preferences.certificateReference {
+            Task {
+                do {
+                    let tokenID = try await KeychainIdentity.tokenID(reference: reference)
+                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
+                    preferences.certificateTokenID = tokenID
+                    certificateMetadataReady = true
+                    availableTokenIDs = Set(tokenWatcher.tokenIDs)
+                    if selectedTokenMissing, sessionID != nil {
+                        disconnect()
+                        error = "The selected token is unavailable. Reinsert it and connect again."
+                    }
+                } catch {
+                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
+                    certificateMetadataFailed = true
+                    if sessionID != nil { disconnect() }
+                    self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
+                }
             }
         }
         helper.onEvent = { [weak self] event in self?.receive(event) }
@@ -56,6 +79,8 @@ import CryptoTokenKit
         }
         preferences.onAddressChange = { [weak self] in
             guard let self, !self.settingsLocked else { return }
+            self.certificateMetadataReady = true
+            self.certificateMetadataFailed = false
             self.snapshot = nil
             self.error = nil
             self.authentication.finish()
@@ -91,6 +116,10 @@ import CryptoTokenKit
         guard !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
+        guard certificateMetadataReady || preferences.certificateReference == nil else {
+            error = "The saved identity is not ready. Unlock or reinsert it, then select its certificate again."
+            return
+        }
         guard !selectedTokenMissing else { error = "Insert the selected smart card or hardware token, then try again."; return }
         let newSession = UUID().uuidString
         sessionID = newSession
@@ -178,6 +207,8 @@ import CryptoTokenKit
             return false
         }
         preferences.clearCertificate()
+        certificateMetadataReady = true
+        certificateMetadataFailed = false
         if let choice {
             preferences.certificateReference = choice.reference
             preferences.certificateName = choice.name
@@ -350,7 +381,7 @@ import CryptoTokenKit
             }
         case .ready: break
         }
-        if selectedTokenMissing, sessionID != nil, phase != .disconnecting {
+        if selectedTokenMissing || certificateMetadataFailed, sessionID != nil, phase != .disconnecting {
             disconnect()
             error = "The selected smart card or hardware token is unavailable. Reinsert it and connect again."
         }
