@@ -7,6 +7,9 @@ Research date: 2026-09-20. Scope: ServiceManagement, launchd, XPC, Foundation Pr
 Use `SMAppService` with an embedded launch daemon property list and a declared Mach service.
 Keep helper resources in the app bundle and use the documented `BundleProgram` structure.
 Treat registration, approval, service availability, and successful XPC negotiation as separate conditions.
+Start helper setup from the application launch delegate, independently of menu bar or settings presentation.
+Register only a missing service at launch. Inspect an enabled service to activate its Mach service and verify access.
+Do not register during ordinary status refreshes; explicit removal must remain effective for the current app run.
 Check status after the app returns from System Settings. [SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice), [Embedded helper structure](https://developer.apple.com/documentation/servicemanagement/updating-helper-executables-from-earlier-versions-of-macos)
 
 Use `SMAppService.mainApp` separately for the optional launch-at-login setting.

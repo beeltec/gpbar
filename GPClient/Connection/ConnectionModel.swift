@@ -206,6 +206,14 @@ import Network
     var error: String?
     private(set) var launchAtLogin = SMAppService.mainApp.status == .enabled
 
+    func startHelper() {
+        if service.status == .notRegistered {
+            registerHelper()
+        } else {
+            refresh()
+        }
+    }
+
     func refresh() {
         helperStatus = service.status
         launchAtLogin = SMAppService.mainApp.status == .enabled

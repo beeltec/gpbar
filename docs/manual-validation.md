@@ -20,6 +20,9 @@ No automated tests were added or run.
 | Final development build | Build `live-v15` registered its helper, reached Microsoft login during a helper-refresh check, and cancelled back to Connect. |
 | Helper registration | The authorized development helper registered and passed signature, root, and console-user inspection. |
 | Helper removal | Removing the idle helper made its status unverified and disabled removal. |
+| Automatic helper startup | Build `helper-startup-v1` registered and verified the missing helper without clicking Set up or Check again. |
+| Helper readiness after restart | Relaunching the same build showed Helper ready and enabled Connect without a helper action. |
+| Removal and automatic startup | Check helper preserved removal during the current run. Relaunch registered the helper again, before any window opened. |
 | Packaged helper | Registration and inspection also worked from the complete signed runtime bundle. |
 | First engine start | Exposed a pipe-reader issue before authentication. The helper recovered and reported failure. |
 | Corrected engine start | Reached SAML-enabled provider's Microsoft sign-in page in the embedded browser. The current hostname was visible. |
@@ -53,6 +56,12 @@ The user withdrew the proposed internal endpoints and requested only the public-
 No successful internal-service access is claimed.
 NetBird was already connected and was not disconnected or changed.
 The official GlobalProtect client was checked only for connection status; it was disconnected.
+
+The helper startup checks used the same macOS host and development signing team listed above.
+The helper ran through launchd's Mach service activation after a background app launch.
+Settings then showed verified identity and user access. Diagnostics remained Disconnected with no session events.
+The existing macOS approval was reused. First approval and revoked approval were not repeated for this change.
+Parallel lifecycle and ServiceManagement reviews found no concrete issues in the startup change.
 
 ## Still required
 
