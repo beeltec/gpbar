@@ -5,6 +5,8 @@
 //! blocking main loop, and asynchronous cancellation via a pipe fd.
 
 use std::ffi::{CStr, CString};
+#[cfg(not(windows))]
+use std::os::fd::{AsRawFd, FromRawFd};
 use std::ptr;
 
 use gp_openconnect_sys as sys;
@@ -32,22 +34,18 @@ type CmdWriteFd = sys::SOCKET;
 pub struct OpenConnectSession {
     inner: *mut sys::openconnect_info,
     /// Write end of libopenconnect's command pipe. `None` after
-    /// `cancel_handle()` has moved ownership to a `CancelHandle`.
+    /// `cancel_handle()` has created a cancellation handle.
     cmd_write_fd: Option<CmdWriteFd>,
 }
 
 /// Handle usable from another thread to cancel a running main loop.
 ///
-/// Holds the raw write fd of libopenconnect's command pipe. We deliberately
-/// do **not** close this fd on drop: per `openconnect.h`, both ends of the
-/// pipe created by `openconnect_setup_cmd_pipe` are owned by libopenconnect
-/// and closed by `openconnect_vpninfo_free`. Closing it ourselves would
-/// race vpninfo_free into a double-close (and potential UAF on fd reuse).
-///
-/// **Invariant:** a `CancelHandle` must not be used after its parent
-/// [`OpenConnectSession`] has been dropped. The current `opc` flow joins
-/// the tunnel thread before dropping the session, which preserves this.
+/// Unix handles own a duplicate descriptor, which remains valid after session teardown.
+/// Windows callers must keep the session alive until cancellation finishes.
 pub struct CancelHandle {
+    #[cfg(not(windows))]
+    write_fd: std::os::fd::OwnedFd,
+    #[cfg(windows)]
     write_fd: CmdWriteFd,
 }
 
@@ -61,7 +59,13 @@ impl CancelHandle {
         let buf = [sys::OC_CMD_CANCEL as u8];
         loop {
             #[cfg(not(windows))]
-            let rc = unsafe { libc::write(self.write_fd, buf.as_ptr() as *const libc::c_void, 1) };
+            let rc = unsafe {
+                libc::write(
+                    self.write_fd.as_raw_fd(),
+                    buf.as_ptr() as *const libc::c_void,
+                    1,
+                )
+            };
             #[cfg(windows)]
             let rc = unsafe {
                 extern "system" {
@@ -102,10 +106,6 @@ impl CancelHandle {
     }
 }
 
-// CancelHandle has no Drop impl on purpose. See the type docstring:
-// libopenconnect owns the cmd-pipe fds and frees them in
-// openconnect_vpninfo_free.
-
 impl OpenConnectSession {
     /// Create a new openconnect session with all callbacks set to `NULL`.
     ///
@@ -128,6 +128,21 @@ impl OpenConnectSession {
             return Err(TunnelError::OpenConnect(
                 "openconnect_vpninfo_new returned NULL".into(),
             ));
+        }
+
+        #[cfg(target_os = "macos")]
+        if std::env::var_os("GPCLIENT_APP_SESSION").is_some() {
+            // This fixed OS trust file avoids Homebrew's certificate and module paths.
+            let rc = unsafe {
+                sys::openconnect_set_system_trust(inner, 0);
+                sys::openconnect_set_cafile(inner, c"/etc/ssl/cert.pem".as_ptr())
+            };
+            if rc != 0 {
+                unsafe { sys::openconnect_vpninfo_free(inner) };
+                return Err(TunnelError::OpenConnect(
+                    "system trust file unavailable".into(),
+                ));
+            }
         }
 
         // Ask libopenconnect to create its internal command pipe and hand
@@ -158,9 +173,21 @@ impl OpenConnectSession {
 
     /// Take the cancel handle. Can only be called once per session.
     pub fn cancel_handle(&mut self) -> Option<CancelHandle> {
-        self.cmd_write_fd
-            .take()
-            .map(|write_fd| CancelHandle { write_fd })
+        let descriptor = self.cmd_write_fd.take()?;
+        #[cfg(not(windows))]
+        {
+            let duplicate = unsafe { libc::fcntl(descriptor, libc::F_DUPFD_CLOEXEC, 0) };
+            if duplicate < 0 {
+                return None;
+            }
+            Some(CancelHandle {
+                write_fd: unsafe { std::os::fd::OwnedFd::from_raw_fd(duplicate) },
+            })
+        }
+        #[cfg(windows)]
+        Some(CancelHandle {
+            write_fd: descriptor,
+        })
     }
 
     /// Select the GlobalProtect protocol.
@@ -175,6 +202,14 @@ impl OpenConnectSession {
             .map_err(|e| TunnelError::OpenConnect(format!("invalid hostname: {e}")))?;
         let rc = unsafe { sys::openconnect_set_hostname(self.inner, c.as_ptr()) };
         ok_or_ffi(rc, "openconnect_set_hostname")
+    }
+
+    pub fn set_url(&mut self, origin: &str) -> Result<(), TunnelError> {
+        let value = CString::new(origin)
+            .map_err(|_| TunnelError::OpenConnect("invalid server origin".into()))?;
+        // OpenConnect copies the URL fields. The session owns those copies.
+        let result = unsafe { sys::openconnect_parse_url(self.inner, value.as_ptr()) };
+        ok_or_ffi(result, "openconnect_parse_url")
     }
 
     /// Inject an authcookie obtained by the Rust auth flow.
@@ -315,6 +350,9 @@ impl OpenConnectSession {
     /// Establish the CSTP connection (TLS control channel).
     pub fn make_cstp_connection(&mut self) -> Result<(), TunnelError> {
         let rc = unsafe { sys::openconnect_make_cstp_connection(self.inner) };
+        if rc == -libc::EPERM {
+            return Err(TunnelError::MainloopAuthExpired);
+        }
         ok_or_ffi(rc, "openconnect_make_cstp_connection")
     }
 

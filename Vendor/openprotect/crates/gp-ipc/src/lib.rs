@@ -10,6 +10,8 @@
 //! One request per connection. Server reads one line, parses a
 //! [`Request`], writes one line with a [`Response`], then closes.
 
+pub mod app;
+
 use std::path::PathBuf;
 use std::time::Duration;
 

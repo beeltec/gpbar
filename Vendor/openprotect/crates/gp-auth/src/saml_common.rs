@@ -17,11 +17,17 @@ use gp_proto::Credential;
 /// on-prem GP prelogin cookie OR a Prisma Access JWT. The provider decides
 /// which one it is via [`looks_like_jwt`] before building the final
 /// [`Credential`].
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SamlCapture {
     pub username: String,
     pub prelogin_cookie: String,
     pub portal_user_auth_cookie: Option<String>,
+}
+
+impl std::fmt::Debug for SamlCapture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SamlCapture([redacted])")
+    }
 }
 
 impl SamlCapture {
@@ -65,6 +71,9 @@ pub fn looks_like_jwt(s: &str) -> bool {
 /// recognized by base64-decoding the payload and extracting
 /// `<saml-username>` / `<prelogin-cookie>` tags from the embedded HTML.
 pub fn parse_globalprotect_callback(uri: &str) -> Option<SamlCapture> {
+    if uri.len() > 256 * 1024 {
+        return None;
+    }
     let rest = uri.strip_prefix("globalprotectcallback:")?;
     let rest = rest.trim();
     let rest = rest.strip_prefix('?').unwrap_or(rest).trim();
@@ -81,12 +90,18 @@ fn parse_query_callback(rest: &str) -> Option<SamlCapture> {
         let Some((k, v)) = pair.split_once('=') else {
             continue;
         };
-        let v = percent_decode(v);
-        match k {
-            "un" | "user" => username = Some(v),
-            "token" | "prelogin-cookie" => secret = Some(v),
-            "portal-userauthcookie" => portal_user_auth_cookie = Some(v),
-            _ => {}
+        let v = percent_decode(v)?;
+        if v.is_empty() || v.contains(char::is_control) {
+            return None;
+        }
+        let target = match k {
+            "un" | "user" => &mut username,
+            "token" | "prelogin-cookie" => &mut secret,
+            "portal-userauthcookie" => &mut portal_user_auth_cookie,
+            _ => continue,
+        };
+        if target.replace(v).is_some() {
+            return None;
         }
     }
 
@@ -99,7 +114,7 @@ fn parse_query_callback(rest: &str) -> Option<SamlCapture> {
 
 fn parse_classic_cookie_callback(rest: &str) -> Option<SamlCapture> {
     let decoded = BASE64.decode(rest.as_bytes()).ok()?;
-    let decoded = String::from_utf8_lossy(&decoded);
+    let decoded = String::from_utf8(decoded).ok()?;
 
     Some(SamlCapture {
         username: extract_tag_text(&decoded, "saml-username")?,
@@ -113,11 +128,18 @@ fn extract_tag_text(doc: &str, tag: &str) -> Option<String> {
     let close = format!("</{tag}>");
     let start = doc.find(&open)? + open.len();
     let end = doc[start..].find(&close)? + start;
-    Some(doc[start..end].trim().to_string())
+    let value = doc[start..end].trim();
+    if value.is_empty()
+        || value.contains(char::is_control)
+        || doc[end + close.len()..].contains(&open)
+    {
+        return None;
+    }
+    Some(value.to_string())
 }
 
 /// Minimal application/x-www-form-urlencoded decoder. Handles `%XX` and `+`.
-fn percent_decode(s: &str) -> String {
+fn percent_decode(s: &str) -> Option<String> {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -135,19 +157,17 @@ fn percent_decode(s: &str) -> String {
                         out.push((h * 16 + l) as u8);
                         i += 3;
                     }
-                    _ => {
-                        out.push(bytes[i]);
-                        i += 1;
-                    }
+                    _ => return None,
                 }
             }
+            b'%' => return None,
             b => {
                 out.push(b);
                 i += 1;
             }
         }
     }
-    String::from_utf8_lossy(&out).into_owned()
+    String::from_utf8(out).ok()
 }
 
 #[cfg(test)]

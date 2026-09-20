@@ -39,6 +39,10 @@ impl OpenConnectSession {
         Err(not_available())
     }
 
+    pub fn set_url(&mut self, _origin: &str) -> Result<(), TunnelError> {
+        Err(not_available())
+    }
+
     pub fn set_cookie(&mut self, _cookie: &str) -> Result<(), TunnelError> {
         Err(not_available())
     }

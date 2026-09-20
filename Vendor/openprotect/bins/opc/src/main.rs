@@ -1,5 +1,7 @@
 //! `opc` — OpenProtect GlobalProtect VPN CLI.
 
+#[cfg(target_os = "macos")]
+mod app_session;
 #[cfg(windows)]
 mod crash_cleanup;
 mod metrics;
@@ -127,6 +129,11 @@ enum HipMode {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Report runtime capabilities without opening a VPN session.
+    RuntimeInfo,
+    #[cfg(target_os = "macos")]
+    /// Run a native application session over inherited pipes.
+    AppSession,
     /// Connect to a GlobalProtect VPN portal.
     ///
     /// `portal` accepts either a profile name (defined via `opc
@@ -759,6 +766,10 @@ async fn run() -> Result<()> {
     // and `opc hip-report --cookie …` still works for manual
     // testing.
     let raw_args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    #[cfg(target_os = "macos")]
+    if raw_args.len() == 2 && raw_args[1] == "--gpclient-hip-input" {
+        return app_session::hip_input().await.map_err(|_| anyhow::anyhow!("HIP input failed"));
+    }
     let looks_like_csd_wrapper_invocation = raw_args
         .get(1)
         .and_then(|s| s.to_str())
@@ -774,6 +785,11 @@ async fn run() -> Result<()> {
         Cli::parse()
     };
 
+    #[cfg(target_os = "macos")]
+    if matches!(cli.command, Some(Commands::AppSession)) {
+        return app_session::run().await.map_err(|_| anyhow::anyhow!("application session ended"));
+    }
+
     // HIP wrapper mode MUST keep stdout clean because
     // `gpst.c:1006-1007` dup2's fd 1 to a pipe that libopenconnect
     // reads as the HIP XML `report=` field. Any stray tracing byte
@@ -787,7 +803,7 @@ async fn run() -> Result<()> {
     // tracing init — callers debugging by hand can still set
     // RUST_LOG if they want and redirect stderr. Codex round-26
     // caught this silent corruption before it bit us live.
-    let in_hip_report_mode = matches!(cli.command, Some(Commands::HipReport { .. }));
+    let in_hip_report_mode = matches!(cli.command, Some(Commands::HipReport { .. } | Commands::RuntimeInfo));
     if !in_hip_report_mode {
         tracing_subscriber::fmt()
             .with_env_filter(
@@ -798,6 +814,18 @@ async fn run() -> Result<()> {
     }
 
     match cli.command {
+        #[cfg(target_os = "macos")]
+        Some(Commands::AppSession) => unreachable!("handled before logging setup"),
+        Some(Commands::RuntimeInfo) => {
+            println!("{}", serde_json::json!({
+                "protocol_version": 1,
+                "engine_version": OPC_VERSION,
+                "openconnect_version": gp_tunnel::openconnect_version(),
+                "app_session": cfg!(target_os = "macos"),
+                "network_journal": cfg!(target_os = "macos"),
+            }));
+            Ok(())
+        }
         Some(Commands::Connect {
             portal,
             user,
@@ -4787,7 +4815,11 @@ fn run_tunnel(
         OpenConnectSession::new("PAN GlobalProtect").context("creating openconnect session")?;
 
     session.set_protocol_gp().context("set_protocol_gp")?;
-    session.set_hostname(gateway_host).context("set_hostname")?;
+    if cfg!(target_os = "macos") && std::env::var_os("GPCLIENT_APP_SESSION").is_some() {
+        session.set_url(gateway_host).context("set_url")?;
+    } else {
+        session.set_hostname(gateway_host).context("set_hostname")?;
+    }
     session.set_os_spoof(os).context("set_os_spoof")?;
     session.set_cookie(cookie).context("set_cookie")?;
     if let (Some(cert), Some(key)) = (&client_cert, &client_key) {

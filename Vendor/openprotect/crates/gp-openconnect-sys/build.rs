@@ -1,4 +1,6 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=GPCLIENT_REQUIRE_OPENCONNECT");
+    let require_openconnect = std::env::var_os("GPCLIENT_REQUIRE_OPENCONNECT").is_some();
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=csrc/progress_shim.c");
@@ -35,6 +37,7 @@ fn main() {
                 Some(vec![isolated])
             }
             Err(_) => {
+                assert!(!require_openconnect, "GPClient requires real OpenConnect bindings");
                 println!(
                     "cargo:warning=OPENCONNECT_DIR not set — skipping FFI bindings. \
                      The tunnel stub will be used. To build with full tunnel support, \
@@ -53,6 +56,7 @@ fn main() {
         match pkg_config::probe_library("openconnect") {
             Ok(lib) => Some(lib.include_paths),
             Err(e) => {
+                assert!(!require_openconnect, "GPClient requires real OpenConnect bindings: {e}");
                 println!(
                     "cargo:warning=libopenconnect not found ({e}). \
                      Install it with: apt install libopenconnect-dev (Debian/Ubuntu) \

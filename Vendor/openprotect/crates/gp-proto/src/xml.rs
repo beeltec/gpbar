@@ -19,84 +19,117 @@ pub struct XmlNode {
 impl XmlNode {
     /// Parse an XML string into a tree rooted at the document element.
     pub fn parse(xml: &str) -> Result<Self, ProtoError> {
+        if xml.len() > 2 * 1024 * 1024 {
+            return Err(ProtoError::XmlParse("XML response too large".into()));
+        }
         let mut reader = Reader::from_str(xml);
-
-        // Sentinel root — the real root element will become its only child.
+        reader.config_mut().check_end_names = true;
         let mut stack = vec![XmlNode::default()];
-
+        let mut nodes = 0usize;
         loop {
             match reader.read_event() {
                 Ok(Event::Start(ref e)) => {
-                    stack.push(Self::from_start(e));
+                    nodes += 1;
+                    if stack.len() >= 64 || nodes > 32768 {
+                        return Err(ProtoError::XmlParse("XML structure limit exceeded".into()));
+                    }
+                    stack.push(Self::from_start(e)?);
                 }
                 Ok(Event::End(_)) => {
-                    let node = stack.pop().unwrap_or_default();
+                    if stack.len() <= 1 {
+                        return Err(ProtoError::XmlParse("unexpected XML end".into()));
+                    }
+                    let mut node = stack
+                        .pop()
+                        .ok_or_else(|| ProtoError::XmlParse("missing XML node".into()))?;
+                    node.text = node.text.trim().to_owned();
                     if let Some(parent) = stack.last_mut() {
                         parent.children.push(node);
                     }
                 }
                 Ok(Event::Empty(ref e)) => {
+                    nodes += 1;
+                    if nodes > 32768 {
+                        return Err(ProtoError::XmlParse("XML structure limit exceeded".into()));
+                    }
                     if let Some(parent) = stack.last_mut() {
-                        parent.children.push(Self::from_start(e));
+                        parent.children.push(Self::from_start(e)?);
                     }
                 }
                 Ok(Event::Text(ref e)) => {
-                    // `BytesText::unescape` was removed in
-                    // quick-xml 0.39; `xml_content` is the
-                    // replacement and does both the encoding
-                    // decode and the entity unescape, plus
-                    // end-of-line normalization per the W3C
-                    // spec. In 0.40 the version became an
-                    // explicit argument — GlobalProtect's
-                    // responses are XML 1.0, and 1.0's
-                    // EOL rules (just CR/LF → LF) are the
-                    // safe choice; no embedded CR/NEL in
-                    // GP text content makes this a no-op
-                    // in practice but spec-correct.
-                    if let Ok(text) = e.xml_content(::quick_xml::XmlVersion::Implicit1_0) {
-                        let trimmed = text.trim();
-                        if !trimmed.is_empty() {
-                            if let Some(current) = stack.last_mut() {
-                                if current.text.is_empty() {
-                                    current.text = trimmed.to_string();
-                                } else {
-                                    current.text.push(' ');
-                                    current.text.push_str(trimmed);
-                                }
-                            }
-                        }
+                    let text = e
+                        .xml_content(quick_xml::XmlVersion::Implicit1_0)
+                        .map_err(|e| ProtoError::XmlParse(e.to_string()))?;
+                    if let Some(current) = stack.last_mut() {
+                        current.text.push_str(&text);
                     }
+                }
+                Ok(Event::CData(ref e)) => {
+                    let text = e
+                        .decode()
+                        .map_err(|e| ProtoError::XmlParse(e.to_string()))?;
+                    if let Some(current) = stack.last_mut() {
+                        current.text.push_str(&text);
+                    }
+                }
+                Ok(Event::GeneralRef(ref e)) => {
+                    let reference = e
+                        .decode()
+                        .map_err(|e| ProtoError::XmlParse(e.to_string()))?;
+                    let encoded = format!("&{reference};");
+                    let value = quick_xml::escape::unescape(&encoded)
+                        .map_err(|e| ProtoError::XmlParse(e.to_string()))?;
+                    if let Some(current) = stack.last_mut() {
+                        current.text.push_str(&value);
+                    }
+                }
+                Ok(Event::DocType(_)) => {
+                    return Err(ProtoError::XmlParse(
+                        "XML document types are unsupported".into(),
+                    ))
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => return Err(ProtoError::XmlParse(e.to_string())),
                 _ => {}
             }
         }
-
-        let root = stack.pop().unwrap_or_default();
-        root.children
-            .into_iter()
-            .next()
-            .ok_or_else(|| ProtoError::XmlParse("empty XML document".into()))
+        if stack.len() != 1 {
+            return Err(ProtoError::XmlParse("incomplete XML document".into()));
+        }
+        let mut root = stack
+            .pop()
+            .ok_or_else(|| ProtoError::XmlParse("empty XML document".into()))?;
+        if root.children.len() != 1 || !root.text.trim().is_empty() {
+            return Err(ProtoError::XmlParse("invalid XML document root".into()));
+        }
+        Ok(root.children.remove(0))
     }
 
-    fn from_start(e: &quick_xml::events::BytesStart<'_>) -> Self {
-        let name = str::from_utf8(e.name().as_ref()).unwrap_or("").to_string();
-        let attributes = e
-            .attributes()
-            .filter_map(|a| {
-                let a = a.ok()?;
-                let k = str::from_utf8(a.key.as_ref()).ok()?.to_string();
-                let v = str::from_utf8(&a.value).ok()?.to_string();
-                Some((k, v))
-            })
-            .collect();
-        Self {
+    fn from_start(e: &quick_xml::events::BytesStart<'_>) -> Result<Self, ProtoError> {
+        let name = str::from_utf8(e.name().as_ref())
+            .map_err(|e| ProtoError::XmlParse(e.to_string()))?
+            .to_owned();
+        let mut attributes = Vec::new();
+        for attribute in e.attributes() {
+            let attribute = attribute.map_err(|e| ProtoError::XmlParse(e.to_string()))?;
+            if attributes.len() >= 128 {
+                return Err(ProtoError::XmlParse("too many XML attributes".into()));
+            }
+            let key = str::from_utf8(attribute.key.as_ref())
+                .map_err(|e| ProtoError::XmlParse(e.to_string()))?
+                .to_owned();
+            let value = attribute
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                .map_err(|e| ProtoError::XmlParse(e.to_string()))?
+                .into_owned();
+            attributes.push((key, value));
+        }
+        Ok(Self {
             name,
             attributes,
             text: String::new(),
             children: Vec::new(),
-        }
+        })
     }
 
     /// Find a direct child element by tag name.

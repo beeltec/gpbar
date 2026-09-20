@@ -18,6 +18,20 @@ mod openconnect_stub;
 #[cfg(not(has_openconnect))]
 pub use openconnect_stub::{CancelHandle, IpInfoSnapshot, OpenConnectSession};
 
+pub fn openconnect_version() -> Option<String> {
+    #[cfg(has_openconnect)]
+    {
+        // OpenConnect owns this static, null-terminated version string.
+        let version = unsafe { gp_openconnect_sys::openconnect_get_version() };
+        if version.is_null() {
+            return None;
+        }
+        Some(unsafe { std::ffi::CStr::from_ptr(version) }.to_string_lossy().into_owned())
+    }
+    #[cfg(not(has_openconnect))]
+    None
+}
+
 /// Tunnel errors.
 ///
 /// The mainloop-specific variants let the app-level reconnect loop

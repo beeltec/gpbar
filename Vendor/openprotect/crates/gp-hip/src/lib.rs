@@ -428,6 +428,29 @@ impl HipReport {
         s
     }
 
+    pub fn to_observed_macos_xml(&self) -> String {
+        let mut s = String::from("<hip-report name=\"hip-report\">");
+        push_tag(&mut s, "md5-sum", &self.md5_sum);
+        push_tag(&mut s, "user-name", &self.user_name);
+        push_tag(&mut s, "domain", &self.profile.domain);
+        push_tag(&mut s, "host-name", &self.host.host_name);
+        push_tag(&mut s, "host-id", &self.host.host_id);
+        push_tag(&mut s, "ip-address", &self.client_ip);
+        push_tag(&mut s, "generate-time", &self.generate_time);
+        push_tag(&mut s, "hip-report-version", "4");
+        s.push_str("<categories><entry name=\"host-info\">");
+        push_tag(&mut s, "client-version", &self.client_version);
+        push_tag(&mut s, "os", &self.profile.os);
+        push_tag(&mut s, "os-vendor", &self.profile.os_vendor);
+        push_tag(&mut s, "host-name", &self.host.host_name);
+        push_tag(&mut s, "host-id", &self.host.host_id);
+        s.push_str("</entry>");
+        self.push_macos_disk_encryption_category(&mut s);
+        self.push_firewall_category(&mut s);
+        s.push_str("</categories></hip-report>");
+        s
+    }
+
     fn push_host_info_category(&self, s: &mut String) {
         s.push_str("<entry name=\"host-info\">");
         push_tag(s, "client-version", &self.client_version);

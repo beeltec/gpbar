@@ -968,7 +968,25 @@ fn html_attr_escape(s: &str) -> String {
 
 /// Body served at `GET /` — either a tiny redirect page (REDIRECT method)
 /// or the raw auto-submit HTML from the portal (POST method).
-fn build_launch_body(saml: &SamlPrelogin) -> Result<Vec<u8>, AuthError> {
+pub fn build_app_launch_body(saml: &SamlPrelogin) -> Result<Vec<u8>, AuthError> {
+    if saml.saml_request.len() > 2 * 1024 * 1024 {
+        return Err(AuthError::Failed("authentication page exceeds size limit".into()));
+    }
+    if saml.saml_auth_method == "REDIRECT" {
+        let decoded = BASE64.decode(saml.saml_request.as_bytes())
+            .map_err(|_| AuthError::Failed("invalid authentication redirect".into()))?;
+        let value = String::from_utf8(decoded)
+            .map_err(|_| AuthError::Failed("invalid authentication redirect".into()))?;
+        let url = reqwest::Url::parse(&value)
+            .map_err(|_| AuthError::Failed("invalid authentication redirect".into()))?;
+        if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
+            return Err(AuthError::Failed("authentication requires an HTTPS redirect".into()));
+        }
+    }
+    build_launch_body(saml)
+}
+
+pub fn build_launch_body(saml: &SamlPrelogin) -> Result<Vec<u8>, AuthError> {
     match saml.saml_auth_method.as_str() {
         "REDIRECT" => {
             // GlobalProtect base64-encodes the target URL in

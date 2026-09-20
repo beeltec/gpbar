@@ -1186,6 +1186,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "console",
+ "getrandom 0.4.2",
  "gp-auth",
  "gp-config",
  "gp-dns",
@@ -1200,6 +1201,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "windows-sys 0.61.2",
 ]
 

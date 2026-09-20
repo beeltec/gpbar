@@ -8,6 +8,7 @@ use crate::hip::cookie_to_form_fields;
 /// HTTP client wrapping the GlobalProtect REST-ish API.
 pub struct GpClient {
     http: reqwest::Client,
+    bounded_responses: bool,
     /// The GP request parameters attached to every call.
     pub gp_params: GpParams,
 }
@@ -15,9 +16,25 @@ pub struct GpClient {
 impl GpClient {
     /// Create a new client from the given parameters.
     pub fn new(gp_params: GpParams) -> Result<Self, AuthError> {
+        Self::build(gp_params, false)
+    }
+
+    pub fn new_for_app(gp_params: GpParams) -> Result<Self, AuthError> {
+        Self::build(gp_params, true)
+    }
+
+    fn build(gp_params: GpParams, bounded_responses: bool) -> Result<Self, AuthError> {
         let mut builder = reqwest::Client::builder()
             .user_agent(&gp_params.user_agent)
             .danger_accept_invalid_certs(gp_params.ignore_tls_errors);
+
+        if bounded_responses {
+            builder = builder
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(30))
+                .redirect(reqwest::redirect::Policy::none())
+                .no_proxy();
+        }
 
         // DNS pin: if the caller supplied a pre-resolved IP for the
         // gateway, route the hostname directly there. Used by the
@@ -60,7 +77,23 @@ impl GpClient {
         }
 
         let http = builder.build()?;
-        Ok(Self { http, gp_params })
+        Ok(Self { http, bounded_responses, gp_params })
+    }
+
+    async fn read_body(&self, mut response: reqwest::Response) -> Result<String, AuthError> {
+        if !self.bounded_responses { return Ok(response.text().await?); }
+        const LIMIT: usize = 2 * 1024 * 1024;
+        if response.content_length().is_some_and(|length| length > LIMIT as u64) {
+            return Err(AuthError::Failed("response exceeds size limit".into()));
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await? {
+            if bytes.len() + chunk.len() > LIMIT {
+                return Err(AuthError::Failed("response exceeds size limit".into()));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        String::from_utf8(bytes).map_err(|_| AuthError::Failed("response has invalid encoding".into()))
     }
 
     /// Portal or gateway prelogin — determines the required auth method.
@@ -69,15 +102,14 @@ impl GpClient {
         let params = self.gp_params.to_prelogin_params();
 
         tracing::debug!("prelogin POST {url}");
-        let body = self
+        let response = self
             .http
             .post(&url)
             .form(&params)
             .send()
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
 
         tracing::trace!("prelogin response ({} bytes)", body.len());
         Ok(PreloginResponse::parse(&body)?)
@@ -100,15 +132,14 @@ impl GpClient {
         params.push(("host", host));
 
         tracing::debug!("portal config POST {url}");
-        let body = self
+        let response = self
             .http
             .post(&url)
             .form(&params)
             .send()
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
 
         tracing::trace!("portal config response ({} bytes)", body.len());
         Ok(PortalConfig::parse(&body, portal, cred.username())?)
@@ -193,7 +224,7 @@ impl GpClient {
         tracing::debug!("gateway getconfig POST {url}");
         let response = self.http.post(&url).form(&params).send().await?;
         let status = response.status();
-        let body = response.text().await?;
+        let body = self.read_body(response).await?;
         tracing::trace!(
             "gateway getconfig response: status={status} bytes={} body_head={:?}",
             body.len(),
@@ -227,15 +258,14 @@ impl GpClient {
         params.push(("md5".to_string(), md5.to_string()));
 
         tracing::debug!("hipreportcheck POST {url}");
-        let body = self
+        let response = self
             .http
             .post(&url)
             .form(&params)
             .send()
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
         tracing::trace!("hipreportcheck response ({} bytes)", body.len());
         Ok(HipCheckResponse::parse(&body)?)
     }
@@ -259,15 +289,14 @@ impl GpClient {
         params.push(("report".to_string(), report_xml.to_string()));
 
         tracing::debug!("hipreport POST {url}");
-        let body = self
+        let response = self
             .http
             .post(&url)
             .form(&params)
             .send()
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
         tracing::trace!("hipreport response ({} bytes): {}", body.len(), body);
         Ok(())
     }
@@ -285,15 +314,14 @@ impl GpClient {
         params.push(("server", host.to_string()));
 
         tracing::debug!("gateway login POST {url}");
-        let body = self
+        let response = self
             .http
             .post(&url)
             .form(&params)
             .send()
             .await?
-            .error_for_status()?
-            .text()
-            .await?;
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
 
         tracing::trace!("gateway login response ({} bytes)", body.len());
         Ok(GatewayLoginResult::parse(&body, &self.gp_params.computer)?)

@@ -1,0 +1,152 @@
+--- a/gpst.c
++++ b/gpst.c
+@@ -34,6 +34,7 @@
+ #include "win32-ipicmp.h"
+ #else
+ #include <sys/wait.h>
++#include <signal.h>
+ /* The BSDs require the first two headers before netinet/ip.h
+  * (Linux and macOS already #include them within netinet/ip.h)
+  */
+@@ -914,6 +915,8 @@
+ {
+ #if !defined(_WIN32) && !defined(__native_client__)
+ 	int pipefd[2];
++	int secretfd[2] = {-1, -1};
++	int private_hip = getenv("GPCLIENT_APP_SESSION") != NULL;
+ 	int ret;
+ 	pid_t child;
+ #endif
+@@ -957,8 +960,20 @@
+ 		set_fd_cloexec(pipefd[0]);
+ 		set_fd_cloexec(pipefd[1]);
+ 	}
++	if (private_hip && pipe(secretfd)) {
++		close(pipefd[0]);
++		close(pipefd[1]);
++		return -EPERM;
++	}
++	if (private_hip) {
++		set_fd_cloexec(secretfd[0]);
++		set_fd_cloexec(secretfd[1]);
++	}
+ 	child = fork();
+ 	if (child == -1) {
++		close(pipefd[0]);
++		close(pipefd[1]);
++		if (private_hip) { close(secretfd[0]); close(secretfd[1]); }
+ 		vpn_progress(vpninfo, PRG_ERR, _("Failed to fork for HIP script\n"));
+ 		return -EPERM;
+ 	} else if (child > 0) {
+@@ -967,6 +982,40 @@
+ 		char b[256];
+ 		int i, status;
+ 		close(pipefd[1]);
++		if (private_hip) {
++			const char *values[] = {vpninfo->cookie, vpninfo->ip_info.addr,
++				vpninfo->ip_info.addr6, vpninfo->csd_token, gpst_os_name(vpninfo)};
++			int field, failed = 0;
++			close(secretfd[0]);
++			for (field = 0; field < 5 && !failed; field++) {
++				const char *value = values[field] ? values[field] : "";
++				size_t length = strlen(value), remaining;
++				uint32_t wire;
++				const unsigned char *cursor;
++				int part;
++				if (length > 262144) { failed = 1; break; }
++				wire = htonl((uint32_t)length);
++				for (part = 0; part < 2 && !failed; part++) {
++					cursor = part ? (const unsigned char *)value : (const unsigned char *)&wire;
++					remaining = part ? length : sizeof(wire);
++					while (remaining) {
++						ssize_t written = write(secretfd[1], cursor, remaining);
++						if (written < 0 && errno == EINTR) continue;
++						if (written <= 0) { failed = 1; break; }
++						cursor += written;
++						remaining -= written;
++					}
++				}
++			}
++			close(secretfd[1]);
++			if (failed) {
++				kill(child, SIGKILL);
++				waitpid(child, &status, 0);
++				close(pipefd[0]);
++				buf_free(report_buf);
++				return -EINVAL;
++			}
++		}
+ 
+ 		buf_truncate(report_buf);
+ 		while ((i = read(pipefd[0], b, sizeof(b))) > 0)
+@@ -996,6 +1045,7 @@
+ 				ret = 0;
+ 			}
+ 		}
++		close(pipefd[0]);
+ 		buf_free(report_buf);
+ 		return ret;
+ 	} else {
+@@ -1004,12 +1054,21 @@
+ 		int i = 0;
+ 		close(pipefd[0]);
+ 		/* The duplicated fd does not have O_CLOEXEC */
+-		dup2(pipefd[1], 1);
++		if (dup2(pipefd[1], 1) < 0) _exit(1);
++		close(pipefd[1]);
++		if (private_hip) {
++			close(secretfd[1]);
++			if (dup2(secretfd[0], 0) < 0) _exit(1);
++			close(secretfd[0]);
++		}
+ 
+ 		if (set_csd_user(vpninfo) < 0)
+ 			exit(1);
+ 
+ 		hip_argv[i++] = openconnect_utf8_to_legacy(vpninfo, vpninfo->csd_wrapper);
++		if (private_hip) {
++			hip_argv[i++] = "--gpclient-hip-input";
++		} else {
+ 		hip_argv[i++] = "--cookie";
+ 		hip_argv[i++] = vpninfo->cookie;
+ 		if (vpninfo->ip_info.addr) {
+@@ -1024,6 +1083,7 @@
+ 		hip_argv[i++] = vpninfo->csd_token;
+ 		hip_argv[i++] = "--client-os";
+ 		hip_argv[i++] = gpst_os_name(vpninfo);
++		}
+ 		hip_argv[i++] = NULL;
+ 
+ 		/* XX: Sending the above parameters as --long-options was a mistake that was
+--- a/gnutls.c
++++ b/gnutls.c
+@@ -2597,7 +2597,7 @@
+ 	 * However, this has proven to be incorrect in current releases:
+ 	 * https://gitlab.com/gnutls/gnutls/-/issues/1798
+ 	 */
+-	if (gnutls_pkcs11_init(GNUTLS_PKCS11_FLAG_AUTO, NULL) < 0) {
++	if (gnutls_pkcs11_init(getenv("GPCLIENT_APP_SESSION") ? GNUTLS_PKCS11_FLAG_MANUAL : GNUTLS_PKCS11_FLAG_AUTO, NULL) < 0) {
+ 		/* Non-fatal: continue even if PKCS#11 init fails */
+ 	}
+ #endif
+--- a/version.sh
++++ b/version.sh
+@@ -17,5 +17,7 @@
+ 	v="$v"-unknown
+ fi
+ 
++v="v9.21-gpclient1"
++
+ echo "const char openconnect_version_str[] = \"$v\";" > $1
+ echo "New version: $v"
+--- a/ssl.c
++++ b/ssl.c
+@@ -1199,6 +1199,8 @@
+ 	int tun_up = tun_is_up(vpninfo);
+ 
+ 	openconnect_close_https(vpninfo, 0);
++	if (getenv("GPCLIENT_APP_SESSION"))
++		return -EIO;
+ 
+ 
+ 	timeout = vpninfo->reconnect_timeout;
