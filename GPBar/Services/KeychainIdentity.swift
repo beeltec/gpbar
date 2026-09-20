@@ -4,9 +4,15 @@ import LocalAuthentication
 import Security
 
 struct CertificateChoice: Identifiable, Sendable {
-    let id: String
+    let fingerprint: String
     let name: String
     let reference: Data
+    let tokenID: String?
+
+    var id: String {
+        guard let tokenID else { return fingerprint }
+        return fingerprint + SHA256.hash(data: Data(tokenID.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
 }
 
 // Keychain work uses one serial queue. Only LAContext's pending-operation cancellation crosses that queue.
@@ -65,10 +71,13 @@ enum KeychainIdentity {
                   let reference = reference as? Data, reference.count <= 4096 else { continue }
             let data = SecCertificateCopyData(certificate) as Data
             let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            guard !choices.contains(where: { $0.id == fingerprint }) else { continue }
+            guard let key = try? privateKey(identity),
+                  let attributes = SecKeyCopyAttributes(key) as? [String: Any] else { continue }
+            let tokenID = attributes[kSecAttrTokenID as String] as? String
             let subject = (SecCertificateCopySubjectSummary(certificate) as String?) ?? "Client certificate"
             let name = String(subject.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.prefix(256))
-            choices.append(CertificateChoice(id: fingerprint, name: name, reference: reference))
+            let choice = CertificateChoice(fingerprint: fingerprint, name: name, reference: reference, tokenID: tokenID)
+            if !choices.contains(where: { $0.id == choice.id }) { choices.append(choice) }
         }
         return choices.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import ServiceManagement
 import Network
+import CryptoTokenKit
 
 @MainActor @Observable final class ConnectionModel {
     let preferences = ConnectionPreferences()
@@ -18,6 +19,11 @@ import Network
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
     private(set) var certificateError: String?
+    private let tokenWatcher = TKTokenWatcher()
+    private var availableTokenIDs: Set<String> = []
+    var selectedTokenMissing: Bool {
+        preferences.certificateTokenID.map { !availableTokenIDs.contains($0) } ?? false
+    }
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
     private var quitAfterDisconnect = false
@@ -30,6 +36,16 @@ import Network
     var settingsLocked: Bool { sessionID != nil || phase.isActive }
 
     init() {
+        availableTokenIDs = Set(tokenWatcher.tokenIDs)
+        tokenWatcher.setInsertionHandler { [weak self] tokenID in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.availableTokenIDs = Set(self.tokenWatcher.tokenIDs)
+                self.tokenWatcher.addRemovalHandler({ [weak self] removedID in
+                    Task { @MainActor [weak self] in self?.tokenRemoved(removedID) }
+                }, forTokenID: tokenID)
+            }
+        }
         helper.onEvent = { [weak self] event in self?.receive(event) }
         helper.onInterruption = { [weak self] in
             guard let self else { return }
@@ -75,6 +91,7 @@ import Network
         guard !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
+        guard !selectedTokenMissing else { error = "Insert the selected smart card or hardware token, then try again."; return }
         let newSession = UUID().uuidString
         sessionID = newSession
         engineStartSent = false
@@ -109,7 +126,9 @@ import Network
                     sessionID = nil
                     startPending = false
                     phase = .failed
-                    self.error = "The selected certificate is unavailable or access was denied. Choose a valid certificate or try again."
+                    self.error = preferences.certificateTokenID == nil
+                        ? "The selected certificate is unavailable or access was denied. Choose a valid certificate or try again."
+                        : "The selected token is unavailable or access was denied. Reinsert it, refresh the certificate list, and try again."
                 }
             }
         } else {
@@ -141,19 +160,39 @@ import Network
         certificateError = nil
         Task {
             defer { loadingCertificates = false }
-            do { certificateChoices = try await KeychainIdentity.loadChoices() }
+            do {
+                let choices = try await KeychainIdentity.loadChoices()
+                availableTokenIDs = Set(tokenWatcher.tokenIDs)
+                certificateChoices = choices.filter { choice in
+                    choice.tokenID.map { availableTokenIDs.contains($0) } ?? true
+                }
+            }
             catch { certificateChoices = []; certificateError = "Certificates could not be read from Keychain. Unlock your login Keychain and try again." }
         }
     }
 
-    func selectCertificate(_ choice: CertificateChoice?) {
-        guard !settingsLocked else { return }
+    @discardableResult func selectCertificate(_ choice: CertificateChoice?) -> Bool {
+        guard !settingsLocked else { return false }
+        if let tokenID = choice?.tokenID, !tokenWatcher.tokenIDs.contains(tokenID) {
+            certificateError = "The selected token was removed. Reinsert it and choose Refresh."
+            return false
+        }
         preferences.clearCertificate()
         if let choice {
             preferences.certificateReference = choice.reference
             preferences.certificateName = choice.name
             preferences.certificateID = choice.id
+            preferences.certificateTokenID = choice.tokenID
         }
+        return true
+    }
+
+    private func tokenRemoved(_ tokenID: String) {
+        availableTokenIDs = Set(tokenWatcher.tokenIDs)
+        certificateChoices.removeAll { $0.tokenID == tokenID }
+        guard preferences.certificateTokenID == tokenID else { return }
+        if sessionID != nil { disconnect() }
+        error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
     }
 
     private func sign(_ event: EngineEvent, session: String) {
@@ -176,6 +215,11 @@ import Network
             let signature = try? await KeychainIdentity.signature(reference: reference, context: context, scheme: scheme, digest: digest, input: input)
             guard sessionID == session, signatureRequestID == requestID, phase != .disconnecting else { return }
             signatureRequestID = nil
+            if signature == nil, preferences.certificateTokenID != nil {
+                disconnect()
+                error = "Token signing was cancelled or failed. Check the card and its PIN, then connect again."
+                return
+            }
             send(EngineCommand(type: .submitSignature, requestID: requestID, signature: signature))
         }
     }
@@ -305,6 +349,10 @@ import Network
                 if !cleanupRequired { connect(browserOverride: .systemDefault) }
             }
         case .ready: break
+        }
+        if selectedTokenMissing, sessionID != nil, phase != .disconnecting {
+            disconnect()
+            error = "The selected smart card or hardware token is unavailable. Reinsert it and connect again."
         }
     }
     private let helper = HelperClient()
