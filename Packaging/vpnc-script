@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+helper_directory=$(CDPATH= cd -- "$(dirname -- "$0")/../MacOS" && pwd)
+exec "$helper_directory/GPClientHelper" --network-script

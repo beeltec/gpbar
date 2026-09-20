@@ -1,0 +1,227 @@
+# Continuous integration for openprotect.
+#
+# Runs on every push to `main` and every pull request. The
+# Rust toolchain is selected by `rust-toolchain.toml` at the
+# repo root and every job inherits that choice, so CI tracks
+# the same channel developers use locally.
+#
+# Split into four parallel jobs so a formatting failure
+# short-circuits without waiting on the slower build, and a
+# clippy failure surfaces while tests are still running:
+#
+#   * fmt      — no system deps, no caching, fastest feedback
+#   * check    — full build + clippy + test with system deps
+#                and a shared cargo cache
+#   * docs     — workspace rustdoc generation with warnings
+#                promoted to errors
+#   * cargo-deny — dependency-governance gate: RustSec
+#                advisories, license allowlist, banned-crate
+#                list, and source-registry lockdown, all per
+#                `deny.toml` at the repo root. Runs without
+#                openprotect's system deps because cargo-deny
+#                only needs Cargo.toml + Cargo.lock.
+#
+# There's intentionally no `--no-default-features` matrix
+# dimension: after the embedded webview provider was retired
+# in `f14a37d`, neither `gp-auth` nor `opc` declares any
+# cargo features at all, so `--no-default-features` is a
+# no-op build equivalent to `--all-features` and `cargo
+# build` alike. If a future commit re-introduces feature
+# flags, add a matrix job that covers the disabled-by-
+# default combinations before merging it.
+#
+# Concurrency group cancels older in-progress runs for the
+# same ref so a rapid-fire series of pushes doesn't eat the
+# runner budget.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Scope the group by `github.workflow` as well as the ref so
+  # adding a second workflow (e.g. a release or nightly-audit
+  # job in a follow-up) doesn't accidentally cancel CI runs,
+  # or vice versa. Within this workflow, a rapid-fire push
+  # series still cancels older in-progress runs on the same
+  # ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Keep the compilation log tight so failures are scannable.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust toolchain (from rust-toolchain.toml)
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          # The action reads `rust-toolchain.toml` automatically
+          # when `toolchain` is unset. Components still have to
+          # be listed here so the action asks rustup to install
+          # rustfmt on top of the pinned channel.
+          components: rustfmt
+          cache: false
+      - run: cargo fmt --all -- --check
+
+  check:
+    name: build + clippy + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenconnect-dev \
+            libclang-dev \
+            libssl-dev \
+            libdbus-1-dev \
+            pkg-config
+
+      - name: Install Rust toolchain (from rust-toolchain.toml)
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          # Disable the action's built-in cache so
+          # `Swatinem/rust-cache` below owns caching — it has
+          # a more accurate key (includes Cargo.lock + target
+          # triple) and invalidates less aggressively.
+          cache: false
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-check
+
+      - name: Build
+        run: cargo build --workspace --all-targets --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+  docs:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenconnect-dev \
+            libclang-dev \
+            libssl-dev \
+            libdbus-1-dev \
+            pkg-config
+
+      - name: Install Rust toolchain (from rust-toolchain.toml)
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-docs
+
+      - name: Build docs
+        run: cargo doc --workspace --no-deps --locked
+
+  gui:
+    name: opc-gui (windows target)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # `bins/opc-gui` sits OUTSIDE the workspace with its own
+    # Cargo.lock, so `cargo build --workspace` never reaches it and
+    # `cargo fmt --all` never format-checks it. Before this job, the
+    # GUI was compiled for the first time during a release — which is
+    # how v0.2.0-alpha.21 died: 11 `float_literal_f32_fallback` errors
+    # in opc-gui surfaced only after every other release artifact had
+    # already built, and no release was published.
+    #
+    # The GUI cannot be built on Linux: `eframe` is taken with
+    # `default-features = false` and no `x11`/`wayland`, so winit
+    # emits "The platform you're compiling for is not supported".
+    # Cross-*checking* against the Windows target works fine from an
+    # ubuntu runner though — no linker, no Windows minutes — and
+    # since the lints that bite here are type-inference lints, they
+    # fire during `cargo check`. Verified by reintroducing the
+    # alpha.21 bug and watching this exact command reject it.
+    #
+    # macOS is not cross-checked: it needs the Apple SDK. A macOS-only
+    # break is still possible, but the shared code is what changes.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain (from rust-toolchain.toml)
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          target: x86_64-pc-windows-msvc
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ci-gui
+
+      - name: Check opc-gui
+        run: >-
+          cargo check
+          --manifest-path bins/opc-gui/Cargo.toml
+          --target x86_64-pc-windows-msvc
+          --locked
+
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # cargo-deny doesn't need to compile anything — it only
+    # parses Cargo.toml + Cargo.lock and walks the dep graph.
+    # No system libs, no rust-cache. The action ships its own
+    # cargo-deny binary pinned to a version the maintainers
+    # test, which is preferable to `cargo install cargo-deny`
+    # because a compromised cargo-deny release would otherwise
+    # slip into CI unverified.
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          # All four sections: advisories, bans, licenses,
+          # sources. See `deny.toml` at the repo root for the
+          # exact rules — the key policy points are:
+          # RustSec advisories are hard errors, the license
+          # allowlist is deny-by-default (with a per-crate
+          # exception for webpki-roots's CDLA-Permissive-2.0
+          # CA bundle), the retired GUI + native-tls stack
+          # is banned by name, and every dep must come from
+          # crates.io.
+          command: check all
+          # Pin `arguments: ""` so the action doesn't inject
+          # any verbosity flags that would break on a future
+          # cargo-deny CLI shuffle.
+          arguments: ""

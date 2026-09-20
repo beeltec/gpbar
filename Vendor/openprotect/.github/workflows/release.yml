@@ -1,0 +1,384 @@
+# Build release binaries for Linux, macOS, and Windows, then publish a
+# GitHub Release with the artifacts.
+#
+# Artifacts:
+#   - openprotect-cli-linux-x86_64.tar.gz   (opc binary)
+#   - openprotect-cli-linux-aarch64.tar.gz  (opc binary, ARM64)
+#   - openprotect-cli-macos-x86_64.tar.gz   (opc binary + bundled dylibs)
+#   - openprotect-gui-macos-x86_64.tar.gz   (opc + opc-gui + bundled dylibs)
+#   - openprotect-cli-macos-arm64.tar.gz    (opc binary + bundled dylibs)
+#   - openprotect-gui-macos-arm64.tar.gz    (opc + opc-gui + bundled dylibs)
+#   - openprotect-cli-windows-x86_64.zip    (opc.exe + DLLs + wintun)
+#   - openprotect-gui-windows-x86_64.zip    (opc.exe + opc-gui.exe + DLLs + wintun)
+#
+# Triggered by pushing a tag like `v0.1.0`.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  release-linux:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenconnect-dev libclang-dev libssl-dev \
+            libdbus-1-dev pkg-config
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          # The action defaults RUSTFLAGS to `-D warnings`. That is the
+          # right policy for CI, which gates every PR, but it is the
+          # wrong one here: a release build must not be blocked by a
+          # lint that a runner picked up from a newer rustc. That is
+          # not hypothetical — `float_literal_f32_fallback` landed in
+          # 1.97 and broke v0.2.0-alpha.21 on the one macOS runner that
+          # happened to have it, after every other job had succeeded.
+          rustflags: ""
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-linux
+
+      - name: Build
+        run: cargo build --release -p opc --locked
+
+      - name: Package CLI
+        run: |
+          mkdir -p dist
+          cp target/release/opc dist/
+          cp README.md LICENSE-* dist/ 2>/dev/null || true
+          tar -czf openprotect-cli-linux-x86_64.tar.gz -C dist .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-cli-linux-x86_64
+          path: openprotect-cli-linux-x86_64.tar.gz
+
+  release-linux-arm64:
+    name: Linux aarch64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libopenconnect-dev libclang-dev libssl-dev \
+            libdbus-1-dev pkg-config
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          # The action defaults RUSTFLAGS to `-D warnings`. That is the
+          # right policy for CI, which gates every PR, but it is the
+          # wrong one here: a release build must not be blocked by a
+          # lint that a runner picked up from a newer rustc. That is
+          # not hypothetical — `float_literal_f32_fallback` landed in
+          # 1.97 and broke v0.2.0-alpha.21 on the one macOS runner that
+          # happened to have it, after every other job had succeeded.
+          rustflags: ""
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-linux-arm64
+
+      - name: Build
+        run: cargo build --release -p opc --locked
+
+      - name: Package CLI
+        run: |
+          mkdir -p dist
+          cp target/release/opc dist/
+          cp README.md LICENSE-* dist/ 2>/dev/null || true
+          tar -czf openprotect-cli-linux-aarch64.tar.gz -C dist .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-cli-linux-aarch64
+          path: openprotect-cli-linux-aarch64.tar.gz
+
+  release-windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          # The action defaults RUSTFLAGS to `-D warnings`. That is the
+          # right policy for CI, which gates every PR, but it is the
+          # wrong one here: a release build must not be blocked by a
+          # lint that a runner picked up from a newer rustc. That is
+          # not hypothetical — `float_literal_f32_fallback` landed in
+          # 1.97 and broke v0.2.0-alpha.21 on the one macOS runner that
+          # happened to have it, after every other job had succeeded.
+          rustflags: ""
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-windows
+
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18"
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gnutls
+            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-lz4
+            mingw-w64-x86_64-p11-kit
+            mingw-w64-x86_64-gmp
+            mingw-w64-x86_64-nettle
+            mingw-w64-x86_64-autotools
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libidn2
+            mingw-w64-x86_64-jq
+            mingw-w64-x86_64-tools-git
+            git
+            make
+            automake
+            autoconf
+            libtool
+
+      - name: Build libopenconnect
+        shell: msys2 {0}
+        run: |
+          # Capture the checkout dir (unix-style) before we cd away, so we
+          # can find the vendored patch regardless of GITHUB_WORKSPACE's
+          # Windows path form.
+          repo_root="$(pwd)"
+          export PATH="/mingw64/bin:$PATH"
+          cd /tmp
+          # Pin to a tag (not master) so our esp.c patch context stays stable.
+          git clone --depth 1 --branch v9.21 https://gitlab.com/openconnect/openconnect.git
+          cd openconnect
+          # Fix the Windows ESP send path: upstream esp.c classifies send()
+          # failures with POSIX errno, but Winsock reports them via
+          # WSAGetLastError(), so errno stays 0 and every transient failure
+          # logs "Failed to send ESP packet: No error" (strerror(0)). The
+          # patch mirrors the file's own receive-path WSAGetLastError()
+          # handling. See patches/openconnect-esp-win32-send-errno.patch.
+          git apply "$repo_root/patches/openconnect-esp-win32-send-errno.patch"
+          ./autogen.sh
+          mkdir -p /mingw64/etc
+          echo "#!/bin/sh" > /mingw64/etc/vpnc-script
+          chmod +x /mingw64/etc/vpnc-script
+          ./configure --prefix=/mingw64 --with-gnutls --without-openssl \
+            --disable-nls --disable-docs --without-libpskc --without-stoken \
+            --without-libpcsclite --with-vpnc-script=/mingw64/etc/vpnc-script
+          make -j$(nproc)
+          make install
+
+      - name: Generate MSVC import library
+        shell: msys2 {0}
+        run: |
+          export PATH="/mingw64/bin:$PATH"
+          cd /tmp
+          gendef /mingw64/bin/libopenconnect-5.dll
+
+      - name: Create .lib from .def
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $libExe = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\lib.exe" | Select-Object -First 1
+          & $libExe /def:D:\a\_temp\msys64\tmp\libopenconnect-5.def /out:D:\a\_temp\msys64\mingw64\lib\openconnect.lib /machine:x64
+
+      - name: Build opc (CLI)
+        env:
+          OPENCONNECT_DIR: D:\a\_temp\msys64\mingw64
+          LIBCLANG_PATH: ${{ env.LLVM_PATH }}/bin
+        run: cargo build --release -p opc --locked
+
+      - name: Build opc-gui (GUI)
+        env:
+          OPENCONNECT_DIR: D:\a\_temp\msys64\mingw64
+          LIBCLANG_PATH: ${{ env.LLVM_PATH }}/bin
+        run: cargo build --release --manifest-path bins/opc-gui/Cargo.toml
+
+      - name: Collect DLLs
+        shell: msys2 {0}
+        run: |
+          export PATH="/mingw64/bin:$PATH"
+          mkdir -p dll-cache
+          cp /mingw64/bin/libopenconnect-5.dll dll-cache/
+          ldd /mingw64/bin/libopenconnect-5.dll | grep mingw64 | awk '{print $3}' | \
+            while read dll; do cp "$dll" dll-cache/; done
+
+      - name: Package CLI and GUI
+        shell: pwsh
+        run: |
+          # Download Wintun
+          Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile wintun.zip
+          Expand-Archive -Path wintun.zip -DestinationPath wintun-extract -Force
+
+          # --- CLI package ---
+          New-Item -ItemType Directory -Path openprotect-cli-win -Force
+          Copy-Item target\release\opc.exe openprotect-cli-win\
+          Copy-Item dll-cache\* openprotect-cli-win\
+          Copy-Item wintun-extract\wintun\bin\amd64\wintun.dll openprotect-cli-win\
+          Copy-Item README.md openprotect-cli-win\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path openprotect-cli-win\* -DestinationPath openprotect-cli-windows-x86_64.zip -Force
+
+          # --- GUI package ---
+          New-Item -ItemType Directory -Path openprotect-gui-win -Force
+          Copy-Item target\release\opc.exe openprotect-gui-win\
+          Copy-Item bins\opc-gui\target\release\opc-gui.exe openprotect-gui-win\
+          Copy-Item dll-cache\* openprotect-gui-win\
+          Copy-Item wintun-extract\wintun\bin\amd64\wintun.dll openprotect-gui-win\
+          Copy-Item README.md openprotect-gui-win\ -ErrorAction SilentlyContinue
+          Compress-Archive -Path openprotect-gui-win\* -DestinationPath openprotect-gui-windows-x86_64.zip -Force
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-cli-windows-x86_64
+          path: openprotect-cli-windows-x86_64.zip
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-gui-windows-x86_64
+          path: openprotect-gui-windows-x86_64.zip
+
+  release-macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x86_64
+          - runner: macos-14
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          brew install pkgconf openconnect dylibbundler
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          # The action defaults RUSTFLAGS to `-D warnings`. That is the
+          # right policy for CI, which gates every PR, but it is the
+          # wrong one here: a release build must not be blocked by a
+          # lint that a runner picked up from a newer rustc. That is
+          # not hypothetical — `float_literal_f32_fallback` landed in
+          # 1.97 and broke v0.2.0-alpha.21 on the one macOS runner that
+          # happened to have it, after every other job had succeeded.
+          rustflags: ""
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-macos-${{ matrix.arch }}
+
+      - name: Build CLI
+        run: cargo build --release -p opc --locked
+
+      - name: Build GUI
+        run: cargo build --release --manifest-path bins/opc-gui/Cargo.toml --locked
+
+      - name: Package CLI and GUI
+        run: |
+          set -euxo pipefail
+
+          cli_dir="openprotect-cli-macos-${{ matrix.arch }}"
+          gui_dir="openprotect-gui-macos-${{ matrix.arch }}"
+
+          mkdir -p "$cli_dir" "$gui_dir"
+
+          cp target/release/opc "$cli_dir/"
+          cp README.md LICENSE-* "$cli_dir/" 2>/dev/null || true
+
+          cp target/release/opc "$gui_dir/"
+          cp bins/opc-gui/target/release/opc-gui "$gui_dir/"
+          cp README.md LICENSE-* "$gui_dir/" 2>/dev/null || true
+
+          dylibbundler -od -b \
+            -x "$cli_dir/opc" \
+            -d "$cli_dir/lib" \
+            -p "@executable_path/lib"
+
+          dylibbundler -od -b \
+            -x "$gui_dir/opc" \
+            -d "$gui_dir/lib" \
+            -p "@executable_path/lib"
+
+          tar -czf "${cli_dir}.tar.gz" -C "$cli_dir" .
+          tar -czf "${gui_dir}.tar.gz" -C "$gui_dir" .
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-cli-macos-${{ matrix.arch }}
+          path: openprotect-cli-macos-${{ matrix.arch }}.tar.gz
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: openprotect-gui-macos-${{ matrix.arch }}
+          path: openprotect-gui-macos-${{ matrix.arch }}.tar.gz
+
+  create-release:
+    name: Create GitHub Release
+    needs: [release-linux, release-linux-arm64, release-macos, release-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: |
+            openprotect-cli-linux-x86_64/openprotect-cli-linux-x86_64.tar.gz
+            openprotect-cli-linux-aarch64/openprotect-cli-linux-aarch64.tar.gz
+            openprotect-cli-macos-x86_64/openprotect-cli-macos-x86_64.tar.gz
+            openprotect-gui-macos-x86_64/openprotect-gui-macos-x86_64.tar.gz
+            openprotect-cli-macos-arm64/openprotect-cli-macos-arm64.tar.gz
+            openprotect-gui-macos-arm64/openprotect-gui-macos-arm64.tar.gz
+            openprotect-cli-windows-x86_64/openprotect-cli-windows-x86_64.zip
+            openprotect-gui-windows-x86_64/openprotect-gui-windows-x86_64.zip
