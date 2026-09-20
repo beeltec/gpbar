@@ -65,7 +65,10 @@ This does not establish compatibility with the proposed macOS 14 deployment targ
 - User-entered connection address, editable during setup and later in settings.
 - Optional connection display name; use the portal hostname when no name is supplied.
 - Browser-based SAML login through the portal's identity provider and gateway OTP entry when requested.
-- Masked callback paste as a dependable fallback.
+- Saved browser choice: in-app browser by default, system default browser, or a specific installed browser application.
+- Automatic handling of `globalprotectcallback:` to continue connection setup without another Connect action.
+- Automatic closure of the owned sign-in window or external authentication tab, subject to verified browser capabilities.
+- Masked callback paste only as a troubleshooting fallback.
 - Connect, cancel, disconnect, and reconnect states.
 - Connection details: portal, gateway, account, assigned IP, interface, and elapsed time.
 - Helper setup, permission status, and repair guidance.
@@ -81,7 +84,7 @@ This does not establish compatibility with the proposed macOS 14 deployment targ
 - Custom split-route and DNS editors.
 - Password-based portals, direct Okta authentication, and certificate-management UI.
 - Traffic graphs or byte counters without backend support.
-- Automatic connection after login or reboot.
+- Starting a VPN connection automatically when the user signs into macOS or reboots, without clicking Connect.
 - Automatic updates, cloud settings, analytics, and remote administration.
 - Intel builds, App Store distribution, and a Network Extension implementation.
 - Kill-switch behavior or claims that every application uses the tunnel.
@@ -91,6 +94,11 @@ Use Reference provider as the first real compatibility check, not as a product r
 Portal configuration must drive authentication, gateway discovery, HIP, and connection setup without company-specific branches.
 Show a clear unsupported-authentication message if a portal requires a deferred authentication method.
 An editable address does not imply support for every GlobalProtect authentication policy.
+
+“Launch at login” starts the menu bar application when the user signs into macOS.
+It does not start a VPN connection.
+The normal flow is Connect → browser login → automatic callback handling → tunnel establishment and browser cleanup.
+Automatic continuation after browser login is included in the first release.
 
 ## 4. Architecture decisions
 
@@ -255,11 +263,15 @@ Build the accessibility label from the actual connection name, such as “GPClie
 ### Sign-in, settings, and accessibility
 
 Use a persistent sign-in window because the menu bar panel closes when users switch to the browser.
-Include Open Browser, a masked callback field, Continue, and Cancel.
+Default to an in-app browser in that window, with the current login hostname visible and a Cancel action.
+Offer “In-app browser”, “Default browser”, and “Choose browser…” in the browser setting.
+For external browsers, show login progress and actions to reopen the authentication page or cancel.
+Keep callback paste under a troubleshooting disclosure; normal login must not require copying a link or pressing Continue.
 Show OTP entry only when requested by the engine.
-Do not embed an identity-provider webview in version one.
+Closing the owned sign-in window before authentication completes cancels that login attempt.
 
-Settings contain the portal, display name, launch-at-login toggle, reconnection preference, and helper status.
+Settings contain the portal, display name, browser choice, launch-at-login toggle, reconnection preference, and helper status.
+Persist browser choice with the other non-secret preferences.
 Lock connection settings while a session is active.
 Changing launch-at-login must not connect the VPN.
 
@@ -340,6 +352,7 @@ Retain existing CLI sockets only for ordinary CLI mode.
 | Engine → helper | `ready` | Report protocol and real tunnel capabilities. |
 | Engine → helper | `phase_changed` | Report preparation, login, tunnel setup, reconnect, or shutdown. |
 | Engine → helper | `authentication_required` | Provide challenge ID and approved local browser launch URL. |
+| Engine → helper | `authentication_completed` | Confirm successful credential exchange for the challenge so its browser can close. |
 | Engine → helper | `otp_required` | Provide challenge ID and a sanitized user prompt. |
 | Engine → helper | `snapshot` | Provide confirmed session details and readiness. |
 | Engine → helper | `failure` | Provide stable error code, safe message, and retry classification. |
@@ -370,12 +383,72 @@ Replacing only the first SAML prompt will leave reconnect sessions waiting on in
 2. The app checks helper readiness and sends validated settings.
 3. The helper reserves the single session and starts the bundled engine.
 4. The engine performs portal prelogin and emits an authentication challenge.
-5. The app opens the sign-in window and launches the default browser through `NSWorkspace`.
+5. The app opens the authentication page in the user's saved browser choice, defaulting to the in-app browser.
 6. The user completes their organization's identity-provider login and any browser MFA.
-7. A callback reaches the active challenge through native URL handling or explicit paste.
-8. The engine validates its structure and submits the credential through the existing portal flow.
-9. The app handles any separate gateway OTP challenge.
-10. The engine establishes the tunnel, applies network settings, and reports readiness.
+7. The browser follows `globalprotectcallback:` and the app captures it automatically for the active challenge.
+8. The engine validates the callback and exchanges the credential through the existing portal flow.
+9. After authentication succeeds, the app closes its in-app browser or requests closure of the owned external authentication tab.
+10. Connection setup continues automatically; the app handles any separate gateway OTP challenge.
+11. The engine establishes the tunnel, applies network settings, and reports readiness.
+
+The user clicks Connect once and completes the required login steps.
+No manual token transfer or second Connect action belongs to the normal flow.
+Browser cleanup must not delay tunnel establishment or make a successful authentication fail.
+
+### Browser implementation and saved selection
+
+Use one user-process authentication coordinator to own browser presentation, the active challenge, callback delivery, and cleanup.
+Keep browser-specific code behind this small interface.
+The root helper must never open browsers or control other applications.
+
+| Choice | Implementation | Callback and cleanup |
+| --- | --- | --- |
+| In-app browser, default | SwiftUI window hosting `WKWebView` through `NSViewRepresentable`. | Intercept the callback navigation, deliver it to the active challenge, and close the owned window after authentication succeeds. |
+| Default browser | Prefer `ASWebAuthenticationSession` when the selected browser and portal support it. Otherwise use explicit external launch. | Use session-scoped callback delivery where available; verify the browser's authentication-page cleanup behavior. |
+| Specific browser application | Resolve the saved browser application and open the launch URL in that application. | Use native callback delivery and a verified browser-specific mechanism to close only the owned authentication tab. |
+
+For the in-app browser, inspect navigation with `WKNavigationDelegate` and cancel navigation to `globalprotectcallback:` after capture.
+Handle new-window requests through `WKUIDelegate`, including callback links using `target="_blank"`.
+Use the same coordinator for popups belonging to the login attempt.
+Apple exposes navigation decisions and new-window handling through these delegates. [Navigation delegate](https://developer.apple.com/documentation/webkit/wknavigationdelegate), [UI delegate](https://developer.apple.com/documentation/webkit/wkuidelegate)
+
+Keep WebKit's normal TLS validation and show the current hostname throughout login.
+Use an isolated, nonpersistent website data store initially; do not copy external-browser cookies into the app.
+The user signs into the identity provider directly; do not inspect password fields or inject credential-capture scripts.
+Validate redirects, form posts, popups, MFA, passkeys, and the tenant's device-access requirements in the browser compatibility spike.
+If the tenant rejects embedded login, explain the failure and offer a fresh attempt in the user's chosen external browser.
+Do not silently change their saved preference.
+
+On macOS, `ASWebAuthenticationSession` uses a compatible default browser, or Safari as a fallback.
+It is not an embedded browser and cannot select an arbitrary browser application.
+Its callback delivery is scoped to the requesting session, including when applications share a callback scheme. [Web authentication sessions](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession)
+Validate its initializer availability against macOS 14 and its handling of the actual GlobalProtect callback format.
+Explain any system browser fallback instead of claiming that it used the selected default browser.
+
+Populate the specific-browser picker from installed applications that can handle web URLs.
+Save the browser's bundle identifier and resolve its current installation when starting a session.
+If it is unavailable, offer browser selection rather than launching a different browser silently.
+Apple supports opening a URL in a specified application through `NSWorkspace`. [Opening URLs in a chosen application](https://developer.apple.com/documentation/appkit/nsworkspace/open(_:withapplicationat:configuration:completionhandler:))
+
+### External tab closure and capability limits
+
+The requested outcome is automatic closure of the authentication tab after successful login.
+Treat callback capture and tab closure as separate capabilities in the browser compatibility record.
+Opening a URL with `NSWorkspace` returns an application reference, not an owned tab handle.
+Therefore, generic URL launch alone cannot implement reliable tab closure. [NSWorkspace return value](https://developer.apple.com/documentation/appkit/nsworkspace/open(_:withapplicationat:configuration:completionhandler:))
+
+First verify cleanup through browser-managed authentication sessions.
+For explicit browser applications, investigate narrow browser adapters that create and track only the authentication tab or a dedicated authentication window.
+Use browser-supported automation only where a stable reference and its ownership can be verified.
+Request macOS Automation access only if that browser adapter requires it, and explain its purpose.
+Do not close the active tab by position, send a global close shortcut, or quit the browser.
+Do not scan unrelated tabs or include their content in diagnostics.
+
+Do not assume a launch page can always close an external tab with JavaScript.
+Browsers restrict `window.close()` based on how the window was opened. [Browser window-closing rules](https://developer.mozilla.org/en-US/docs/Web/API/Window/close)
+If closure is unavailable or permission is denied, finish connecting and explain that the user can close the authentication tab.
+Record that browser as lacking automatic cleanup; do not mark the requested behavior as fully implemented for that browser.
+Resolve the supported browser matrix during Phase 0 and carry unresolved closure gaps into the release criteria.
 
 ### Browser launch and callback handling
 
@@ -385,14 +458,16 @@ Remove Tailscale listeners and public-IP discovery from this mode.
 Use an unpredictable, short-lived launch path and close the server after completion or cancellation.
 Deliver the callback through authenticated XPC and private pipes, rather than an unauthenticated HTTP callback endpoint.
 
-First deliver the masked paste flow; it matches the supplied setup.
-Then evaluate automatic `globalprotectcallback:` handling on the real tenant.
-That scheme may already belong to the official GlobalProtect application.
+Automatic `globalprotectcallback:` handling is required, starting with interception inside the in-app browser.
+For external launch without a managed authentication session, register native URL handling and route events into the active coordinator.
+The scheme may already belong to the official GlobalProtect application.
 A custom replacement scheme cannot be assumed to work with the identity provider.
 
 Treat scheme registration as a compatibility decision during the initial spike.
 Do not change the default handler silently.
-If native registration disrupts the official client, ship paste handling first and defer automatic capture.
+Prefer in-app interception or session-scoped callback delivery when those avoid a handler conflict.
+If a chosen external browser needs a handler change, explain that requirement and provide a clear setup action.
+An unresolved external callback conflict is a compatibility gap; manual paste does not satisfy the primary flow.
 Document how both clients can remain installed.
 
 Only accept callbacks while the matching session is waiting for authentication.
@@ -484,6 +559,7 @@ Validate behavior during Wi-Fi changes, Ethernet changes, sleep, wake, and gatew
 - Closing the menu bar panel or settings leaves the connection active.
 - Quit while connected offers “Disconnect and Quit” and “Cancel”.
 - Cancel during login closes authentication listeners and terminates the pending session.
+- Cancel or timeout closes owned in-app browser windows and requests cleanup of the owned external authentication page.
 - A UI crash leaves an established tunnel active under helper supervision.
 - Relaunching the app reconnects to the owned session and retrieves its state.
 - Losing the UI during authentication cancels the challenge after a bounded grace period.
@@ -608,13 +684,17 @@ Tasks:
 - Validate another GlobalProtect portal when an approved environment is available; record any compatibility limits if it is unavailable.
 - Record gateway login, HIP, route setup, DNS, disconnect, and reconnect behavior.
 - Verify callback ownership with the official client installed.
+- Prove the full callback flow in an in-app WebKit window, a default browser, and a specifically selected browser application.
+- Record callback capture, tab closure, permissions, and tenant compatibility for each supported browser.
+- Resolve external tab ownership before promising automatic closure for a browser.
 - Prove a signed helper can register, require approval, and accept authenticated XPC.
 - Prove a minimal packaged engine runs without resolving Homebrew runtime paths.
 - Choose the bundle identifier, signing team, and initial supported OS matrix.
 
 Deliverable: `docs/upstream.md`, a compatibility record, and a minimal working helper/engine spike.
 
-Exit condition: no unresolved blocker in root access, authentication, runtime packaging, or minimum OS support.
+Exit condition: no unresolved blocker in root access, automatic authentication callbacks, browser selection, runtime packaging, or minimum OS support.
+Document browser cleanup gaps explicitly; a successful callback alone does not complete the requested browser lifecycle.
 If macOS 14 cannot be supported, document the exact dependency before changing the target.
 
 ### Phase 1 — Native application shell
@@ -623,6 +703,7 @@ Tasks:
 
 - Create the application and helper targets with shared build settings.
 - Implement the menu bar scene, settings, and persistent sign-in window.
+- Add the in-app WebKit host and persisted browser picker.
 - Implement empty first-run connection setup, address validation, saved configuration, and Edit connection.
 - Implement the design tokens and connection path component.
 - Create the typed connection state model.
@@ -673,8 +754,11 @@ Initial macOS helper approval remains part of setup.
 
 Tasks:
 
-- Implement default-browser launch and the masked paste flow.
-- Add automatic callback capture only if the compatibility spike supports it safely.
+- Implement the authentication coordinator with in-app, default-browser, and specific-browser modes.
+- Capture callbacks automatically in each supported mode and continue connection setup without another user action.
+- Close the owned in-app browser after successful authentication and implement verified external authentication-page cleanup.
+- Handle denied automation access, missing browsers, and callback-handler conflicts with clear recovery actions.
+- Keep masked callback paste available only for troubleshooting.
 - Implement OTP and expired-session flows.
 - Bind real state, gateway details, and elapsed time to the interface.
 - Handle repeat clicks, cancellations, delayed replies, and stale events.
@@ -683,7 +767,8 @@ Tasks:
 
 Deliverable: the complete daily connection flow.
 
-Exit condition: the user can complete login, recover from a failed attempt, and understand every visible connection state.
+Exit condition: Connect opens the chosen browser, callback capture continues automatically, and the owned authentication page closes on supported browsers.
+The user can recover from failed attempts and understand every visible connection state.
 
 ### Phase 5 — Network lifecycle and recovery
 
@@ -738,9 +823,17 @@ Keep real callback tokens and company network details out of committed screensho
 | Active-session editing | Address changes remain disabled until disconnect and cleanup finish. |
 | Approval declined or later revoked | Connection remains unavailable with a working route to System Settings. |
 | Browser login | The configured portal's identity-provider flow completes; Microsoft login works for the Reference provider reference deployment. |
+| In-app browser | It is the initial choice, captures callback redirects and popup links, and closes after successful authentication. |
+| Browser preference | In-app, default-browser, and specific-browser choices persist across app restart. |
+| Specific browser | The selected installed application receives the login URL; an unavailable application prompts browser selection. |
+| Automatic continuation | One Connect action starts login; callback capture automatically continues tunnel setup without paste or another Connect action. |
+| External page cleanup | Supported browser modes close only their owned authentication page; unrelated tabs remain open and untouched. |
+| Cleanup unavailable | Denied permissions or unsupported browsers do not block connection; the remaining tab and capability limit are explained. |
+| Embedded login rejected | The user can restart in an external browser without changing the saved preference silently. |
+| Browser closed early | Closing the in-app login window cancels the pending attempt; external cancellation or timeout clears pending state. |
 | Another portal | An approved second portal works through supported authentication, or its specific unsupported requirement is documented. |
 | Paste callback | Long valid callbacks work; malformed input produces a useful error without exposing the value. |
-| Callback conflicts | The official client remains usable; fallback paste does not depend on scheme ownership. |
+| Callback conflicts | In-app or managed-session capture reaches GPClient; ordinary external launch explains any required handler selection. |
 | OTP challenge | The challenge appears once, accepts input, and supports cancellation. |
 | Cancel at each stage | Portal lookup, browser wait, OTP, tunnel setup, and retry backoff stop promptly. |
 | Repeated Connect clicks | Only one engine process and one session exist. |
@@ -774,7 +867,9 @@ Run live networking checks on a controlled Mac where connection changes will not
 
 | Risk or decision | Planned response |
 | --- | --- |
-| Callback scheme belongs to the official client | Make paste the baseline and gate automatic capture on live compatibility evidence. |
+| Callback scheme belongs to the official client | Use in-app interception or session-scoped capture; resolve explicit-browser handler conflicts before claiming support. |
+| Identity provider rejects embedded login | Offer the selected external browser and record the tenant-specific limitation. |
+| External browser cannot close its login tab reliably | Verify browser-specific ownership and cleanup; disclose the gap without blocking a successful connection. |
 | Source snapshot differs from upstream | Preserve the supplied tree and document the differences before upgrading. |
 | Native libraries require a newer OS | Rebuild compatible versions or present the exact blocker before raising the deployment target. |
 | Tunnel builds with a stub | Enforce real backend capability during packaging and live validation. |
@@ -801,6 +896,10 @@ The first release is complete when all of these conditions hold:
 - The real Reference provider reference connection works through user configuration without Terminal or developer tools.
 - Supported authentication methods and observed portal compatibility limits are documented.
 - The user can finish browser login and any gateway challenge inside the intended flow.
+- Browser choice persists and supports in-app, system default, and a specific installed browser application.
+- Clicking Connect opens the chosen browser; `globalprotectcallback:` automatically continues tunnel establishment.
+- The in-app browser closes after authentication; supported external browsers close only the owned authentication page.
+- Any external browser cleanup limitation is documented explicitly, with full browser-lifecycle support tracked separately from connection success.
 - The helper accepts only the intended signed application and owning user.
 - Connection status reflects confirmed backend state, including uncertainty and cleanup failure.
 - Disconnect, quit, crashes, sleep, and network changes pass live validation.
