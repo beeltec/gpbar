@@ -7,12 +7,18 @@ import WebKit
 @MainActor @Observable final class AuthenticationCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, NSWindowDelegate, ASWebAuthenticationPresentationContextProviding {
     var onCallback: ((String, String, String) -> Void)?
     var onOTP: ((String, String, String) -> Void)?
+    var onCredentials: ((String, String, String, String) -> Void)?
     var onCancel: (() -> Void)?
     var onRetryExternally: (() -> Void)?
     private(set) var hostname = ""
     private(set) var message = "Finish signing in with your organization."
     private(set) var error: String?
     private(set) var isOTP = false
+    private(set) var isCredentials = false
+    private(set) var usernameLabel = "Username"
+    private(set) var passwordLabel = "Password"
+    var username = ""
+    var password = ""
     private(set) var isEmbedded = true
     private(set) var callbackHandlerRequired = false
     private(set) var submitted = false
@@ -38,6 +44,11 @@ import WebKit
         self.sessionID = sessionID
         self.challengeID = challengeID
         isOTP = event.type == .otpRequired
+        isCredentials = event.type == .credentialsRequired
+        usernameLabel = event.usernameLabel ?? "Username"
+        passwordLabel = event.passwordLabel ?? "Password"
+        username = ""
+        password = ""
         submitted = false
         error = nil
         pastedCallback = ""
@@ -45,9 +56,12 @@ import WebKit
         callbackHandlerRequired = false
         browser = browserOverride ?? preferences.browser
         browserID = preferences.browserID
-        isEmbedded = browser == .inApp && !isOTP
+        isEmbedded = browser == .inApp && !isOTP && !isCredentials
         message = isOTP ? "Enter the verification code requested by your organization." : "Finish signing in with your organization."
-        if !isOTP {
+        if isOTP || isCredentials {
+            hostname = event.server.flatMap { URL(string: $0)?.host } ?? ""
+            message = event.message ?? "Enter the details requested by your organization."
+        } else {
             guard let raw = event.launchURL, let url = URL(string: raw), url.scheme == "http",
                   url.host == "127.0.0.1", url.port != nil, url.query == nil, url.fragment == nil,
                   url.user == nil, url.password == nil, url.path.count == 49,
@@ -67,7 +81,7 @@ import WebKit
             }
         }
         showWindow()
-        if !isEmbedded && !isOTP { openExternal() }
+        if !isEmbedded && !isOTP && !isCredentials { openExternal() }
     }
 
     func reopen() {
@@ -78,7 +92,7 @@ import WebKit
     func submitCallback(_ callback: String? = nil) {
         let value = callback ?? pastedCallback
         pastedCallback = ""
-        guard let sessionID, let challengeID, !isOTP, !submitted else { return }
+        guard let sessionID, let challengeID, !isOTP, !isCredentials, !submitted else { return }
         guard value.utf8.count < maximumMessageBytes - 4096, value.hasPrefix("globalprotectcallback:"), value.count > 22 else {
             error = "That link is not a valid GlobalProtect sign-in callback."
             return
@@ -103,11 +117,30 @@ import WebKit
         finish()
     }
 
+    func submitCredentials() {
+        guard let sessionID, let challengeID, isCredentials, !submitted else { return }
+        let account = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !account.isEmpty, account.utf8.count <= 1024,
+              !account.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              !password.isEmpty, password.utf8.count <= 4096 else {
+            error = "Enter your username and password."
+            return
+        }
+        let secret = password
+        password = ""
+        username = ""
+        submitted = true
+        message = "Checking your sign-in…"
+        onCredentials?(sessionID, challengeID, account, secret)
+    }
+
     func finish() {
         sessionID = nil
         challengeID = nil
         pastedCallback = ""
         otp = ""
+        username = ""
+        password = ""
         launchURL = nil
         closeOwnedWindows()
     }

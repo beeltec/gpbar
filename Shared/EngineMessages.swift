@@ -15,6 +15,7 @@ struct EngineCommand: Codable, Sendable {
     enum Kind: String, Codable, Sendable {
         case start, submitCallback = "submit_callback", submitOtp = "submit_otp", cancel, disconnect, getSnapshot = "get_snapshot"
         case recoverNetwork = "recover_network"
+        case submitCredentials = "submit_credentials"
     }
     let type: Kind
     var portal: String?
@@ -22,9 +23,11 @@ struct EngineCommand: Codable, Sendable {
     var challengeID: String?
     var callback: String?
     var otp: String?
+    var username: String?
+    var password: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, portal, reconnect, challengeID = "challenge_id", callback, otp
+        case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
     }
 }
 
@@ -43,6 +46,7 @@ struct EngineEvent: Codable, Sendable {
     enum Kind: String, Codable, Sendable {
         case ready, phaseChanged = "phase_changed", authenticationRequired = "authentication_required"
         case authenticationCompleted = "authentication_completed", otpRequired = "otp_required", snapshot, failure, stopped
+        case credentialsRequired = "credentials_required"
     }
     let type: Kind
     var openconnectVersion: String?
@@ -55,10 +59,14 @@ struct EngineEvent: Codable, Sendable {
     var code: String?
     var retryable: Bool?
     var cleanup: String?
+    var server: String?
+    var usernameLabel: String?
+    var passwordLabel: String?
 
     enum CodingKeys: String, CodingKey {
         case type, openconnectVersion = "openconnect_version", phase, attempt, challengeID = "challenge_id"
         case launchURL = "launch_url", message, snapshot, code, retryable, cleanup
+        case server, usernameLabel = "username_label", passwordLabel = "password_label"
     }
 }
 

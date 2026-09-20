@@ -105,10 +105,18 @@ actor SessionController {
             if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { emit(bytes) }
             return CommandReply(accepted: true, code: nil)
         }
-        if message.command.type == .submitCallback || message.command.type == .submitOtp {
+        if message.command.type == .submitCredentials {
+            guard let username = message.command.username, !username.isEmpty, username.utf8.count <= 1024,
+                  !username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+                  let password = message.command.password, !password.isEmpty, password.utf8.count <= 4096 else {
+                return CommandReply(accepted: false, code: "invalid_credentials")
+            }
+        }
+        if message.command.type == .submitCallback || message.command.type == .submitOtp || message.command.type == .submitCredentials {
             guard let challenge, message.command.challengeID == challenge.event.challengeID,
                   (message.command.type == .submitCallback && challenge.event.type == .authenticationRequired && message.command.callback != nil)
-                    || (message.command.type == .submitOtp && challenge.event.type == .otpRequired && message.command.otp != nil) else {
+                    || (message.command.type == .submitOtp && challenge.event.type == .otpRequired && message.command.otp != nil)
+                    || (message.command.type == .submitCredentials && challenge.event.type == .credentialsRequired) else {
                 return CommandReply(accepted: false, code: "challenge_expired")
             }
             self.challenge = nil
@@ -247,7 +255,7 @@ actor SessionController {
             networkMayHaveChanged = true
         }
         switch event.event.type {
-        case .authenticationRequired, .otpRequired:
+        case .authenticationRequired, .otpRequired, .credentialsRequired:
             guard event.event.challengeID != nil else { throw ControllerError.invalidFrame }
             challenge = event
         case .authenticationCompleted:

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -26,6 +26,11 @@ pub enum Command {
     SubmitOtp {
         challenge_id: String,
         otp: String,
+    },
+    SubmitCredentials {
+        challenge_id: String,
+        username: String,
+        password: String,
     },
     Cancel,
     Disconnect,
@@ -60,6 +65,14 @@ pub enum Event<'a> {
     OtpRequired {
         challenge_id: &'a str,
         message: &'a str,
+        server: &'a str,
+    },
+    CredentialsRequired {
+        challenge_id: &'a str,
+        server: &'a str,
+        message: &'a str,
+        username_label: &'a str,
+        password_label: &'a str,
     },
     Snapshot {
         snapshot: &'a AppSnapshot,
