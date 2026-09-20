@@ -12,7 +12,7 @@ import SwiftUI
         }
         .menuBarExtraStyle(.window)
 
-        Window("GPClient", id: "connection") {
+        Window("Edit Connection", id: "connection") {
             ConnectionSettings(model: model)
         }
         .defaultLaunchBehavior(.suppressed)
@@ -37,7 +37,7 @@ private struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: symbol)
+        MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
             .accessibilityLabel("GPClient, \(model.phase.rawValue), \(model.preferences.title)")
             .task {
                 appDelegate.openConnection = {
@@ -47,13 +47,6 @@ private struct MenuBarLabel: View {
                 if model.preferences.portal.isEmpty { appDelegate.openConnection?() }
             }
     }
-
-    private var symbol: String {
-        if model.cleanupRequired || model.phase == .failed || model.phase == .unknown { return "exclamationmark.triangle" }
-        if model.phase == .connected { return "checkmark.circle" }
-        if model.phase.isActive { return "arrow.triangle.2.circlepath" }
-        return "network"
-    }
 }
 
 private struct ConnectionCommands: Commands {
@@ -61,7 +54,7 @@ private struct ConnectionCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .appSettings) {
-            Button("Connection settings…") {
+            Button("Edit Connection…") {
                 openWindow(id: "connection")
                 NSApp.activate()
             }

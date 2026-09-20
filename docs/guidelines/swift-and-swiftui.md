@@ -72,7 +72,9 @@ Apple notes that removing a menu bar extra can terminate a menu-bar-only applica
 
 ## Native design and accessibility
 
-Use the visual direction in the plan with native controls, semantic colors, system typography, and template menu bar images.
+Use the visual direction in the plan with native controls, semantic colors, and system typography.
+Render the menu bar globe as an original-color image to preserve the user's requested gray and white states.
+Keep badge geometry and image bounds fixed across animation frames. Stop animation when idle or Reduce Motion is enabled.
 Always pair connection color or motion with a text label or distinct symbol.
 Support keyboard focus, VoiceOver, increased contrast, reduced motion, and reduced transparency.
 Inspect the running interface using Accessibility Inspector. [Apple accessibility guidance](https://developer.apple.com/design/human-interface-guidelines/accessibility)
