@@ -26,7 +26,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
 | Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
 | MFA notifications for protected non-browser resources | Not available. | This is a separate post-connection notification and authentication protocol. |
-| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Implementation in progress; review and live validation are pending. |
+| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Builds and branch-wide reviews passed. Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
 
 The official client supports local, external, certificate, and multi-factor authentication.
@@ -213,3 +213,12 @@ No automated tests or test harnesses were added or run.
 The library-reuse cleanup also passed the signed build, Clippy, signature verification, and parallel protocol and security reviews.
 Its live check reached the SAML provider and returned to idle after cancellation.
 That check did not exercise the consolidated portal request, which runs after successful sign-in.
+
+The cookie development build completed the available provider's embedded SAML flow on macOS 26.6.2.
+Tunnel setup then failed with `tunnel_openconnect_setup_tun_device_-5`; the app later returned to an idle failed state.
+The saved-sign-in status reported removal. Cookie persistence, reuse, expiry, and policy changes remain unverified against a live provider.
+The protocol 5 reconciliation build passed Clippy, signed packaging, and strict signature verification.
+Live startup preserved settings and verified the matching helper. Ordinary refresh succeeded without starting a VPN session.
+Cookie-update acknowledgement remains unverified live. A later shortened-policy expiry correction is not included in that live build.
+The corrected `cookies-v8` package passed the signed build and strict signature verification.
+Both branch-wide review axes reported no concrete defects after that correction.

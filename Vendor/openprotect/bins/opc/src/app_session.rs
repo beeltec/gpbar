@@ -530,7 +530,7 @@ async fn authenticate_once(
     let client = options.client(params.clone())?;
     let mut prelogin = client.prelogin(portal).await?;
     let mut saved = options.saved_authentication.lock().await.clone();
-    let history = saved.clone();
+    let mut history = saved.clone();
     if let Some(saved) = &mut saved {
         saved.portal_cookie = saved.portal_cookie.take().filter(cookies::current);
         saved.gateway_cookie = saved.gateway_cookie.take().filter(cookies::current);
@@ -608,6 +608,19 @@ async fn authenticate_once(
     let lifetime = configuration
         .cookie_lifetime_seconds
         .filter(|_| options.remember_authentication);
+    if let (Some(history), Some(lifetime)) = (&mut history, lifetime) {
+        for cookie in [
+            history.portal_cookie.as_mut(),
+            history.gateway_cookie.as_mut(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            cookie.expires_at = cookie
+                .expires_at
+                .min(cookie.issued_at.saturating_add(lifetime));
+        }
+    }
     let mut updated = lifetime.map(|lifetime| {
         let previous = saved
             .as_ref()
