@@ -8,6 +8,8 @@ Target repository: `/Users/beeltec/workspace/beelte/gpclient`
 
 Reference implementation: `/Users/beeltec/GlobalProtectNew`
 
+Implementation rules: [coding guidelines](guidelines/README.md), routed through [AGENTS.md](../AGENTS.md).
+
 ## 1. Intended result
 
 Build a native SwiftUI application that lives in the macOS menu bar.
