@@ -39,6 +39,45 @@ The client sends the GlobalProtect credentials rather than connecting directly t
 
 ## Implementation details
 
+### Library reuse audit
+
+Prefer existing OpenProtect and OpenConnect functionality before adding authentication code.
+This rule also applies to features already implemented in GPBar.
+Inspect the pinned source, not only upstream feature lists, before replacing a working path.
+
+| Existing feature | Reused implementation | GPBar-specific code that remains |
+| --- | --- | --- |
+| Password login | OpenProtect credential serialization, prelogin parser, and HTTP client. | Native credential entry and private IPC replace terminal prompts. |
+| SAML | OpenProtect launch-page generation and callback parsing. | Native browser ownership, callback transport, cancellation, and response limits. |
+| Portal configuration | One OpenProtect HTTP request path shared by CLI and app mode. | App mode also recognizes challenges and rejects replies without usable gateways. |
+| MFA | OpenProtect challenge representation and gateway request code. | Native prompts, portal challenge handling, bounded retries, and session ownership. |
+| Gateway selection | OpenProtect's existing selection function. | Origin validation before using returned gateways. |
+| HIP and tunnel | OpenProtect reporting and OpenConnect's HIP submission and tunnel APIs. | Observed macOS facts, private HIP inputs, and network recovery. |
+
+The password provider in the pinned OpenProtect source combines credential construction with optional terminal prompts.
+The app already uses the same credential type and request methods without invoking those prompts.
+Adding a provider call merely to construct that value would add secret copies without removing protocol code.
+
+OpenConnect also provides `openconnect_obtain_cookie` and an authentication-form callback.
+Its GlobalProtect login implementation covers portal and gateway exchanges, including challenges.
+However, version 9.21 can replay the portal password after redirecting to a gateway.
+GPBar requires separate entry before sending that password to another host.
+A replacement must preserve this rule, browser callbacks, gateway selection, cancellation, and response limits.
+The callback API is a reuse candidate, not a drop-in replacement for the current application flow.
+[OpenConnect GlobalProtect source](https://gitlab.com/openconnect/openconnect/-/blob/v9.21/auth-globalprotect.c)
+
+For certificates, OpenConnect already accepts PEM files, PKCS#12 files, and supported PKCS#11 URLs.
+OpenProtect's pinned HTTP client accepts PEM identities but explicitly rejects PKCS#12 with its rustls backend.
+Neither fact establishes native macOS Keychain support across the whole connection.
+Any Keychain bridge must keep private keys in the user's session and reuse the TLS libraries' signing interfaces.
+[OpenConnect certificate guide](https://www.infradead.org/openconnect/connecting.html)
+
+Kerberos, OIDC, cookie policy, and resource MFA require separate checks of their actual GlobalProtect exchanges.
+A general library feature does not prove support for that feature under every VPN protocol.
+The remaining work is tracked in [the authentication tickets](https://github.com/beeltec/gpbar/issues/14).
+
+### Native application flow
+
 Connect starts portal prelogin and shows the method requested by the server.
 The native credential form displays the target hostname and server-provided field labels.
 Credentials remain in session memory and travel through authenticated XPC and private inherited pipes.
@@ -88,3 +127,7 @@ Live SAML startup reached the identity provider in the embedded browser. Cancell
 The native credential form and new MFA exchanges were not exercised against a live provider.
 Full SAML callback completion and tunnel establishment were not repeated for this change.
 No automated tests or test harnesses were added or run.
+
+The library-reuse cleanup also passed the signed build, Clippy, signature verification, and parallel protocol and security reviews.
+Its live check reached the SAML provider and returned to idle after cancellation.
+That check did not exercise the consolidated portal request, which runs after successful sign-in.
