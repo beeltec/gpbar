@@ -94,6 +94,17 @@ The complete app built and passed strict signature verification.
 - The validation connection was disconnected after the visual checks.
 - Both parallel reviews found no concrete layout or navigation regressions. No automated tests were created or run.
 
+## Globe centering fix
+
+Development build `globe-centering-v1` used the same host, toolchain, signing team, and bundled backend as `connection-layout-v1`.
+The Swift app built successfully. The complete development bundle passed strict signature verification.
+
+- The rebuilt app launched and showed Helper ready with Connect available.
+- The user confirmed that the live icon looked correct after launch.
+- The UI tool captured settings but could not capture the menu bar for independent visual confirmation.
+- Two parallel `codex review` checks found no concrete drawing, state, animation, or accessibility regressions.
+- No automated tests were added or run. Connected and animated badges were not rechecked live for this position-only change.
+
 ## Still required
 
 - Extend route and DNS restoration checks to forced failures and helper restart.

@@ -37,17 +37,17 @@ private enum GlobeState {
     case disconnected, working, error, connected
 
     func image(frame: Int) -> NSImage {
-        let image = NSImage(size: NSSize(width: 28, height: 22), flipped: false) { _ in
+        let image = NSImage(size: NSSize(width: 28, height: 22), flipped: false) { bounds in
             let color = self == .connected ? NSColor.white : NSColor(white: 0.6, alpha: 1)
-            let globe = NSRect(x: 1, y: 1, width: 19, height: 19)
+            let globe = NSRect(x: bounds.midX - 9.5, y: bounds.midY - 9.5, width: 19, height: 19)
             let lines = NSBezierPath(ovalIn: globe)
-            lines.appendOval(in: NSRect(x: 6.5, y: 1, width: 8, height: 19))
-            lines.move(to: NSPoint(x: 1, y: 10.5))
-            lines.line(to: NSPoint(x: 20, y: 10.5))
-            lines.move(to: NSPoint(x: 3, y: 5.5))
-            lines.line(to: NSPoint(x: 18, y: 5.5))
-            lines.move(to: NSPoint(x: 3, y: 15.5))
-            lines.line(to: NSPoint(x: 18, y: 15.5))
+            lines.appendOval(in: NSRect(x: globe.midX - 4, y: globe.minY, width: 8, height: globe.height))
+            lines.move(to: NSPoint(x: globe.minX, y: globe.midY))
+            lines.line(to: NSPoint(x: globe.maxX, y: globe.midY))
+            lines.move(to: NSPoint(x: globe.minX + 2, y: globe.midY - 5))
+            lines.line(to: NSPoint(x: globe.maxX - 2, y: globe.midY - 5))
+            lines.move(to: NSPoint(x: globe.minX + 2, y: globe.midY + 5))
+            lines.line(to: NSPoint(x: globe.maxX - 2, y: globe.midY + 5))
             if self == .connected {
                 NSColor(white: 0.15, alpha: 0.8).setStroke()
                 lines.lineWidth = 2.4
