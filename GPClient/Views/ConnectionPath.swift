@@ -16,7 +16,7 @@ struct ConnectionPath: View {
                     .stroke(connected ? Color("Connected") : .secondary.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: connected ? [] : [4, 5]))
                 }
                 .frame(height: 2)
-                Text(connected ? "CONNECTED" : (busy ? "IN PROGRESS" : "OFFLINE"))
+                Text(connected ? "CONNECTED" : (busy ? "IN PROGRESS" : phase == .unknown ? "CHECKING" : "OFFLINE"))
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .tracking(1.5)
                     .foregroundStyle(.secondary)

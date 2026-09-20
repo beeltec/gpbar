@@ -681,15 +681,26 @@ async fn run_session(
                             let _ = (&mut task).await;
                             bail!("snapshot unavailable");
                         };
-                        let mut out = output.lock().await;
-                        if state.state == gp_ipc::SessionState::Connected && out.snapshot.phase != "connected" {
-                            if let Err(error) = network_worker("--network-verify").await {
-                                drop(out);
+                        let needs_verification = state.state == gp_ipc::SessionState::Connected
+                            && output.lock().await.snapshot.phase != "connected";
+                        if needs_verification {
+                            let verification = tokio::select! {
+                                biased;
+                                outcome = &mut task => break outcome,
+                                _ = stop.wait_for(|value| *value) => None,
+                                result = network_worker("--network-verify") => Some(result),
+                            };
+                            let Some(verification) = verification else {
+                                break (&mut task).await;
+                            };
+                            if let Err(error) = verification {
                                 let _ = stop_sender.send(true);
                                 let _ = (&mut task).await;
                                 output.lock().await.send(Event::Failure { code: "network_configuration", message: &error.to_string(), retryable: false }).await?;
                                 bail!("network setup could not be verified");
                             }
+                            if *stop.borrow() { break (&mut task).await; }
+                            let mut out = output.lock().await;
                             out.snapshot.interface = state.tun_ifname;
                             out.snapshot.ipv4 = state.local_ipv4;
                             let result = async {

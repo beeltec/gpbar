@@ -101,7 +101,8 @@ actor SessionController {
             return CommandReply(accepted: true, code: nil)
         }
         guard currentConsoleUser() == userID else { return CommandReply(accepted: false, code: "user_not_active") }
-        if message.command.type == .getSnapshot && pendingStart != nil {
+        if message.command.type == .getSnapshot && (pendingStart != nil || finishing) {
+            if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { emit(bytes) }
             return CommandReply(accepted: true, code: nil)
         }
         if message.command.type == .submitCallback || message.command.type == .submitOtp {

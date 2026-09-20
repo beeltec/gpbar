@@ -118,7 +118,7 @@ import WebKit
         guard let url = launchURL, let sessionID, let challengeID, !submitted else { return }
         if browser == .systemDefault {
             guard webSession == nil else { return }
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "globalprotectcallback") { [weak self] url, _ in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "globalprotectcallback") { @Sendable [weak self] url, _ in
                 Task { @MainActor in
                     guard let self, self.sessionID == sessionID, self.challengeID == challengeID else { return }
                     self.webSession = nil
@@ -143,7 +143,7 @@ import WebKit
                 error = "GPClient must handle sign-in links for this browser. This changes the callback handler used by other VPN clients."
                 return
             }
-            NSWorkspace.shared.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            NSWorkspace.shared.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { @Sendable [weak self] _, error in
                 let failed = error != nil
                 Task { @MainActor in
                     guard let self, self.sessionID == sessionID, self.challengeID == challengeID else { return }
@@ -156,7 +156,7 @@ import WebKit
 
     func useCallbackHandler() {
         let attempt = challengeID
-        NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpenURLsWithScheme: "globalprotectcallback") { [weak self] error in
+        NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpenURLsWithScheme: "globalprotectcallback") { @Sendable [weak self] error in
             let failed = error != nil
             Task { @MainActor in
                 guard let self, self.challengeID == attempt else { return }
@@ -205,7 +205,17 @@ import WebKit
     }
 
     func windowWillClose(_ notification: Notification) {
-        if !closing, let closed = notification.object as? NSWindow, closed === window { cancel() }
+        guard !closing, let closed = notification.object as? NSWindow else { return }
+        if closed === window { cancel() }
+        else if let index = popupWindows.firstIndex(where: { $0 === closed }) {
+            popupWindows.remove(at: index)
+            if let webView = closed.contentView as? WKWebView {
+                webView.stopLoading()
+                webView.navigationDelegate = nil
+                webView.uiDelegate = nil
+            }
+            cancel()
+        }
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
@@ -247,6 +257,7 @@ import WebKit
                               styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "VPN sign-in"
         window.isReleasedWhenClosed = false
+        window.delegate = self
         window.contentView = popup
         window.center()
         popupWindows.append(window)

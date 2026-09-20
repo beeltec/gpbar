@@ -11,6 +11,7 @@ import Network
     private(set) var cleanupRequired = false
     private(set) var engineAvailable = false
     private var sessionID: String?
+    private var startPending = false
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
     private var quitAfterDisconnect = false
@@ -66,6 +67,7 @@ import Network
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
         sessionID = UUID().uuidString
         self.browserOverride = browserOverride
+        startPending = true
         lastSequence = 0
         error = nil
         snapshot = nil
@@ -109,7 +111,9 @@ import Network
         let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: sessionID,
             commandID: UUID().uuidString, command: command)
         helper.send(envelope) { [weak self] reply in
-            guard let self, self.sessionID == sessionID, !reply.accepted else { return }
+            guard let self, self.sessionID == sessionID else { return }
+            if command.type == .start { self.startPending = false }
+            guard !reply.accepted else { return }
             self.cancelPendingQuit()
             if reply.code == "command_timeout" || reply.code == "helper_unavailable" {
                 self.phase = .unknown
@@ -173,6 +177,7 @@ import Network
                 authentication.finish()
             }
         case .stopped:
+            startPending = false
             completedSessions.append(envelope.sessionID)
             if completedSessions.count > 16 { completedSessions.removeFirst() }
             cleanupRequired = event.cleanup != "not_needed" && event.cleanup != "restored"
@@ -216,8 +221,9 @@ import Network
                 : "The helper needs your permission to manage VPN connections."
             return
         }
-        guard !checkingHelper else { return }
+        guard !checkingHelper, !startPending else { return }
         checkingHelper = true
+        let inspectedSessionID = sessionID
         helper.inspect { [weak self] result in
             guard let self else { return }
             self.checkingHelper = false
@@ -225,9 +231,19 @@ import Network
                 self.refresh()
                 return
             }
+            guard self.sessionID == inspectedSessionID else {
+                self.refresh()
+                return
+            }
             switch result {
             case .success(let reply):
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
+                guard self.helperVerified else {
+                    self.engineAvailable = false
+                    if self.sessionID != nil { self.phase = .unknown }
+                    self.helperMessage = "The helper could not confirm access for this user."
+                    return
+                }
                 self.engineAvailable = reply.engineSessionsAvailable && !reply.sessionBusy
                 if reply.recoveryRequired {
                     self.cleanupRequired = true
@@ -239,6 +255,14 @@ import Network
                     self.helperMessage = "Another user's VPN session is stopping. Check again shortly."
                     return
                 }
+                if reply.activeSessionID == nil && self.sessionID != nil && !self.startPending {
+                    self.sessionID = nil
+                    self.lastSequence = 0
+                    self.snapshot = nil
+                    self.authentication.finish()
+                    self.cancelPendingQuit()
+                    self.phase = self.cleanupRequired || self.error != nil ? .failed : .disconnected
+                }
                 if self.sessionID == nil {
                     if let active = reply.activeSessionID, !self.completedSessions.contains(active) {
                         self.sessionID = active
@@ -246,9 +270,7 @@ import Network
                     } else if self.phase == .unknown { self.phase = .disconnected }
                 }
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
-                self.helperMessage = self.helperVerified
-                    ? "Helper identity and user access verified."
-                    : "The helper could not confirm access for this user."
+                self.helperMessage = "Helper identity and user access verified."
             case .failure:
                 self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
@@ -292,6 +314,7 @@ import Network
             guard let self else { return }
             self.recovering = false
             if reply.accepted {
+                self.startPending = false
                 if let sessionID = self.sessionID { self.completedSessions.append(sessionID) }
                 self.sessionID = nil
                 self.cleanupRequired = false

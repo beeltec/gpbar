@@ -16,6 +16,8 @@ No automated tests were added or run.
 | Browser picker | All three modes were available. A specific installed browser could be selected. |
 | Default browser launch | AuthenticationServices opened Microsoft login in Brave Origin's private authentication window. |
 | Default browser cancellation | Build `live-v12` cancelled the attempt, closed GPClient's sign-in window, and restored Connect without crashing. |
+| Quit during sign-in | Build `live-v14` displayed Disconnect and Quit, completed cancellation, and exited with no engine process remaining. |
+| Final development build | Build `live-v15` registered its helper, reached Microsoft login during a helper-refresh check, and cancelled back to Connect. |
 | Helper registration | The authorized development helper registered and passed signature, root, and console-user inspection. |
 | Helper removal | Removing the idle helper made its status unverified and disabled removal. |
 | Packaged helper | Registration and inspection also worked from the complete signed runtime bundle. |
@@ -70,4 +72,5 @@ Its executable and dylib load paths were relocated into the bundle.
 These are build checks, not live network validation.
 
 Parallel code reviews found defects in cancellation, recovery, observer ownership, reconnect state, and input parsing.
-Fixes are being checked in another review round. There is no clean final review claim yet.
+The final security and lifecycle review reports found no remaining concrete issues after the fixes.
+These reviews and clean Clippy results do not replace the pending live scenarios above.
