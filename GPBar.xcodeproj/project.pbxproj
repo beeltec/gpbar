@@ -25,6 +25,8 @@
 		5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */; };
 		5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
 		6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */; };
+		687731C41C188A0955BAE941 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = 5ACB57778BC88D588B84B179 /* Licenses */; };
+		6F0514B9DF953974434AB07F /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4847C626753C794B558357B0 /* AboutView.swift */; };
 		796E4CAD72F666A4677217BC /* SavedAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */; };
 		83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */; };
@@ -83,8 +85,10 @@
 		17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPanel.swift; sourceTree = "<group>"; };
 		3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAuthentication.swift; sourceTree = "<group>"; };
 		43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureRuntime.swift; sourceTree = "<group>"; };
+		4847C626753C794B558357B0 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		553D6B58F0381EA28CDF2DBB /* GPBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GPBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		554E85928561E10EA94E38BC /* GPBarHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = GPBarHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		5ACB57778BC88D588B84B179 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Licenses; path = Packaging/Licenses; sourceTree = SOURCE_ROOT; };
 		5C4C3956223045607EF9CADC /* PortalAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalAddress.swift; sourceTree = "<group>"; };
 		60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionModel.swift; sourceTree = "<group>"; };
 		61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.beeltec.GPBar.helper.plist; sourceTree = "<group>"; };
@@ -155,6 +159,7 @@
 		B14FC32CE2435F723F0505B4 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				4847C626753C794B558357B0 /* AboutView.swift */,
 				17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */,
 				FA43745F44E29F4874CD768F /* ConnectionPath.swift */,
 				8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */,
@@ -210,6 +215,7 @@
 		E74F97DF04B4E22961B319DE = {
 			isa = PBXGroup;
 			children = (
+				5ACB57778BC88D588B84B179 /* Licenses */,
 				4A315D92FF1C775320E00FC6 /* GPBar */,
 				BA12FB6AB5CCE84CFC2AAE04 /* GPBarHelper */,
 				BEEC98299756F3637CA9F2A5 /* LaunchDaemons */,
@@ -311,6 +317,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				261FDB0FBCF637E50820065C /* Assets.xcassets in Resources */,
+				687731C41C188A0955BAE941 /* Licenses in Resources */,
 				5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */,
 				C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -339,6 +346,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F0514B9DF953974434AB07F /* AboutView.swift in Sources */,
 				134B70452A3E01A83E50826F /* AuthenticationCoordinator.swift in Sources */,
 				34DF5FFA08C292067C50103F /* ConnectionModel.swift in Sources */,
 				C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */,

@@ -23,6 +23,12 @@ import SwiftUI
             ConnectionCommands()
         }
 
+        Window("About GPBar", id: "about") {
+            AboutView()
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .defaultSize(width: 560, height: 580)
+
         Window("Diagnostics", id: "diagnostics") {
             DiagnosticsView(model: model)
         }
@@ -53,6 +59,12 @@ private struct ConnectionCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About GPBar") {
+                openWindow(id: "about")
+                NSApp.activate()
+            }
+        }
         CommandGroup(after: .appSettings) {
             Button("Edit Connection…") {
                 openWindow(id: "connection")

@@ -35,3 +35,6 @@ GPBar bundles a reference copy from the OpenConnect vpnc-scripts project.
 - Local source and license notice: [`Vendor/vpnc-script/vpnc-script`](Vendor/vpnc-script/vpnc-script)
 
 Application sessions use GPBar's separate network wrapper at [`Packaging/vpnc-script`](Packaging/vpnc-script).
+
+The About GPBar window displays these three components’ licenses from bundled files.
+The full vpnc-script GPL text is in [`Packaging/Licenses/vpnc-script-GPL-2.0.txt`](Packaging/Licenses/vpnc-script-GPL-2.0.txt).
