@@ -1,11 +1,12 @@
 #!/bin/sh
 set -eu
-project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 : "${GPBAR_APP:?Set GPBAR_APP to the notarized application path.}"
 : "${GPBAR_UPDATE_OUTPUT:?Set GPBAR_UPDATE_OUTPUT to a new absolute directory.}"
 : "${GPBAR_UPDATE_DOWNLOAD_URL:?Set GPBAR_UPDATE_DOWNLOAD_URL to the HTTPS release asset directory, ending in /.}"
 sparkle_bin=${GPBAR_SPARKLE_BIN:-$project_root/build/app-derived/SourcePackages/artifacts/sparkle/Sparkle/bin}
 account=com.beeltec.GPBar.updates
+previous_feed=${GPBAR_UPDATE_PREVIOUS_FEED:-$project_root/updates/appcast.xml}
 case "$GPBAR_UPDATE_OUTPUT" in /*) ;; *) echo 'Choose an absolute output directory.' >&2; exit 1;; esac
 if [ -e "$GPBAR_UPDATE_OUTPUT" ]; then echo 'Update output already exists.' >&2; exit 1; fi
 python3 - "$GPBAR_APP" "$GPBAR_UPDATE_DOWNLOAD_URL" <<'PY'
@@ -35,11 +36,17 @@ case "$identity" in *'Authority=Developer ID Application:'*) ;; *) echo 'Develop
 codesign --verify --deep --strict --verbose=2 "$GPBAR_APP"
 xcrun stapler validate "$GPBAR_APP"
 spctl --assess --type execute --verbose=2 "$GPBAR_APP"
-public_key=$("$sparkle_bin/generate_keys" --account "$account" -p)
+if [ -n "${GPBAR_UPDATE_KEY_FILE:-}" ]; then
+    public_key=$(xcrun swift "$project_root/scripts/update-public-key.swift" "$GPBAR_UPDATE_KEY_FILE")
+    set -- --ed-key-file "$GPBAR_UPDATE_KEY_FILE"
+else
+    public_key=$("$sparkle_bin/generate_keys" --account "$account" -p)
+    set -- --account "$account"
+fi
 bundle_key=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$GPBAR_APP/Contents/Info.plist")
 if [ "$public_key" != "$bundle_key" ]; then echo 'The signing key does not match the application public key.' >&2; exit 1; fi
 build_number=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$GPBAR_APP/Contents/Info.plist")
-python3 - "$project_root/updates/appcast.xml" "$build_number" <<'PY'
+python3 - "$previous_feed" "$build_number" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 ns = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
@@ -54,9 +61,9 @@ PY
 mkdir -p "$(dirname -- "$GPBAR_UPDATE_OUTPUT")"
 update_work=$(mktemp -d "$(dirname -- "$GPBAR_UPDATE_OUTPUT")/.gpbar-update.XXXXXX")
 trap 'rm -rf -- "$update_work"' EXIT HUP INT TERM
-cp "$project_root/updates/appcast.xml" "$update_work/appcast.xml"
+cp "$previous_feed" "$update_work/appcast.xml"
 ditto -c -k --keepParent "$GPBAR_APP" "$update_work/GPBar-$build_number.zip"
-"$sparkle_bin/generate_appcast" --account "$account" --maximum-deltas 0 \
+"$sparkle_bin/generate_appcast" "$@" --maximum-deltas 0 \
     --download-url-prefix "$GPBAR_UPDATE_DOWNLOAD_URL" -o "$update_work/appcast.xml" "$update_work"
 mv "$update_work" "$GPBAR_UPDATE_OUTPUT"
 printf '%s\n' "$GPBAR_UPDATE_OUTPUT"

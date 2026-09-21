@@ -38,11 +38,12 @@ Primary references:
 
 ## Signing and hosting
 
-The source repository is private. Its raw files and release assets cannot serve unauthenticated application updates.
-Set `GPBAR_UPDATE_FEED_URL` to a publicly readable HTTPS feed when building the distributable app.
-Until configured, update controls explain that updates are unavailable for that build.
-The tracked `updates/appcast.xml` starts empty because no distributable release exists yet.
-Use separate public release hosting for the feed and signed ZIP files. Publish archives before updating the feed.
+The repository and release downloads are public.
+The default feed is `https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml`.
+The first stable release makes this endpoint available. Before that, update checks report an unavailable feed.
+`GPBAR_UPDATE_FEED_URL` can override the feed for a local build.
+The tracked empty `updates/appcast.xml` bootstraps the first release. Later releases use the previous published appcast.
+See [tagged releases](RELEASE.md) for the CI workflow and credential setup.
 The initial updater-enabled app must be installed manually. Earlier builds cannot discover updates.
 
 Every archive requires an Ed25519 signature before extraction, plus normal application code-signing validation.
@@ -50,7 +51,8 @@ Production builds require Developer ID signing and notarization. Development cer
 Feeds and release downloads use HTTPS. System profiling is disabled, and GPBar supplies no custom request parameters.
 
 The public key is recorded in `project.yml` and embedded as `SUPublicEDKey`.
-The matching private key stays in the macOS login Keychain under Sparkle account `com.beeltec.GPBar.updates`.
+Local signing uses the macOS login Keychain under Sparkle account `com.beeltec.GPBar.updates`.
+CI uses the same key through a GitHub secret and a temporary file.
 Back up that key using Sparkle's documented secure export process before distributing the first release.
 Never commit or print the private key. Do not generate a replacement key for each release.
 
@@ -63,7 +65,7 @@ Set `GPBAR_VERSION` to the user-visible version.
 
 ```sh
 GPBAR_VERSION=0.1.1 GPBAR_BUILD=2 \
-GPBAR_UPDATE_FEED_URL='https://updates.example.com/gpbar/appcast.xml' \
+GPBAR_UPDATE_FEED_URL='https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml' \
 GPBAR_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
 GPBAR_TEAM=TEAMID GPBAR_OUTPUT="$PWD/build/release-2/GPBar.app" \
 scripts/build-app.sh
@@ -75,7 +77,7 @@ scripts/notarize-app.sh
 
 GPBAR_APP="$PWD/build/release-2/GPBar.app" \
 GPBAR_UPDATE_OUTPUT="$PWD/build/update-2" \
-GPBAR_UPDATE_DOWNLOAD_URL='https://updates.example.com/gpbar/v0.1.1/' \
+GPBAR_UPDATE_DOWNLOAD_URL='https://github.com/beeltec/gpbar/releases/download/v0.1.1/' \
 scripts/prepare-update.sh
 ```
 
@@ -87,7 +89,8 @@ Existing feed entries are preserved by Sparkle, subject to its retention policy.
 
 Upload the exact generated ZIP to the chosen public release directory.
 Publish the generated feed at the embedded feed URL.
-Also copy the feed to `updates/appcast.xml` and commit it through review to preserve published version history.
+For local publishing, set `GPBAR_UPDATE_PREVIOUS_FEED` to the previous release’s downloaded appcast.
+CI selects it automatically. Preserve published version history in each release asset.
 Do not alter the signed ZIP afterward. Verify both public URLs before announcing the release.
 Publish no development-signed build to the production feed.
 
