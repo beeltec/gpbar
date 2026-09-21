@@ -24,6 +24,9 @@ targets:
     sources:
       - GPBar
       - Shared
+      - path: Packaging/Licenses
+        type: folder
+        buildPhase: resources
       - path: Packaging/LaunchDaemons/com.beeltec.GPBar.helper.plist
         buildPhase:
           copyFiles:
@@ -42,7 +45,7 @@ targets:
             CFBundleURLSchemes:
               - globalprotectcallback
         LSMinimumSystemVersion: '26.0'
-        NSHumanReadableCopyright: ''
+        NSHumanReadableCopyright: 'Copyright © 2026 Christian Beelte'
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.beeltec.GPBar

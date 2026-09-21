@@ -75,6 +75,7 @@ struct ConnectionPanel: View {
                 }
                 Divider()
                 HStack {
+                    Button("About GPBar…") { openWindow(id: "about"); NSApp.activate() }
                     Spacer()
                     Button("Diagnostics…") { openWindow(id: "diagnostics"); NSApp.activate() }
                     Button("Quit") { NSApp.terminate(nil) }
