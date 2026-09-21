@@ -9,17 +9,6 @@ struct ConnectionSettings: View {
     var body: some View {
         @Bindable var preferences = model.preferences
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 14) {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
-                    .accessibilityHidden(true)
-                Text("Edit Connection")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                Spacer()
-            }
-            .padding(24)
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
