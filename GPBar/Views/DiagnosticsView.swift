@@ -23,7 +23,7 @@ struct DiagnosticsView: View {
                 Text("GPBar restores only the network changes recorded for its sessions.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button(model.recovering ? "Checking network…" : "Recover network") { model.recoverNetwork() }
-                    .disabled(model.recovering || !model.helperVerified)
+                    .disabled(model.updating || model.recovering || !model.helperVerified)
             }
             if let error = model.error { Text(error).foregroundStyle(Color("Failure")) }
             Divider()
@@ -37,14 +37,14 @@ struct DiagnosticsView: View {
             .frame(minHeight: 120, maxHeight: 240)
             if let exportError { Text(exportError).foregroundStyle(Color("Failure")) }
             HStack {
-                Button("Check helper") { model.refresh() }.disabled(model.checkingHelper)
+                Button("Check helper") { model.refresh() }.disabled(model.updating || model.checkingHelper)
                 Button("Save diagnostics…") { saveDiagnostics() }
                 Spacer()
                 Button("Remove helper") {
                     removalPending = true
                     Task { await model.unregisterHelper(); removalPending = false }
                 }
-                .disabled(removalPending || model.helperStatus == .notRegistered || model.settingsLocked || model.cleanupRequired)
+                .disabled(model.updating || removalPending || model.helperStatus == .notRegistered || model.settingsLocked || model.cleanupRequired)
             }
         }
         .padding(24)

@@ -8,6 +8,7 @@ import Foundation
     private var pending: UUID?
     private var completion: ((Result<HelperReply, HelperError>) -> Void)?
     private var timeout: Task<Void, Never>?
+    private var updatePreparation: CommandCompletion?
 
     enum HelperError: Error { case unavailable, invalidReply, signingIdentity }
 
@@ -65,6 +66,35 @@ import Foundation
         }
     }
 
+    func prepareForUpdate() async -> Bool {
+        guard let connection, let generation,
+              let data = try? JSONEncoder().encode(HelperRequest(protocolVersion: helperProtocolVersion, commandID: UUID())) else { return false }
+        return await withCheckedContinuation { continuation in
+            let result = CommandCompletion { [weak self] reply in
+                self?.updatePreparation = nil
+                continuation.resume(returning: reply.accepted)
+            }
+            updatePreparation = result
+            result.timeout = Task {
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                result.finish(CommandReply(accepted: false, code: "update_timeout"))
+            }
+            guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+                Task { @MainActor in result.finish(CommandReply(accepted: false, code: "helper_unavailable")) }
+            }) as? HelperProtocol else { result.finish(CommandReply(accepted: false, code: "helper_unavailable")); return }
+            proxy.prepareForUpdate(data) { data in
+                let reply = data.count <= maximumMessageBytes ? try? JSONDecoder().decode(CommandReply.self, from: data) : nil
+                Task { @MainActor [weak self] in
+                    guard self?.generation == generation else {
+                        result.finish(CommandReply(accepted: false, code: "helper_unavailable"))
+                        return
+                    }
+                    result.finish(reply ?? CommandReply(accepted: false, code: "invalid_reply"))
+                }
+            }
+        }
+    }
+
     private func connectIfNeeded() throws {
         guard connection == nil else { return }
         let requirement = try SigningIdentity.requirement(for: helperServiceName)
@@ -93,6 +123,7 @@ import Foundation
 
     func cancel() {
         generation = nil
+        updatePreparation?.finish(CommandReply(accepted: false, code: "helper_unavailable"))
         connection?.invalidationHandler = nil
         connection?.interruptionHandler = nil
         connection?.exportedObject = nil

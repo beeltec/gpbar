@@ -5,6 +5,7 @@ let helperProtocolVersion = 6
 let maximumMessageBytes = 256 * 1024
 
 @objc protocol HelperProtocol {
+    func prepareForUpdate(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func inspect(_ request: Data, reply: @escaping @Sendable (Data) -> Void)
     func send(_ command: Data, reply: @escaping @Sendable (Data) -> Void)
 }

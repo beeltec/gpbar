@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConnectionSettings: View {
     @Bindable var model: ConnectionModel
+    @ObservedObject var updates: UpdateController
     @Environment(\.openWindow) private var openWindow
     @FocusState private var addressFocused: Bool
     @State private var choosingCertificate = false
@@ -142,6 +143,22 @@ struct ConnectionSettings: View {
                 } header: { Text("On this Mac") }
 
                 Section {
+                    Toggle("Automatically check for updates", isOn: Binding(
+                        get: { updates.automaticallyChecksForUpdates },
+                        set: { updates.setAutomaticallyChecksForUpdates($0) }
+                    ))
+                    .disabled(updates.unavailableReason != nil)
+                    Button("Check for Updates…") { updates.checkForUpdates() }
+                        .disabled(!updates.canCheckForUpdates)
+                    Text(updates.unavailableReason ?? "GPBar asks before installing. Disconnect the VPN before updating.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if model.updating {
+                        Text("Finish the update or restart GPBar before connecting.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: { Text("Updates") }
+
+                Section {
                     HStack(alignment: .top) {
                         Image(systemName: model.helperVerified ? "checkmark.circle" : "lock.circle")
                             .foregroundStyle(model.helperVerified ? Color("Connected") : .secondary)
@@ -161,6 +178,7 @@ struct ConnectionSettings: View {
                             Button("Set up") { model.registerHelper() }
                         }
                     }
+                    .disabled(model.updating)
                     if let error = model.error {
                         Text(error).font(.caption).foregroundStyle(Color("Failure"))
                             .textSelection(.enabled)
@@ -179,7 +197,7 @@ struct ConnectionSettings: View {
                 } else {
                     Button("Connect") { model.connect() }
                         .buttonStyle(.borderedProminent)
-                        .disabled(!model.helperVerified || !model.engineAvailable || model.cleanupRequired || PortalAddress.normalize(preferences.addressDraft) == nil)
+                        .disabled(model.updating || !model.helperVerified || !model.engineAvailable || model.cleanupRequired || PortalAddress.normalize(preferences.addressDraft) == nil)
                 }
             }
             .font(.caption)

@@ -51,7 +51,13 @@ enum SecureRuntime {
             }
             for case let entry as URL in enumerator {
                 if try entry.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
-                    throw RuntimeError.invalidBundle
+                    let framework = contents.appendingPathComponent("Frameworks/Sparkle.framework").path + "/"
+                    let target = try FileManager.default.destinationOfSymbolicLink(atPath: entry.path)
+                    let resolved = entry.resolvingSymlinksInPath().path
+                    guard entry.path.hasPrefix(framework), !target.hasPrefix("/"),
+                          resolved.hasPrefix(framework), FileManager.default.fileExists(atPath: resolved) else {
+                        throw RuntimeError.invalidBundle
+                    }
                 }
             }
             let final = sessions.appendingPathComponent(sessionID, isDirectory: true)

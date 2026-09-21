@@ -12,6 +12,18 @@ final class InspectionService: NSObject, HelperProtocol {
         self.connectionID = connectionID
     }
 
+    func prepareForUpdate(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
+        guard data.count <= maximumMessageBytes,
+              let request = try? JSONDecoder().decode(HelperRequest.self, from: data),
+              request.protocolVersion == helperProtocolVersion else { reply(Data()); return }
+        let userID = userID
+        let connectionID = connectionID
+        Task {
+            let accepted = await SessionController.shared.prepareForUpdate(userID: userID, connectionID: connectionID)
+            reply((try? JSONEncoder().encode(CommandReply(accepted: accepted, code: accepted ? nil : "update_not_ready"))) ?? Data())
+        }
+    }
+
     func inspect(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
         guard data.count <= maximumMessageBytes,
               let request = try? JSONDecoder().decode(HelperRequest.self, from: data),
@@ -32,8 +44,9 @@ final class InspectionService: NSObject, HelperProtocol {
                     events.send(data)
                 }
             }
+            let preparingUpdate = await SessionController.shared.preparingUpdate
             let response = HelperReply(protocolVersion: helperProtocolVersion, commandID: request.commandID,
-                runningAsRoot: geteuid() == 0, authorizedUser: authorized, engineSessionsAvailable: true,
+                runningAsRoot: geteuid() == 0, authorizedUser: authorized, engineSessionsAvailable: !preparingUpdate,
                 activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired,
                 pendingAuthenticationUpdates: attachment.pendingAuthenticationUpdates)
             reply((try? JSONEncoder().encode(response)) ?? Data())

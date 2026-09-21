@@ -13,14 +13,14 @@ import SwiftUI
         .menuBarExtraStyle(.window)
 
         Window("Edit Connection", id: "connection") {
-            ConnectionSettings(model: model)
+            ConnectionSettings(model: model, updates: appDelegate.updates)
         }
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 480, height: 610)
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
-            ConnectionCommands()
+            ConnectionCommands(updates: appDelegate.updates)
         }
 
         Window("About GPBar", id: "about") {
@@ -56,6 +56,7 @@ private struct MenuBarLabel: View {
 }
 
 private struct ConnectionCommands: Commands {
+    @ObservedObject var updates: UpdateController
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
@@ -64,6 +65,10 @@ private struct ConnectionCommands: Commands {
                 openWindow(id: "about")
                 NSApp.activate()
             }
+        }
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { updates.checkForUpdates() }
+                .disabled(!updates.canCheckForUpdates)
         }
         CommandGroup(after: .appSettings) {
             Button("Edit Connection…") {
@@ -78,9 +83,11 @@ private struct ConnectionCommands: Commands {
 @MainActor private final class AppDelegate: NSObject, NSApplicationDelegate {
     var openConnection: (() -> Void)?
     let model = ConnectionModel()
+    lazy var updates = UpdateController(model: model)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.startHelper()
+        _ = updates
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

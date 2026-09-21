@@ -54,6 +54,7 @@ private enum LibraryLicense: String, CaseIterable, Identifiable {
     case openProtectMIT = "OpenProtect — MIT"
     case openProtectApache = "OpenProtect — Apache 2.0"
 
+    case sparkle = "Sparkle — MIT and bundled notices"
     case vpncScript = "vpnc-script — GPL 2.0 or later"
 
     var id: Self { self }
@@ -63,6 +64,7 @@ private enum LibraryLicense: String, CaseIterable, Identifiable {
         case .openConnect: "OpenConnect-LGPL-2.1"
         case .openProtectMIT: "OpenProtect-MIT"
         case .openProtectApache: "OpenProtect-Apache-2.0"
+        case .sparkle: "Sparkle"
         case .vpncScript: "vpnc-script-GPL-2.0"
         }
     }
