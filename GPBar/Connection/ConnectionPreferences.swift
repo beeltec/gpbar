@@ -71,14 +71,16 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         reconnect = defaults.bool(forKey: "connection.reconnect")
         rememberAuthentication = defaults.bool(forKey: "connection.rememberAuthentication")
         pendingAuthenticationRemovals = defaults.stringArray(forKey: "connection.pendingAuthenticationRemovals") ?? []
-        certificateReference = defaults.data(forKey: "connection.certificateReference")
+        let savedCertificate = defaults.data(forKey: "connection.certificateReference")
+        certificateReference = savedCertificate
         certificateName = defaults.string(forKey: "connection.certificateName") ?? ""
         certificateID = defaults.string(forKey: "connection.certificateID") ?? ""
         certificateTokenID = defaults.string(forKey: "connection.certificateTokenID")
         certificateOnly = defaults.bool(forKey: "connection.certificateOnly")
         certificateUsername = defaults.string(forKey: "connection.certificateUsername") ?? ""
         authenticationMethod = AuthenticationMethod(rawValue: defaults.string(forKey: "connection.authenticationMethod") ?? "")
-            ?? (certificateReference == nil ? .automatic : .certificate)
+            ?? (savedCertificate == nil ? .automatic : .certificate)
+        defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod")
     }
 
     var title: String {
