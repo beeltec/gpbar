@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>GPBar</title>
+    <welcome file="Welcome.txt"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
+    <domains enable_localSystem="true" enable_currentUserHome="false" enable_anywhere="false"/>
+    <volume-check><allowed-os-versions><os-version min="26.0"/></allowed-os-versions></volume-check>
+    <choices-outline><line choice="gpbar"/></choices-outline>
+    <choice id="gpbar" visible="false"><pkg-ref id="com.beeltec.GPBar"/></choice>
+    <pkg-ref id="com.beeltec.GPBar">GPBar.pkg</pkg-ref>
+</installer-gui-script>

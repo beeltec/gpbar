@@ -6,6 +6,7 @@ struct ConnectionSettings: View {
     @Environment(\.openWindow) private var openWindow
     @FocusState private var addressFocused: Bool
     @State private var choosingCertificate = false
+    @State private var removalPending = false
 
     var body: some View {
         @Bindable var preferences = model.preferences
@@ -183,14 +184,32 @@ struct ConnectionSettings: View {
                         Text(error).font(.caption).foregroundStyle(Color("Failure"))
                             .textSelection(.enabled)
                     }
+                    if model.cleanupRequired || model.phase == .unknown {
+                        Text("GPBar restores only the network changes recorded for its sessions.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button(model.recovering ? "Checking network…" : "Recover network") { model.recoverNetwork() }
+                            .disabled(model.updating || model.recovering || !model.helperVerified)
+                    }
+                    Button("Remove helper") {
+                        removalPending = true
+                        Task { await model.unregisterHelper(); removalPending = false }
+                    }
+                    .disabled(model.updating || removalPending || model.helperStatus == .notRegistered || model.settingsLocked || model.cleanupRequired)
                 } header: { Text("Permission") }
             }
             .formStyle(.grouped)
             HStack {
+                #if DEBUG
                 Text("GPBar · Development build").foregroundStyle(.secondary)
+                #else
+                Text("GPBar · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    .foregroundStyle(.secondary)
+                #endif
                 Spacer()
+                #if DEBUG
                 Button("Diagnostics…") { openWindow(id: "diagnostics") }
                     .buttonStyle(.plain)
+                #endif
                 if model.settingsLocked {
                     Button("Disconnect") { model.disconnect() }
                         .disabled(model.phase == .disconnecting)

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+for process in GPBar GPBarHelper openprotect; do
+    if /usr/bin/pgrep -x "$process" >/dev/null; then
+        echo 'Disconnect, remove the helper in Edit Connection, and quit GPBar before installing.' >&2
+        exit 1
+    fi
+done

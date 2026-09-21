@@ -77,7 +77,9 @@ struct ConnectionPanel: View {
                 HStack {
                     Button("About GPBar…") { openWindow(id: "about"); NSApp.activate() }
                     Spacer()
+                    #if DEBUG
                     Button("Diagnostics…") { openWindow(id: "diagnostics"); NSApp.activate() }
+                    #endif
                     Button("Quit") { NSApp.terminate(nil) }
                 }
                 .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
@@ -91,7 +93,7 @@ struct ConnectionPanel: View {
 
     @ViewBuilder private var primaryAction: some View {
         if model.cleanupRequired {
-            Button("Open diagnostics") { openWindow(id: "diagnostics"); NSApp.activate() }
+            Button("Open recovery settings") { settings() }
         } else if model.preferences.portal.isEmpty || !model.helperVerified || !model.engineAvailable {
             Button("Set up connection") { settings() }.buttonStyle(.borderedProminent)
         } else {

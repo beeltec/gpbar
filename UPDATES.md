@@ -14,7 +14,7 @@ The app blocks Connect, helper setup, and recovery while updating.
 Helper setup and confirmed cleanup are required even when no service is currently registered.
 Cancelling before extraction restores the helper. Once extraction starts, the helper stays stopped until GPBar exits.
 An installer error does not prove cancellation. Finish the update or restart GPBar before connecting again.
-A lost reservation connection leaves the helper blocked. Remove it in Diagnostics and set it up again if preparation fails.
+A lost reservation connection leaves the helper blocked. Remove it in Edit Connection and set it up again if preparation fails.
 Relaunch registers the bundled helper through the normal launch flow. macOS may require approval again.
 Updating never starts a VPN connection. Existing preferences and Keychain entries remain in place.
 
@@ -40,7 +40,7 @@ Primary references:
 
 The repository and release downloads are public.
 The default feed is `https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml`.
-The first stable release makes this endpoint available. Before that, update checks report an unavailable feed.
+Stable releases publish their appcast at this endpoint.
 `GPBAR_UPDATE_FEED_URL` can override the feed for a local build.
 The tracked empty `updates/appcast.xml` bootstraps the first release. Later releases use the previous published appcast.
 See [tagged releases](RELEASE.md) for the CI workflow and credential setup.
@@ -76,22 +76,30 @@ GPBAR_RELEASE_ZIP="$PWD/build/notarized-2.zip" \
 scripts/notarize-app.sh
 
 GPBAR_APP="$PWD/build/release-2/GPBar.app" \
+GPBAR_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+GPBAR_INSTALLER_SIGN_IDENTITY='Developer ID Installer: Your Name (TEAMID)' \
+GPBAR_NOTARY_PROFILE=your-notary-profile \
+GPBAR_RELEASE_OUTPUT="$PWD/build/packages-2" \
+scripts/package-release.sh
+
+GPBAR_APP="$PWD/build/release-2/GPBar.app" \
+GPBAR_UPDATE_DMG="$PWD/build/packages-2/GPBar-2.dmg" \
 GPBAR_UPDATE_OUTPUT="$PWD/build/update-2" \
 GPBAR_UPDATE_DOWNLOAD_URL='https://github.com/beeltec/gpbar/releases/download/v0.1.1/' \
 scripts/prepare-update.sh
 ```
 
 The update script validates signing, notarization, public-key agreement, HTTPS configuration, and increasing build numbers.
-It creates `GPBar-2.zip` and an updated `appcast.xml` in a new output directory.
+It copies the verified `GPBar-2.dmg` and an updated `appcast.xml` in a new output directory.
 It uses the pinned Sparkle tools from `build/app-derived` by default.
 `GPBAR_SPARKLE_BIN` can select another resolved copy of the same pinned tools.
 Existing feed entries are preserved by Sparkle, subject to its retention policy. Delta generation is disabled initially.
 
-Upload the exact generated ZIP to the chosen public release directory.
+Upload the exact generated DMG and the signed PKG to the chosen public release directory.
 Publish the generated feed at the embedded feed URL.
 For local publishing, set `GPBAR_UPDATE_PREVIOUS_FEED` to the previous release’s downloaded appcast.
 CI selects it automatically. Preserve published version history in each release asset.
-Do not alter the signed ZIP afterward. Verify both public URLs before announcing the release.
+Do not alter the signed DMG afterward. Verify both public URLs before announcing the release.
 Publish no development-signed build to the production feed.
 
 Before each release, verify an upgrade from the previous shipped build on a supported Mac.

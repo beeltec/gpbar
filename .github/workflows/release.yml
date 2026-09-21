@@ -48,6 +48,7 @@ jobs:
       GPBAR_PRERELEASE: ${{ needs.version.outputs.prerelease }}
       GPBAR_TEAM: ${{ vars.APPLE_TEAM_ID }}
       GPBAR_SIGN_IDENTITY: ${{ vars.APPLE_SIGN_IDENTITY }}
+      GPBAR_INSTALLER_SIGN_IDENTITY: ${{ vars.APPLE_INSTALLER_SIGN_IDENTITY }}
       GPBAR_NOTARY_PROFILE: gpbar-release
       GPBAR_UPDATE_FEED_URL: https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml
     steps:
@@ -77,6 +78,8 @@ jobs:
         env:
           APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_INSTALLER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_P12_BASE64 }}
+          APPLE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_PASSWORD }}
           APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
           APPLE_NOTARY_KEY_ID: ${{ vars.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ vars.APPLE_NOTARY_ISSUER_ID }}
@@ -92,11 +95,17 @@ jobs:
           GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
           GPBAR_RELEASE_ZIP: ${{ github.workspace }}/build/notarized/GPBar-${{ needs.version.outputs.build }}.zip
         run: scripts/notarize-app.sh
+      - name: Package DMG and PKG
+        env:
+          GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
+          GPBAR_RELEASE_OUTPUT: ${{ github.workspace }}/build/packages
+        run: scripts/package-release.sh
       - name: Prepare stable update
         if: env.GPBAR_PRERELEASE == 'false'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
+          GPBAR_UPDATE_DMG: ${{ github.workspace }}/build/packages/GPBar-${{ needs.version.outputs.build }}.dmg
           GPBAR_UPDATE_OUTPUT: ${{ github.workspace }}/build/update
         run: |
           umask 077
@@ -112,13 +121,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          printf 'GPBar %s for Apple Silicon and macOS 26 or newer.\n\nDownload the ZIP, extract GPBar, and move it to Applications.\n' "$GITHUB_REF_NAME" > build/release-notes.md
+          printf 'GPBar %s for Apple Silicon and macOS 26 or newer.\n\nDownload the DMG and drag GPBar to Applications, or open the PKG installer. Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.\n' "$GITHUB_REF_NAME" > build/release-notes.md
           if [ "$GPBAR_PRERELEASE" = true ]; then
-            gh release create "$GITHUB_REF_NAME" "build/notarized/GPBar-$GPBAR_BUILD.zip" \
+            gh release create "$GITHUB_REF_NAME" "build/packages/GPBar-$GPBAR_BUILD.dmg" "build/packages/GPBar-$GPBAR_BUILD.pkg" \
               --verify-tag --draft --prerelease --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
             gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
           else
-            gh release create "$GITHUB_REF_NAME" "build/update/GPBar-$GPBAR_BUILD.zip" build/update/appcast.xml \
+            gh release create "$GITHUB_REF_NAME" "build/update/GPBar-$GPBAR_BUILD.dmg" "build/packages/GPBar-$GPBAR_BUILD.pkg" build/update/appcast.xml \
               --verify-tag --draft --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
             gh release edit "$GITHUB_REF_NAME" --draft=false --latest
           fi

@@ -33,7 +33,7 @@ import Foundation
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
             self?.finish(request.commandID, .failure(.unavailable))
         }
-        guard let proxy = connection?.remoteObjectProxyWithErrorHandler({ [weak self] _ in
+        guard let proxy = connection?.remoteObjectProxyWithErrorHandler({ @Sendable [weak self] _ in
             Task { @MainActor in self?.finish(request.commandID, .failure(.unavailable)) }
         }) as? HelperProtocol else { finish(request.commandID, .failure(.unavailable)); return }
         proxy.inspect(data) { [weak self] data in
@@ -57,7 +57,7 @@ import Foundation
             result.finish(CommandReply(accepted: false, code: "command_timeout"))
         }
         result.timeout = timeout
-        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ @Sendable _ in
             Task { @MainActor in result.finish(CommandReply(accepted: false, code: "helper_unavailable")) }
         }) as? HelperProtocol else { result.finish(CommandReply(accepted: false, code: "helper_unavailable")); return }
         proxy.send(bytes) { data in
@@ -79,7 +79,7 @@ import Foundation
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
                 result.finish(CommandReply(accepted: false, code: "update_timeout"))
             }
-            guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+            guard let proxy = connection.remoteObjectProxyWithErrorHandler({ @Sendable _ in
                 Task { @MainActor in result.finish(CommandReply(accepted: false, code: "helper_unavailable")) }
             }) as? HelperProtocol else { result.finish(CommandReply(accepted: false, code: "helper_unavailable")); return }
             proxy.prepareForUpdate(data) { data in

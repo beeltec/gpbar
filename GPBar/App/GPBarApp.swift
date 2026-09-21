@@ -29,11 +29,13 @@ import SwiftUI
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 560, height: 580)
 
+        #if DEBUG
         Window("Diagnostics", id: "diagnostics") {
             DiagnosticsView(model: model)
         }
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 480, height: 340)
+        #endif
     }
 }
 
