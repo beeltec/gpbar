@@ -40,6 +40,8 @@ import CryptoTokenKit
     private let pathMonitor = NWPathMonitor()
     private(set) var recovering = false
     private(set) var recentEvents: [String] = []
+    private(set) var updating = false
+    private var restoreHelperAfterUpdate = false
     var settingsLocked: Bool { sessionID != nil || phase.isActive }
 
     init() {
@@ -121,7 +123,7 @@ import CryptoTokenKit
     }
 
     func connect(browserOverride: BrowserChoice? = nil) {
-        guard !settingsLocked, !cleanupRequired else { return }
+        guard !updating, !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
         let usesCertificate = preferences.authenticationMethod == .certificate
@@ -512,6 +514,7 @@ import CryptoTokenKit
     }
 
     func refresh() {
+        guard !updating else { return }
         helperStatus = service.status
         launchAtLogin = SMAppService.mainApp.status == .enabled
         guard helperStatus == .enabled else {
@@ -593,7 +596,8 @@ import CryptoTokenKit
                     } else if self.phase == .unknown { self.phase = .disconnected }
                 }
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
-                self.helperMessage = "Helper identity and user access verified."
+                self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
+                    : "The helper is preparing an update. If it failed, remove the helper in Diagnostics and set it up again."
             case .failure:
                 self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
@@ -602,6 +606,7 @@ import CryptoTokenKit
     }
 
     func registerHelper() {
+        guard !updating else { return }
         do {
             try service.register()
             error = nil
@@ -614,7 +619,7 @@ import CryptoTokenKit
     }
 
     func unregisterHelper() async {
-        guard !settingsLocked, !cleanupRequired else { return }
+        guard !updating, !settingsLocked, !cleanupRequired else { return }
         helper.cancel()
         helperVerified = false
         do {
@@ -626,10 +631,50 @@ import CryptoTokenKit
         }
     }
 
+    func prepareForUpdate() async -> Bool {
+        guard !updating, !settingsLocked, !cleanupRequired, !checkingHelper, !recovering else { return false }
+        updating = true
+        restoreHelperAfterUpdate = service.status == .enabled
+        guard service.status == .enabled, helperVerified, await helper.prepareForUpdate() else {
+            updating = false
+            helper.cancel()
+            refresh()
+            return false
+        }
+        do {
+            try await service.unregister()
+            guard service.status == .notRegistered else { throw HelperClient.HelperError.unavailable }
+        } catch {
+            updating = false
+            helper.cancel()
+            refresh()
+            return false
+        }
+        helper.cancel()
+        helperVerified = false
+        helperStatus = service.status
+        helperMessage = "The VPN helper is stopped while GPBar updates."
+        return true
+    }
+
+    func holdForPendingUpdate() {
+        updating = true
+        engineAvailable = false
+        helperMessage = "An earlier update needs attention. Disconnect, then restart GPBar before connecting again."
+    }
+
+    func finishUpdateAttempt() {
+        guard updating else { return }
+        updating = false
+        if restoreHelperAfterUpdate { startHelper() }
+        else { refresh() }
+        restoreHelperAfterUpdate = false
+    }
+
     func openSystemSettings() { SMAppService.openSystemSettingsLoginItems() }
 
     func recoverNetwork() {
-        guard helperVerified, !recovering, sessionID == nil || phase == .unknown else { return }
+        guard !updating, helperVerified, !recovering, sessionID == nil || phase == .unknown else { return }
         recovering = true
         let request = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
             commandID: UUID().uuidString, command: EngineCommand(type: .recoverNetwork))

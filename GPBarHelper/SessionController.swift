@@ -5,6 +5,8 @@ import SystemConfiguration
 actor SessionController {
     static let shared = SessionController()
     private let writeQueue = DispatchQueue(label: "com.beeltec.GPBar.engine-input")
+    private var updateConnectionID: UUID?
+    var preparingUpdate: Bool { updateConnectionID != nil }
     private var pendingWrites = 0
     private var finishing = false
     private var completed: (uid_t, Data)?
@@ -51,6 +53,15 @@ actor SessionController {
         return (sessionID, false, recoveryRequired, pending)
     }
 
+    func prepareForUpdate(userID: uid_t, connectionID: UUID) -> Bool {
+        guard currentConsoleUser() == userID, observerID == connectionID,
+              updateConnectionID == nil || updateConnectionID == connectionID,
+              process == nil, sessionID == nil, !finishing,
+              (try? SecureRuntime.hasPendingSessions()) == false else { return false }
+        updateConnectionID = connectionID
+        return true
+    }
+
     func detach(connectionID: UUID) {
         guard observerID == connectionID else { return }
         observer = nil
@@ -84,7 +95,7 @@ actor SessionController {
             return CommandReply(accepted: true, code: nil)
         }
         if message.command.type == .recoverNetwork {
-            guard process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID else {
+            guard updateConnectionID == nil, process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID else {
                 return CommandReply(accepted: false, code: "session_active")
             }
             finishing = true
@@ -96,7 +107,7 @@ actor SessionController {
             return CommandReply(accepted: success, code: success ? nil : "recovery_required")
         }
         if message.command.type == .start {
-            guard process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID, observerUser == userID,
+            guard updateConnectionID == nil, process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID, observerUser == userID,
                   let portal = message.command.portal, let normalized = PortalAddress.normalize(portal), normalized == portal,
                   message.command.reconnect != nil, let method = message.command.authenticationMethod else { return CommandReply(accepted: false, code: "start_rejected") }
             guard (method == .certificate) == (message.command.identity != nil),

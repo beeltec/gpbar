@@ -9,3 +9,5 @@ This is a development implementation. A real tunnel has connected, and normal di
 Failure recovery and release validation remain in progress.
 
 See [authentication support](AUTHENTICATION.md) for implemented methods and remaining differences from the official client.
+
+See [automatic updates](UPDATES.md) for update behavior, signing, and release publishing.
