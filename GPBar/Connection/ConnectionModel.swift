@@ -402,7 +402,7 @@ import CryptoTokenKit
                 self.phase = .failed
                 self.sessionID = nil
                 self.error = reply.code == "runtime_or_recovery"
-                    ? "The VPN runtime could not be verified, or an earlier session needs network recovery. Open diagnostics."
+                    ? "The VPN runtime could not be verified, or an earlier session needs network recovery. Open Edit Connection."
                     : "The VPN session could not start. Check helper access and try again."
             } else {
                 if kind == .disconnect || kind == .cancel || kind == .getSnapshot {
@@ -572,7 +572,7 @@ import CryptoTokenKit
                 if reply.recoveryRequired {
                     self.cleanupRequired = true
                     self.phase = .failed
-                    self.error = "An earlier VPN session needs network recovery. Open diagnostics."
+                    self.error = "An earlier VPN session needs network recovery. Open Edit Connection."
                 }
                 if reply.sessionBusy {
                     self.phase = .unknown
