@@ -38,9 +38,11 @@ Primary references:
 
 ## Signing and hosting
 
-The feed is `https://raw.githubusercontent.com/beeltec/gpbar/main/updates/appcast.xml`.
-The initial feed is empty because no distributable release exists yet.
-Host release ZIP files as public GitHub release assets. Publish assets before updating the feed.
+The source repository is private. Its raw files and release assets cannot serve unauthenticated application updates.
+Set `GPBAR_UPDATE_FEED_URL` to a publicly readable HTTPS feed when building the distributable app.
+Until configured, update controls explain that updates are unavailable for that build.
+The tracked `updates/appcast.xml` starts empty because no distributable release exists yet.
+Use separate public release hosting for the feed and signed ZIP files. Publish archives before updating the feed.
 The initial updater-enabled app must be installed manually. Earlier builds cannot discover updates.
 
 Every archive requires an Ed25519 signature before extraction, plus normal application code-signing validation.
@@ -61,6 +63,7 @@ Set `GPBAR_VERSION` to the user-visible version.
 
 ```sh
 GPBAR_VERSION=0.1.1 GPBAR_BUILD=2 \
+GPBAR_UPDATE_FEED_URL='https://updates.example.com/gpbar/appcast.xml' \
 GPBAR_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
 GPBAR_TEAM=TEAMID GPBAR_OUTPUT="$PWD/build/release-2/GPBar.app" \
 scripts/build-app.sh
@@ -72,7 +75,7 @@ scripts/notarize-app.sh
 
 GPBAR_APP="$PWD/build/release-2/GPBar.app" \
 GPBAR_UPDATE_OUTPUT="$PWD/build/update-2" \
-GPBAR_UPDATE_DOWNLOAD_URL='https://github.com/beeltec/gpbar/releases/download/v0.1.1/' \
+GPBAR_UPDATE_DOWNLOAD_URL='https://updates.example.com/gpbar/v0.1.1/' \
 scripts/prepare-update.sh
 ```
 
@@ -82,8 +85,9 @@ It uses the pinned Sparkle tools from `build/app-derived` by default.
 `GPBAR_SPARKLE_BIN` can select another resolved copy of the same pinned tools.
 Existing feed entries are preserved by Sparkle, subject to its retention policy. Delta generation is disabled initially.
 
-Upload the exact generated ZIP to the matching GitHub release.
-Then copy the generated feed to `updates/appcast.xml` and commit it through review.
+Upload the exact generated ZIP to the chosen public release directory.
+Publish the generated feed at the embedded feed URL.
+Also copy the feed to `updates/appcast.xml` and commit it through review to preserve published version history.
 Do not alter the signed ZIP afterward. Verify both public URLs before announcing the release.
 Publish no development-signed build to the production feed.
 

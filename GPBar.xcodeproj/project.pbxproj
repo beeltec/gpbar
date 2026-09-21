@@ -484,7 +484,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				GPBAR_UPDATE_FEED_URL = "https://raw.githubusercontent.com/beeltec/gpbar/main/updates/appcast.xml";
+				GPBAR_UPDATE_FEED_URL = "";
 				GPBAR_UPDATE_PUBLIC_KEY = "vJXVcUnnQyP180ceJkipBbIc3z9CNmk2R6tELWdohlQ=";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;
@@ -558,7 +558,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				GPBAR_UPDATE_FEED_URL = "https://raw.githubusercontent.com/beeltec/gpbar/main/updates/appcast.xml";
+				GPBAR_UPDATE_FEED_URL = "";
 				GPBAR_UPDATE_PUBLIC_KEY = "vJXVcUnnQyP180ceJkipBbIc3z9CNmk2R6tELWdohlQ=";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.1.0;

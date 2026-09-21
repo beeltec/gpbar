@@ -57,6 +57,6 @@ trap 'rm -rf -- "$update_work"' EXIT HUP INT TERM
 cp "$project_root/updates/appcast.xml" "$update_work/appcast.xml"
 ditto -c -k --keepParent "$GPBAR_APP" "$update_work/GPBar-$build_number.zip"
 "$sparkle_bin/generate_appcast" --account "$account" --maximum-deltas 0 \
-    --download-url-prefix "$GPBAR_UPDATE_DOWNLOAD_URL" "$update_work"
+    --download-url-prefix "$GPBAR_UPDATE_DOWNLOAD_URL" -o "$update_work/appcast.xml" "$update_work"
 mv "$update_work" "$GPBAR_UPDATE_OUTPUT"
 printf '%s\n' "$GPBAR_UPDATE_OUTPUT"

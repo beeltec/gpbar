@@ -11,7 +11,9 @@ scripts/build-native.sh
 scripts/build-engine.sh
 xcodegen generate
 xcodebuild -project GPBar.xcodeproj -scheme GPBar -configuration Release \
-    -derivedDataPath build/app-derived MARKETING_VERSION="${GPBAR_VERSION:-0.1.0}" CURRENT_PROJECT_VERSION="${GPBAR_BUILD:-1}" CODE_SIGN_IDENTITY="$GPBAR_SIGN_IDENTITY" DEVELOPMENT_TEAM="$GPBAR_TEAM" build
+    -derivedDataPath build/app-derived MARKETING_VERSION="${GPBAR_VERSION:-0.1.0}" \
+    CURRENT_PROJECT_VERSION="${GPBAR_BUILD:-1}" GPBAR_UPDATE_FEED_URL="${GPBAR_UPDATE_FEED_URL:-}" \
+    CODE_SIGN_IDENTITY="$GPBAR_SIGN_IDENTITY" DEVELOPMENT_TEAM="$GPBAR_TEAM" build
 app_work=$(mktemp -d "$project_root/build/app-work.XXXXXX")
 trap 'rm -rf -- "$app_work"' EXIT HUP INT TERM
 python3 scripts/bundle-runtime.py --output "$app_work/runtime"
