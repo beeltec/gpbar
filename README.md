@@ -118,5 +118,5 @@ GPBar builds on OpenProtect, OpenConnect, vpnc-script, and Sparkle.
 See [third-party notices](THIRD-PARTY-NOTICES.md) and [bundled license texts](Packaging/Licenses) for dependency licensing.
 Sparkle's license is included in [Sparkle.txt](Packaging/Licenses/Sparkle.txt).
 
-This repository does not currently include a top-level license for GPBar's own code.
-Dependency licenses apply to their respective components.
+GPBar's original code is licensed under the [MIT License](LICENSE).
+Third-party components and changes derived from them remain subject to their respective licenses.

@@ -1,6 +1,7 @@
 # Third-party notices
 
-GPBar includes the following third-party software.
+GPBar's original code is licensed under the [MIT License](LICENSE).
+The following components and changes derived from them remain subject to their respective licenses.
 
 ## OpenProtect
 
