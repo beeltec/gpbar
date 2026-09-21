@@ -4,7 +4,7 @@ A native macOS menu bar client for GlobalProtect VPNs, built with SwiftUI, OpenP
 Enter the portal address supplied by your organization, sign in, and manage your connection from the menu bar.
 No company portal is built in.
 
-**Development status:** GPBar is under active development, with no published release yet.
+**Development status:** GPBar is under active development.
 A development build established a real SAML connection, and normal disconnect restored the observed routes and DNS settings.
 Failure recovery, wider portal compatibility, and release validation remain incomplete.
 
@@ -25,7 +25,8 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
 - Choose automatic authentication, SAML, username and password, or a Keychain client certificate.
-- Review local diagnostics and export them when reporting a problem.
+- Recover recorded network changes and remove the VPN helper from connection settings.
+- Debug builds include local diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
 
 SAML has live connection evidence. Password, certificate, smart-card, and saved-sign-in flows still need broader live validation.
@@ -33,9 +34,10 @@ External browser callback handling and automatic tab closure also need further v
 
 ## Get started
 
-Check [Releases](https://github.com/beeltec/gpbar/releases) for future downloads.
-Until a release is published, use the source-build instructions below.
-The release workflow produces a ZIP containing the app and its runtime dependencies.
+Download a DMG or PKG from [Releases](https://github.com/beeltec/gpbar/releases).
+Both contain the app and its runtime dependencies.
+Open the DMG and drag GPBar to Applications, or run the PKG installer.
+Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
 
 1. Place the built or downloaded `GPBar.app` in Applications and open it.
 2. Follow the app's guidance to approve the VPN helper if macOS requests it.
@@ -49,12 +51,12 @@ If your provider requires an external browser, select **SAML** in **Edit Connect
 That choice remains saved when you return to **Automatic**.
 
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
-The update feed becomes available after the first stable release. See [automatic updates](UPDATES.md) for details.
+Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
 
 ### Remove GPBar
 
 Disconnect and wait for network cleanup to finish.
-Open **Diagnostics**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
+Open **Edit Connection**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
 Launching GPBar again registers the helper again.
 
 ## Known limits
@@ -105,7 +107,7 @@ The helper manages privileged operations and network cleanup.
 
 Use [GitHub Issues](https://github.com/beeltec/gpbar/issues) for bug reports and feature requests.
 Include your macOS version, GPBar build, authentication method, browser choice, and steps to reproduce the problem.
-Review diagnostics before sharing them. Remove credentials, callback URLs, account details, and private network information.
+Debug builds can export diagnostics. Review them before sharing. Remove credentials, callback URLs, account details, and private network information.
 
 Keep changes focused and follow the existing code style. Use Conventional Commits for commit messages.
 The project uses live macOS and browser validation, alongside builds and static checks.

@@ -8,7 +8,7 @@ Accepted examples: `v1.2.3`, `1.2.3`, `v1.2.3-rc.1`, and `v1.2.3+build.1`.
 Invalid names that match GitHub's broad tag filter fail before the macOS signing job starts.
 
 Stable versions must exceed every published stable version. Existing release tags cannot be overwritten.
-Prereleases produce notarized ZIP files but never replace the stable appcast or GitHub's latest release.
+Prereleases produce notarized DMG and PKG files but never replace the stable appcast or GitHub's latest release.
 The application display version uses the three numeric SemVer components. The GitHub release preserves the full tag.
 The workflow run number supplies the increasing application build number.
 Do not reset the workflow's run numbering after publishing releases.
@@ -21,6 +21,8 @@ Add these repository secrets under Settings → Secrets and variables → Action
 | --- | --- |
 | `APPLE_CERTIFICATE_P12_BASE64` | Base64 of a Developer ID Application certificate export, including its private key. |
 | `APPLE_CERTIFICATE_PASSWORD` | Password protecting that `.p12` export. |
+| `APPLE_INSTALLER_CERTIFICATE_P12_BASE64` | Base64 of a Developer ID Installer certificate export, including its private key. |
+| `APPLE_INSTALLER_CERTIFICATE_PASSWORD` | Password protecting the installer `.p12` export. |
 | `APPLE_NOTARY_KEY_P8` | Contents of an App Store Connect team API key file. |
 | `SPARKLE_PRIVATE_KEY` | Existing GPBar Sparkle key exported by `generate_keys`; use the current 32-byte seed format. |
 
@@ -30,11 +32,12 @@ Add these repository variables:
 | --- | --- |
 | `APPLE_TEAM_ID` | Apple Developer team identifier. |
 | `APPLE_SIGN_IDENTITY` | Full `Developer ID Application: Name (TEAMID)` identity matching the certificate. |
+| `APPLE_INSTALLER_SIGN_IDENTITY` | Full `Developer ID Installer: Name (TEAMID)` identity matching the installer certificate. |
 | `APPLE_NOTARY_KEY_ID` | Identifier of the notarization API key. |
 | `APPLE_NOTARY_ISSUER_ID` | Issuer identifier of that team API key. |
 
 Use an App Store Connect team key with notarization access. Individual API keys do not support `notarytool`.
-The API key handles notarization; the Developer ID certificate signs executable code.
+The API key handles notarization. The Application certificate signs executable code and DMGs; the Installer certificate signs PKGs.
 Do not upload an Apple Development certificate as the release identity.
 
 The Sparkle key must match the public key already embedded in `project.yml`.
@@ -77,7 +80,8 @@ GitHub serializes release runs. Multiple queued pushes can replace an older pend
 
 A stable release contains:
 
-- `GPBar-<build>.zip`: the signed, notarized, stapled application.
+- `GPBar-<build>.dmg`: the signed, notarized disk image containing the stapled application and an Applications shortcut.
+- `GPBar-<build>.pkg`: the signed, notarized installer for `/Applications/GPBar.app`.
 - `appcast.xml`: signed archive metadata for Sparkle, including earlier stable entries.
 
 The pipeline downloads the previous stable release's appcast before generating the next one.
@@ -89,7 +93,19 @@ This endpoint becomes available with the first stable release. Until then, check
 If publishing fails after draft creation, inspect the draft before retrying.
 The workflow refuses to overwrite an existing release, including a draft.
 Resolve or remove that failed draft, then rerun the same workflow. Do not move an already published tag.
-A ZIP is the installation and update artifact; this pipeline does not create a DMG.
+Sparkle uses the DMG. ZIP files are used only for internal application notarization and are not published.
+The PKG requires Apple Silicon and macOS 26 or newer. It does not register or launch the privileged helper.
+The installer refuses to replace running GPBar, helper, or OpenProtect processes.
+Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
+
+## Authorized v0.1.0 correction
+
+The initial v0.1.0 shipped a ZIP, a development label, and diagnostic controls.
+The owner requested deletion and recreation after the fixes pass review and validation.
+Back up the original release metadata, assets, and tag before deleting them.
+Move v0.1.0 to the reviewed merge commit and publish with a higher workflow build number.
+This is an explicit exception to the published-tag rule above, not the normal release process.
+Existing installations discover the replacement through its higher Sparkle build number.
 
 ## Validation limits
 

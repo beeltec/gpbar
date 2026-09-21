@@ -1,3 +1,4 @@
+#if DEBUG
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -64,3 +65,4 @@ struct DiagnosticsView: View {
         }
     }
 }
+#endif

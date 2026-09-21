@@ -1,0 +1,5 @@
+GPBar requires an Apple Silicon Mac running macOS 26 or newer.
+
+This installer places GPBar in Applications. Open GPBar after installation to set up the VPN helper.
+
+Before reinstalling, disconnect the VPN, remove the helper in Edit Connection, and quit GPBar.

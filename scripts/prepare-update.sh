@@ -2,6 +2,7 @@
 set -eu
 project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 : "${GPBAR_APP:?Set GPBAR_APP to the notarized application path.}"
+: "${GPBAR_UPDATE_DMG:?Set GPBAR_UPDATE_DMG to the signed, notarized release disk image.}"
 : "${GPBAR_UPDATE_OUTPUT:?Set GPBAR_UPDATE_OUTPUT to a new absolute directory.}"
 : "${GPBAR_UPDATE_DOWNLOAD_URL:?Set GPBAR_UPDATE_DOWNLOAD_URL to the HTTPS release asset directory, ending in /.}"
 sparkle_bin=${GPBAR_SPARKLE_BIN:-$project_root/build/app-derived/SourcePackages/artifacts/sparkle/Sparkle/bin}
@@ -62,7 +63,10 @@ mkdir -p "$(dirname -- "$GPBAR_UPDATE_OUTPUT")"
 update_work=$(mktemp -d "$(dirname -- "$GPBAR_UPDATE_OUTPUT")/.gpbar-update.XXXXXX")
 trap 'rm -rf -- "$update_work"' EXIT HUP INT TERM
 cp "$previous_feed" "$update_work/appcast.xml"
-ditto -c -k --keepParent "$GPBAR_APP" "$update_work/GPBar-$build_number.zip"
+codesign --verify --strict --verbose=2 "$GPBAR_UPDATE_DMG"
+xcrun stapler validate "$GPBAR_UPDATE_DMG"
+spctl --assess --type open --context context:primary-signature --verbose=2 "$GPBAR_UPDATE_DMG"
+cp "$GPBAR_UPDATE_DMG" "$update_work/GPBar-$build_number.dmg"
 "$sparkle_bin/generate_appcast" "$@" --maximum-deltas 0 \
     --download-url-prefix "$GPBAR_UPDATE_DOWNLOAD_URL" -o "$update_work/appcast.xml" "$update_work"
 mv "$update_work" "$GPBAR_UPDATE_OUTPUT"

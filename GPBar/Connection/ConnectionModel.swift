@@ -600,7 +600,7 @@ import CryptoTokenKit
                 }
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
-                    : "The helper is preparing an update. If it failed, remove the helper in Diagnostics and set it up again."
+                    : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
             case .failure:
                 self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
