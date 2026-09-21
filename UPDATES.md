@@ -104,6 +104,7 @@ The local feed used loopback HTTP in Debug builds. No validation release was pub
 
 Observed results:
 
+- An unconfigured Release build disabled update controls and explained the missing configuration.
 - Manual checking displayed the expected empty-feed result.
 - Automatic checks could be disabled. The setting remained disabled after quitting and reopening.
 - A missing feed displayed Sparkle's retrieval error.
