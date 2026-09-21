@@ -1,11 +1,7 @@
 # Authentication support
 
-Research date: 2026-09-20. Scope: GPBar on macOS.
-
-The saved sign-in changes require app, helper, and engine protocol version 5.
-Update all three components together. Older components reject the version mismatch.
+The app, helper, and engine must use matching protocol versions. Update them together.
 For development builds in different folders, disconnect and remove the old helper through the old app before launching the new build.
-An old registered helper cannot process version 5 requests.
 
 GPBar does not have full authentication parity with the official GlobalProtect app.
 The available live provider uses SAML. Other methods below have no live compatibility evidence.
@@ -21,12 +17,12 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Portal and gateway MFA challenges | Bounded challenge exchange using `inputStr` and one `passwd` value. Supports XML and existing HTML challenge responses. | New portal support; corrected gateway submission. Push-only and provider-specific exchanges remain unverified. |
 | Different portal and gateway authentication | Separate gateway prelogin and sign-in when portal cookies are absent or rejected. | New implementation; no live provider available. Passwords are not silently forwarded to another host. |
 | Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
-| Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Builds and parallel reviews passed. Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
+| Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
 | Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
 | MFA notifications for protected non-browser resources | Not available. | This is a separate post-connection notification and authentication protocol. |
-| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Builds and branch-wide reviews passed. Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
+| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
 
 The official client supports local, external, certificate, and multi-factor authentication.
@@ -162,7 +158,6 @@ Disconnect invalidates the native authentication context and cancels engine-side
 Removing the selection does not delete the Keychain identity.
 
 The native adapter reuses Apple's key operations instead of adding another PKCS#11 provider and user-side token service.
-Existing PKCS#11 providers remain candidates for the separate smart-card ticket.
 [Apple signature API](https://developer.apple.com/documentation/security/seckeycreatesignature(_:_:_:_:)),
 [GnuTLS abstract-key API](https://www.gnutls.org/manual/html_node/Abstract-key-API.html)
 
@@ -201,28 +196,6 @@ Protocol evidence is required before claiming that an existing SAML callback als
 
 These gaps remain open. The password and challenge implementation does not close full authentication parity.
 
-## Validation record
-
-The final development build passed Swift/Rust builds, Clippy, and strict signature verification on macOS 26.6.2.
-Parallel protocol and security reviews reported no remaining concrete findings after corrections.
-Live SAML startup reached the identity provider in the embedded browser. Cancellation closed the window and restored Connect.
-The native credential form and new MFA exchanges were not exercised against a live provider.
-Full SAML callback completion and tunnel establishment were not repeated for this change.
-No automated tests or test harnesses were added or run.
-
-The library-reuse cleanup also passed the signed build, Clippy, signature verification, and parallel protocol and security reviews.
-Its live check reached the SAML provider and returned to idle after cancellation.
-That check did not exercise the consolidated portal request, which runs after successful sign-in.
-
-The cookie development build completed the available provider's embedded SAML flow on macOS 26.6.2.
-Tunnel setup then failed with `tunnel_openconnect_setup_tun_device_-5`; the app later returned to an idle failed state.
-The saved-sign-in status reported removal. Cookie persistence, reuse, expiry, and policy changes remain unverified against a live provider.
-The protocol 5 reconciliation build passed Clippy, signed packaging, and strict signature verification.
-Live startup preserved settings and verified the matching helper. Ordinary refresh succeeded without starting a VPN session.
-Cookie-update acknowledgement remains unverified live. A later shortened-policy expiry correction is not included in that live build.
-The corrected `cookies-v8` package passed the signed build and strict signature verification.
-Both branch-wide review axes reported no concrete defects after that correction.
-
 ## Authentication selection and detection
 
 Automatic detection reuses the pinned OpenProtect `PreloginResponse::parse` and `GpBar::prelogin` implementations.
@@ -244,31 +217,13 @@ Hidden browser settings remain saved and serve Automatic, gateway, and certifica
 Hidden certificates are retained but are not used outside Client certificate mode.
 Existing certificate configurations migrate to Client certificate. Other configurations default to Automatic.
 
-## Authentication selection live validation — 2026-09-21
+## Validation limits
 
-Build: `auth-selection-v1`, source `833bbdb`, GPBar 0.1.0, protocol 6, arm64, macOS 26.6.2 (25G83).
-The bundled engine uses the pinned OpenProtect snapshot with this branch's app-mode changes and patched OpenConnect 9.21.
-Browser: in-app WebKit 21624.5.1.11.3.
+Live checks on macOS 26.6.2 covered authentication selection, saved preferences, certificate selection controls, SAML startup, and cancellation.
+A development build completed embedded SAML login and established a tunnel.
+Later authentication changes have not all repeated the full connection flow.
 
-Computer use verified these behaviors:
-
-- All four authentication choices appear in the native dropdown.
-- SAML shows browser controls; specific-browser mode also shows the saved application.
-- Automatic and password modes hide browser and certificate controls.
-- Client certificate shows certificate controls and rejects Connect when no identity is selected.
-- The selected authentication method survives app restart, including certificate mode without an identity.
-- Hidden browser preferences survive method changes and app restart.
-- Password selection against the available SAML portal stops with the expected method-mismatch message.
-- Explicit SAML and Automatic each reach the real identity-provider page in the embedded browser.
-- Connection settings lock during both attempts. Cancel closes the login window and restores Connect.
-- Diagnostics report protocol 6, a verified helper, Disconnected, and no required network recovery.
-- Diagnostic text contains event names and states without portal, account, callback, or other sign-in secrets.
-
-The app was left disconnected with Automatic selected and the original in-app browser restored.
-Signed Swift/Rust packaging, workspace Cargo check and Clippy, changed-file rustfmt, and strict signature verification passed.
-Parallel protocol/security and UI/persistence reviews reported no remaining findings after fixing migration persistence.
-No automated tests or test harnesses were created or run.
-
-No live password-only portal or client-authentication identity was available for this check.
-Certificate migration with an existing identity, successful password/certificate login, and separate gateway authentication remain unverified live.
-Full SAML login, callback completion, external-browser login, and tunnel establishment were not repeated for this change.
+Successful password login, client-certificate login, smart-card hardware, and separate gateway authentication remain unverified against a live provider.
+Saved-cookie persistence, reuse, expiry, and policy changes also need live validation.
+Full external-browser callback handling and page cleanup remain unverified.
+Builds and source reviews do not establish compatibility with a provider.

@@ -93,9 +93,6 @@ A ZIP is the installation and update artifact; this pipeline does not create a D
 
 ## Validation limits
 
-Repository visibility and the existing public source feed were verified without authentication.
-Workflow linting, shell checks, local release metadata checks, and build verification are recorded in the delivery PR.
-No automated tests or fabricated release tags are part of this change.
 A complete hosted notarization run requires the credentials above and a real release tag.
 
 ## Primary references

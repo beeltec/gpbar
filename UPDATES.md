@@ -100,30 +100,9 @@ Check signature rejection, cancellation, preferences, helper re-registration, an
 Debug builds also accept an HTTP feed on `127.0.0.1` for manual local validation.
 Release builds require HTTPS. Local validation archives and feeds stay under ignored `build/` paths.
 
-## Live validation: 2026-09-21
+## Validation limits
 
-Environment: Apple Silicon, macOS 26.6.2 (25G83), Xcode 27, Sparkle 2.10.0, and Apple Development signing.
-The local feed used loopback HTTP in Debug builds. No validation release was published.
-
-Observed results:
-
-- An unconfigured Release build disabled update controls and explained the missing configuration.
-- Manual checking displayed the expected empty-feed result.
-- Automatic checks could be disabled. The setting remained disabled after quitting and reopening.
-- A missing feed displayed Sparkle's retrieval error.
-- A missing archive displayed a download error, then restored the helper and enabled Connect.
-- Installation with an unregistered helper was refused until helper setup could confirm cleanup.
-- A newer signed archive appeared in the native update window. Closing it left the helper available.
-- An invalid Ed25519 signature was rejected before installation. Connect stayed blocked until restart or successful update.
-- A valid update replaced build 1 with build 3, then relaunched automatically.
-- The relaunched app verified its helper and preserved the saved connection and update preference.
-- The upgraded full-runtime app reached browser sign-in, exercising signed runtime copying with Sparkle framework links.
-- Installation during that authentication session was refused. The session remained open until explicitly cancelled.
-- Cancelling sign-in returned to disconnected state, with no engine process remaining. DNS snapshots matched before and after.
-- Release preparation rejected HTTP URLs and development-signed applications.
-- Debug and Release builds passed. Full runtime packaging and strict nested code-signature verification passed.
-
-Limits: no Developer ID certificate or notarization credentials were available.
-Public release publishing, Gatekeeper acceptance, and an upgrade on another Mac remain release checks.
-Browser sign-in required user credentials. A complete tunnel connection was not repeated during this update task.
-Installer crashes, helper failures, and resumed installation were reviewed in source, rather than forced live.
+A local development-signed upgrade completed on macOS 26.6.2, with helper relaunch and preference preservation.
+Invalid archive signatures and installation during authentication were rejected.
+Public release publishing, Gatekeeper acceptance, and notarized upgrades on another Mac remain unverified.
+Installer crashes, helper failures, and resumed installation still need live checks.

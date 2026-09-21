@@ -2,21 +2,20 @@
 
 ## Read before changing files
 
-Read [the implementation plan](docs/plan.md) for product behavior and scope.
-Use [the guideline index](docs/guidelines/README.md) to select the guides relevant to your work.
-Read each relevant guide before changing its area.
-Changes across a process boundary require the guides for both sides.
+Read [the README](README.md) for product scope, setup, and current limits.
+Read the public guide relevant to your change:
 
-| Area | Required guide |
+| Area | Guide |
 | --- | --- |
-| Swift, concurrency, SwiftUI, AppKit, accessibility | [Swift and SwiftUI](docs/guidelines/swift-and-swiftui.md) |
-| WebKit, browser choice, SAML, callback handling, login HTML | [Browser authentication](docs/guidelines/browser-authentication.md) |
-| ServiceManagement, launchd, XPC, process control, JSON protocol | [Privileged helper and IPC](docs/guidelines/privileged-helper-and-ipc.md) |
-| Rust, Tokio, Serde, C bindings, libopenconnect integration | [Rust and FFI](docs/guidelines/rust-and-ffi.md) |
-| GlobalProtect, OpenProtect, OpenConnect, TLS, XML, routes, DNS | [VPN and networking](docs/guidelines/vpn-and-networking.md) |
-| Preferences, credentials, logs, privacy | [Security and storage](docs/guidelines/security-and-storage.md) |
-| Xcode, Cargo, shell scripts, native dependencies, signing, distribution | [Build and release](docs/guidelines/build-and-release.md) |
-| Every change: verification, documentation, Git | [Validation and workflow](docs/guidelines/validation-and-workflow.md) |
+| Authentication, browser login, credentials, and certificates | [Authentication support](AUTHENTICATION.md) |
+| Update behavior, signing, and local publishing | [Automatic updates](UPDATES.md) |
+| Build inputs, distribution, and CI releases | [Tagged releases](RELEASE.md) |
+| Dependencies and licensing | [Third-party notices](THIRD-PARTY-NOTICES.md) |
+
+Some local checkouts contain an ignored `docs/` folder with planning notes and detailed coding guidelines.
+When available, read `docs/plan.md` and use `docs/guidelines/README.md` to select relevant guides before changing files.
+Public contributors do not need these local files. Follow the rules below and the existing code style.
+Changes across a process boundary require reviewing both sides.
 
 ## Product rules
 
@@ -27,7 +26,7 @@ Changes across a process boundary require the guides for both sides.
 - Capture `globalprotectcallback:` automatically and continue connection setup.
 - Close owned authentication windows or tabs where the browser supports reliable cleanup.
 - Do not confuse launching at macOS login with connecting after browser authentication.
-- Preserve the process boundaries and supported-platform scope in the plan.
+- Preserve the process boundaries and supported-platform scope described in the README.
 
 ## Engineering rules
 
@@ -40,7 +39,7 @@ Changes across a process boundary require the guides for both sides.
 - Follow the surrounding style. Keep changes to vendored code focused and traceable.
 - Keep unsafe code, privileged operations, and protocol parsing behind small, explicit interfaces.
 - Preserve unrelated work and avoid destructive actions outside the requested scope.
-- Keep product requirements in the plan and implementation rules in the linked guides. Update both when a decision changes.
+- Keep public behavior and support limits current in the README and relevant technical guides.
 - Treat the guides as project decisions informed by sources, not automatic adoption of every upstream recommendation.
 - Follow explicit user instructions when they differ from a guide. Record material changes in the relevant document.
 
@@ -53,7 +52,7 @@ Changes across a process boundary require the guides for both sides.
 - Commit completed units with Conventional Commits.
 - Use Conventional Branch names without AI prefixes. Simple work may stay on `main`.
 - Keep a unit of work on one branch. Ask about merging before starting a new unit on another branch.
-- The user's “usual workflow” applies only when invoked; see the workflow guide.
+- The user's “usual workflow” applies only when explicitly invoked. Follow the steps supplied with that request.
 
 ## Writing
 
