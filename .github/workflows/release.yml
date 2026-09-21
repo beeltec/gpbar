@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpbar-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Validate release tag
+    if: github.event.deleted == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a reviewed commit
+        run: git merge-base --is-ancestor HEAD origin/main
+      - name: Validate SemVer
+        id: version
+        run: python3 scripts/ci/release-version.py
+
+  release:
+    name: Build, notarize, and publish
+    needs: version
+    runs-on: macos-26
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      GPBAR_VERSION: ${{ needs.version.outputs.version }}
+      GPBAR_BUILD: ${{ needs.version.outputs.build }}
+      GPBAR_PRERELEASE: ${{ needs.version.outputs.prerelease }}
+      GPBAR_TEAM: ${{ vars.APPLE_TEAM_ID }}
+      GPBAR_SIGN_IDENTITY: ${{ vars.APPLE_SIGN_IDENTITY }}
+      GPBAR_NOTARY_PROFILE: gpbar-release
+      GPBAR_UPDATE_FEED_URL: https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Check release history
+        id: history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build/previous
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases" > build/releases.json
+          python3 scripts/ci/check-release-history.py build/releases.json
+      - name: Fetch previous stable feed
+        if: steps.history.outputs.previous_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_TAG: ${{ steps.history.outputs.previous_tag }}
+        run: gh release download "$PREVIOUS_TAG" --pattern appcast.xml --dir build/previous
+      - name: Check Sparkle signing secret
+        if: env.GPBAR_PRERELEASE == 'false'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: ': "${SPARKLE_PRIVATE_KEY:?Add the existing GPBar Sparkle private key secret.}"'
+      - name: Import release signing credentials
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+          APPLE_NOTARY_KEY_ID: ${{ vars.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ vars.APPLE_NOTARY_ISSUER_ID }}
+        run: scripts/ci/setup-signing.sh
+      - name: Install pinned build inputs
+        run: scripts/ci/install-dependencies.sh
+      - name: Build complete application
+        env:
+          GPBAR_OUTPUT: ${{ github.workspace }}/build/release/GPBar.app
+        run: scripts/build-app.sh
+      - name: Notarize and staple
+        env:
+          GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
+          GPBAR_RELEASE_ZIP: ${{ github.workspace }}/build/notarized/GPBar-${{ needs.version.outputs.build }}.zip
+        run: scripts/notarize-app.sh
+      - name: Prepare stable update
+        if: env.GPBAR_PRERELEASE == 'false'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
+          GPBAR_UPDATE_OUTPUT: ${{ github.workspace }}/build/update
+        run: |
+          umask 077
+          export GPBAR_UPDATE_KEY_FILE="$RUNNER_TEMP/gpbar-signing/sparkle.key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$GPBAR_UPDATE_KEY_FILE"
+          export GPBAR_UPDATE_DOWNLOAD_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/"
+          if [ -f build/previous/appcast.xml ]; then
+            export GPBAR_UPDATE_PREVIOUS_FEED="$PWD/build/previous/appcast.xml"
+          fi
+          scripts/prepare-update.sh
+          rm "$GPBAR_UPDATE_KEY_FILE"
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf 'GPBar %s for Apple Silicon and macOS 26 or newer.\n\nDownload the ZIP, extract GPBar, and move it to Applications.\n' "$GITHUB_REF_NAME" > build/release-notes.md
+          if [ "$GPBAR_PRERELEASE" = true ]; then
+            gh release create "$GITHUB_REF_NAME" "build/notarized/GPBar-$GPBAR_BUILD.zip" \
+              --verify-tag --draft --prerelease --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
+          else
+            gh release create "$GITHUB_REF_NAME" "build/update/GPBar-$GPBAR_BUILD.zip" build/update/appcast.xml \
+              --verify-tag --draft --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          fi
+      - name: Remove signing credentials
+        if: always()
+        run: scripts/ci/cleanup-signing.sh

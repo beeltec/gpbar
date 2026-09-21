@@ -39,7 +39,7 @@ def inspect(path):
 def bundle(engine, output):
     if output.exists():
         raise ValueError('Output already exists. Choose a new directory to preserve the existing runtime.')
-    expected = json.loads((ROOT / 'docs/runtime-inputs.json').read_text())
+    expected = json.loads((ROOT / 'Packaging/runtime-inputs.json').read_text())
     script = ROOT / 'Vendor/vpnc-script/vpnc-script'
     if hashlib.sha256(script.read_bytes()).hexdigest() != expected['vpnc_script_sha256']:
         raise ValueError('The route script differs from its pinned hash.')
