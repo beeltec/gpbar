@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 5;
+pub const VERSION: u32 = 6;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -18,6 +18,7 @@ pub enum Command {
     Start {
         portal: String,
         reconnect: bool,
+        authentication_method: AuthenticationMethod,
         identity: Option<CertificateIdentity>,
         #[serde(default)]
         certificate_only: bool,
@@ -46,6 +47,15 @@ pub enum Command {
     Cancel,
     Disconnect,
     GetSnapshot,
+}
+
+#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthenticationMethod {
+    Automatic,
+    Saml,
+    Password,
+    Certificate,
 }
 
 #[derive(Deserialize)]

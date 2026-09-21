@@ -222,3 +222,24 @@ Live startup preserved settings and verified the matching helper. Ordinary refre
 Cookie-update acknowledgement remains unverified live. A later shortened-policy expiry correction is not included in that live build.
 The corrected `cookies-v8` package passed the signed build and strict signature verification.
 Both branch-wide review axes reported no concrete defects after that correction.
+
+## Authentication selection and detection
+
+Automatic detection reuses the pinned OpenProtect `PreloginResponse::parse` and `GpBar::prelogin` implementations.
+The response advertises SAML through `saml-auth-method` and `saml-request`; other responses use the existing standard credential path.
+OpenConnect also handles these fields in its GlobalProtect implementation. No new endpoint probe or parser is needed.
+See the [OpenConnect protocol notes](https://github.com/dlenski/openconnect/blob/master/PAN_GlobalProtect_protocol_doc.md).
+
+Detection runs after Connect, never from the hostname or while saving settings.
+The dropdown offers Automatic, SAML, Username and password, and Client certificate.
+Explicit SAML and password choices validate the portal response before submitting credentials or saved cookies.
+A mismatch stops with guidance to change the selection. Gateway requirements remain independent.
+The app-mode selection check is the integration gap; upstream prelogin already supplies the required classification.
+
+Certificate requirements can occur during TLS, before a prelogin response exists.
+The response cannot choose the correct Keychain identity or reliably establish certificate-only policy.
+Client certificate mode requires an explicit identity and retains the existing certificate-only toggle and combined authentication.
+Browser settings appear only under SAML; certificate settings appear only under Client certificate.
+Hidden browser settings remain saved and serve Automatic, gateway, and certificate flows that require SAML.
+Hidden certificates are retained but are not used outside Client certificate mode.
+Existing certificate configurations migrate to Client certificate. Other configurations default to Automatic.

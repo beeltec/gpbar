@@ -23,6 +23,9 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     var displayName: String {
         didSet { defaults.set(displayName, forKey: "connection.displayName") }
     }
+    var authenticationMethod: AuthenticationMethod {
+        didSet { defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod") }
+    }
     var browser: BrowserChoice {
         didSet { defaults.set(browser.rawValue, forKey: "connection.browser") }
     }
@@ -74,6 +77,8 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         certificateTokenID = defaults.string(forKey: "connection.certificateTokenID")
         certificateOnly = defaults.bool(forKey: "connection.certificateOnly")
         certificateUsername = defaults.string(forKey: "connection.certificateUsername") ?? ""
+        authenticationMethod = AuthenticationMethod(rawValue: defaults.string(forKey: "connection.authenticationMethod") ?? "")
+            ?? (certificateReference == nil ? .automatic : .certificate)
     }
 
     var title: String {

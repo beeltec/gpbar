@@ -46,64 +46,86 @@ struct ConnectionSettings: View {
                 .disabled(model.settingsLocked)
 
                 Section {
-                    Picker("Sign in using", selection: $preferences.browser) {
-                        ForEach(BrowserChoice.allCases) { browser in Text(browser.title).tag(browser) }
+                    Picker("Authentication method", selection: $preferences.authenticationMethod) {
+                        ForEach(AuthenticationMethod.allCases) { method in Text(method.title).tag(method) }
                     }
-                    if preferences.browser == .specific {
-                        Picker("Browser application", selection: $preferences.browserID) {
-                            Text("Select a browser").tag("")
-                            ForEach(model.installedBrowsers, id: \.path) { url in
-                                if let id = Bundle(url: url)?.bundleIdentifier {
-                                    Text(url.deletingPathExtension().lastPathComponent).tag(id)
+                    switch preferences.authenticationMethod {
+                    case .automatic:
+                        Text("Detect SAML or password login when you connect. SAML uses your saved browser choice. Select SAML to change it.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .saml, .password:
+                        Text("The portal must support this method. Gateway sign-in follows the gateway’s requirements.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .certificate:
+                        Text("Choose a Keychain or smart-card identity. The server can also require a password or SAML sign-in.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: { Text("Authentication") }
+                .disabled(model.settingsLocked)
+
+                if preferences.authenticationMethod == .saml {
+                    Section {
+                        Picker("Sign in using", selection: $preferences.browser) {
+                            ForEach(BrowserChoice.allCases) { browser in Text(browser.title).tag(browser) }
+                        }
+                        if preferences.browser == .specific {
+                            Picker("Browser application", selection: $preferences.browserID) {
+                                Text("Select a browser").tag("")
+                                ForEach(model.installedBrowsers, id: \.path) { url in
+                                    if let id = Bundle(url: url)?.bundleIdentifier {
+                                        Text(url.deletingPathExtension().lastPathComponent).tag(id)
+                                    }
                                 }
                             }
                         }
-                    }
-                    Text(preferences.browser == .inApp
-                         ? "Sign in within GPBar. Some organizations require an external browser."
-                         : "Callback capture and automatic tab closure depend on your browser.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } header: { Text("Browser login") }
-                .disabled(model.settingsLocked)
+                        Text(preferences.browser == .inApp
+                             ? "Sign in within GPBar. Some organizations require an external browser."
+                             : "Callback capture and automatic tab closure depend on your browser.")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } header: { Text("Browser login") }
+                    .disabled(model.settingsLocked)
+                }
 
-                Section {
-                    HStack(alignment: .top) {
-                        Image(systemName: "person.text.rectangle")
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(preferences.certificateReference == nil ? "No client certificate" : preferences.certificateName)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Text("Choose a certificate only if your organization requires one. Private keys are not exported.")
-                                .font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                if preferences.authenticationMethod == .certificate {
+                    Section {
+                        HStack(alignment: .top) {
+                            Image(systemName: "person.text.rectangle")
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(preferences.certificateReference == nil ? "No client certificate" : preferences.certificateName)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("Choose a certificate only if your organization requires one. Private keys are not exported.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Button("Choose…") {
+                                guard preferences.saveAddress() else { return }
+                                model.loadCertificates()
+                                choosingCertificate = true
+                            }
                         }
-                        Spacer()
-                        Button("Choose…") {
-                            guard preferences.saveAddress() else { return }
-                            model.loadCertificates()
-                            choosingCertificate = true
+                        if preferences.certificateReference != nil {
+                            if preferences.certificateTokenID != nil {
+                                Label(model.selectedTokenMissing ? "Insert the selected token" : "Token available", systemImage: "smartcard")
+                                    .font(.caption)
+                                Text("macOS asks for your PIN when needed. Removing the token stops this connection.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Toggle("Certificate-only login", isOn: $preferences.certificateOnly)
+                            if preferences.certificateOnly {
+                                TextField("Certificate username", text: $preferences.certificateUsername, prompt: Text("Optional"))
+                                Text("Use the username supplied by your administrator if the certificate does not provide one. Server-required browser sign-in still applies.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Button("Remove certificate selection") { model.selectCertificate(nil) }
                         }
-                    }
-                    if preferences.certificateReference != nil {
-                        if preferences.certificateTokenID != nil {
-                            Label(model.selectedTokenMissing ? "Insert the selected token" : "Token available", systemImage: "smartcard")
-                                .font(.caption)
-                            Text("macOS asks for your PIN when needed. Removing the token stops this connection.")
-                                .font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Toggle("Certificate-only login", isOn: $preferences.certificateOnly)
-                        if preferences.certificateOnly {
-                            TextField("Certificate username", text: $preferences.certificateUsername, prompt: Text("Optional"))
-                            Text("Use the username supplied by your administrator if the certificate does not provide one. Server-required browser sign-in still applies.")
-                                .font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Button("Remove certificate selection") { model.selectCertificate(nil) }
-                    }
-                } header: { Text("Client certificate") }
-                .disabled(model.settingsLocked)
+                    } header: { Text("Client certificate") }
+                    .disabled(model.settingsLocked)
+                }
 
                 Section {
                     Toggle("Remember sign-in when allowed", isOn: Binding(
