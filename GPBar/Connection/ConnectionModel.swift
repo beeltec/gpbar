@@ -28,7 +28,8 @@ import CryptoTokenKit
     private var certificateMetadataReady = false
     private var certificateMetadataFailed = false
     var selectedTokenMissing: Bool {
-        preferences.certificateTokenID.map { !availableTokenIDs.contains($0) } ?? false
+        preferences.authenticationMethod == .certificate
+            && (preferences.certificateTokenID.map { !availableTokenIDs.contains($0) } ?? false)
     }
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
@@ -68,6 +69,7 @@ import CryptoTokenKit
                 } catch {
                     guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
                     certificateMetadataFailed = true
+                    guard preferences.authenticationMethod == .certificate else { return }
                     if sessionID != nil { disconnect() }
                     self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
                 }
@@ -122,7 +124,12 @@ import CryptoTokenKit
         guard !settingsLocked, !cleanupRequired else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
-        guard certificateMetadataReady || preferences.certificateReference == nil else {
+        let usesCertificate = preferences.authenticationMethod == .certificate
+        guard !usesCertificate || preferences.certificateReference != nil else {
+            error = "Choose a client certificate before connecting."
+            return
+        }
+        guard !usesCertificate || certificateMetadataReady else {
             error = "The saved identity is not ready. Unlock or reinsert it, then select its certificate again."
             return
         }
@@ -137,7 +144,9 @@ import CryptoTokenKit
         snapshot = nil
         phase = .preparing
         var command = EngineCommand(type: .start, portal: preferences.portal, reconnect: preferences.reconnect,
-                                    certificateOnly: preferences.certificateOnly, certificateUsername: preferences.certificateUsername)
+                                    authenticationMethod: preferences.authenticationMethod,
+                                    certificateOnly: usesCertificate && preferences.certificateOnly,
+                                    certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
@@ -164,7 +173,7 @@ import CryptoTokenKit
 
     private func start(_ initialCommand: EngineCommand, session newSession: String) {
         var command = initialCommand
-        if let reference = preferences.certificateReference {
+        if command.authenticationMethod == .certificate, let reference = preferences.certificateReference {
             let context = KeychainContext()
             certificateContext = context
             Task {
@@ -310,7 +319,7 @@ import CryptoTokenKit
     private func tokenRemoved(_ tokenID: String) {
         availableTokenIDs = Set(tokenWatcher.tokenIDs)
         certificateChoices.removeAll { $0.tokenID == tokenID }
-        guard preferences.certificateTokenID == tokenID else { return }
+        guard preferences.authenticationMethod == .certificate, preferences.certificateTokenID == tokenID else { return }
         if sessionID != nil { disconnect() }
         error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
     }
@@ -323,7 +332,8 @@ import CryptoTokenKit
             certificateContext = nil
             signatureRequestID = nil
         }
-        guard phase != .disconnecting, let reference = preferences.certificateReference,
+        guard phase != .disconnecting, preferences.authenticationMethod == .certificate,
+              let reference = preferences.certificateReference,
               let scheme = event.scheme, let digest = event.digest, let input = event.input else {
             send(EngineCommand(type: .submitSignature, requestID: requestID))
             return
@@ -478,7 +488,8 @@ import CryptoTokenKit
             }
         case .ready: break
         }
-        if selectedTokenMissing || certificateMetadataFailed, sessionID != nil, phase != .disconnecting {
+        if preferences.authenticationMethod == .certificate, selectedTokenMissing || certificateMetadataFailed,
+           sessionID != nil, phase != .disconnecting {
             disconnect()
             error = "The selected smart card or hardware token is unavailable. Reinsert it and connect again."
         }

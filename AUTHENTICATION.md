@@ -222,3 +222,53 @@ Live startup preserved settings and verified the matching helper. Ordinary refre
 Cookie-update acknowledgement remains unverified live. A later shortened-policy expiry correction is not included in that live build.
 The corrected `cookies-v8` package passed the signed build and strict signature verification.
 Both branch-wide review axes reported no concrete defects after that correction.
+
+## Authentication selection and detection
+
+Automatic detection reuses the pinned OpenProtect `PreloginResponse::parse` and `GpBar::prelogin` implementations.
+The response advertises SAML through `saml-auth-method` and `saml-request`; other responses use the existing standard credential path.
+OpenConnect also handles these fields in its GlobalProtect implementation. No new endpoint probe or parser is needed.
+See the [OpenConnect protocol notes](https://github.com/dlenski/openconnect/blob/master/PAN_GlobalProtect_protocol_doc.md).
+
+Detection runs after Connect, never from the hostname or while saving settings.
+The dropdown offers Automatic, SAML, Username and password, and Client certificate.
+Explicit SAML and password choices validate the portal response before submitting credentials or saved cookies.
+A mismatch stops with guidance to change the selection. Gateway requirements remain independent.
+The app-mode selection check is the integration gap; upstream prelogin already supplies the required classification.
+
+Certificate requirements can occur during TLS, before a prelogin response exists.
+The response cannot choose the correct Keychain identity or reliably establish certificate-only policy.
+Client certificate mode requires an explicit identity and retains the existing certificate-only toggle and combined authentication.
+Browser settings appear only under SAML; certificate settings appear only under Client certificate.
+Hidden browser settings remain saved and serve Automatic, gateway, and certificate flows that require SAML.
+Hidden certificates are retained but are not used outside Client certificate mode.
+Existing certificate configurations migrate to Client certificate. Other configurations default to Automatic.
+
+## Authentication selection live validation — 2026-09-21
+
+Build: `auth-selection-v1`, source `833bbdb`, GPBar 0.1.0, protocol 6, arm64, macOS 26.6.2 (25G83).
+The bundled engine uses the pinned OpenProtect snapshot with this branch's app-mode changes and patched OpenConnect 9.21.
+Browser: in-app WebKit 21624.5.1.11.3.
+
+Computer use verified these behaviors:
+
+- All four authentication choices appear in the native dropdown.
+- SAML shows browser controls; specific-browser mode also shows the saved application.
+- Automatic and password modes hide browser and certificate controls.
+- Client certificate shows certificate controls and rejects Connect when no identity is selected.
+- The selected authentication method survives app restart, including certificate mode without an identity.
+- Hidden browser preferences survive method changes and app restart.
+- Password selection against the available SAML portal stops with the expected method-mismatch message.
+- Explicit SAML and Automatic each reach the real identity-provider page in the embedded browser.
+- Connection settings lock during both attempts. Cancel closes the login window and restores Connect.
+- Diagnostics report protocol 6, a verified helper, Disconnected, and no required network recovery.
+- Diagnostic text contains event names and states without portal, account, callback, or other sign-in secrets.
+
+The app was left disconnected with Automatic selected and the original in-app browser restored.
+Signed Swift/Rust packaging, workspace Cargo check and Clippy, changed-file rustfmt, and strict signature verification passed.
+Parallel protocol/security and UI/persistence reviews reported no remaining findings after fixing migration persistence.
+No automated tests or test harnesses were created or run.
+
+No live password-only portal or client-authentication identity was available for this check.
+Certificate migration with an existing identity, successful password/certificate login, and separate gateway authentication remain unverified live.
+Full SAML login, callback completion, external-browser login, and tunnel establishment were not repeated for this change.

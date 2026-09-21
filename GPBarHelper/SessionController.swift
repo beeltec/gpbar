@@ -98,8 +98,9 @@ actor SessionController {
         if message.command.type == .start {
             guard process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID, observerUser == userID,
                   let portal = message.command.portal, let normalized = PortalAddress.normalize(portal), normalized == portal,
-                  message.command.reconnect != nil else { return CommandReply(accepted: false, code: "start_rejected") }
-            guard message.command.identity?.isValid != false,
+                  message.command.reconnect != nil, let method = message.command.authenticationMethod else { return CommandReply(accepted: false, code: "start_rejected") }
+            guard (method == .certificate) == (message.command.identity != nil),
+                  message.command.identity?.isValid != false,
                   message.command.certificateOnly != true || message.command.identity != nil,
                   message.command.certificateUsername.map({ $0.utf8.count <= 1024 && !$0.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) != false else {
                 return CommandReply(accepted: false, code: "invalid_identity")

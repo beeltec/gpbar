@@ -1,5 +1,19 @@
 import Foundation
 
+enum AuthenticationMethod: String, Codable, Sendable, CaseIterable, Identifiable {
+    case automatic, saml, password, certificate
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .automatic: "Automatic"
+        case .saml: "SAML"
+        case .password: "Username and password"
+        case .certificate: "Client certificate"
+        }
+    }
+}
+
 struct EngineCommandEnvelope: Codable, Sendable {
     let protocolVersion: Int
     let sessionID: String
@@ -22,6 +36,7 @@ struct EngineCommand: Codable, Sendable {
     let type: Kind
     var portal: String?
     var reconnect: Bool?
+    var authenticationMethod: AuthenticationMethod?
     var challengeID: String?
     var callback: String?
     var otp: String?
@@ -38,6 +53,7 @@ struct EngineCommand: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
+        case authenticationMethod = "authentication_method"
         case identity, certificateOnly = "certificate_only", certificateUsername = "certificate_username"
         case requestID = "request_id", signature
         case rememberAuthentication = "remember_authentication", savedAuthentication = "saved_authentication"

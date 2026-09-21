@@ -15,6 +15,7 @@ mod cookies;
 mod signing;
 
 struct AuthenticationOptions {
+    method: app::AuthenticationMethod,
     identity: Option<Arc<gp_proto::identity::ClientIdentity>>,
     certificate_only: bool,
     certificate_username: Option<String>,
@@ -259,6 +260,7 @@ pub async fn run() -> Result<()> {
     let Command::Start {
         portal,
         reconnect,
+        authentication_method,
         identity,
         certificate_only,
         certificate_username,
@@ -277,7 +279,8 @@ pub async fn run() -> Result<()> {
     let saved_authentication = saved_authentication
         .map(|saved| *saved)
         .filter(|saved| saved.computer == GpParams::new(ClientOs::Mac).computer);
-    if (certificate_only && identity.is_none())
+    if (authentication_method == app::AuthenticationMethod::Certificate) != identity.is_some()
+        || (certificate_only && identity.is_none())
         || certificate_username
             .as_ref()
             .is_some_and(|name| name.len() > 1024 || name.contains(char::is_control))
@@ -306,6 +309,7 @@ pub async fn run() -> Result<()> {
         None => (None, None),
     };
     let options = AuthenticationOptions {
+        method: authentication_method,
         identity,
         certificate_only,
         certificate_username,
@@ -529,6 +533,7 @@ async fn authenticate_once(
     let params = GpParams::new(ClientOs::Mac);
     let client = options.client(params.clone())?;
     let mut prelogin = client.prelogin(portal).await?;
+    validate_portal_method(&prelogin, options.method, output).await?;
     let mut saved = options.saved_authentication.lock().await.clone();
     let mut history = saved.clone();
     if let Some(saved) = &mut saved {
@@ -576,6 +581,7 @@ async fn authenticate_once(
                 saved = None;
                 allow_cached_fallback = false;
                 prelogin = options.client(params.clone())?.prelogin(portal).await?;
+                validate_portal_method(&prelogin, options.method, output).await?;
                 let (fresh, id) =
                     request_credential(portal, &prelogin, output, answers, options).await?;
                 credential = fresh;
@@ -798,6 +804,32 @@ async fn request_otp(
     .await?;
     drop(out);
     Ok((answer(answers, &id, true).await?, id))
+}
+
+async fn validate_portal_method(
+    prelogin: &PreloginResponse,
+    method: app::AuthenticationMethod,
+    output: &SharedOutput,
+) -> Result<()> {
+    let message = match (method, prelogin) {
+        (app::AuthenticationMethod::Saml, PreloginResponse::Standard(_)) => {
+            "The portal did not offer SAML. Select Automatic or Username and password in Edit Connection."
+        }
+        (app::AuthenticationMethod::Password, PreloginResponse::Saml(_)) => {
+            "The portal requires SAML. Select Automatic or SAML in Edit Connection."
+        }
+        _ => return Ok(()),
+    };
+    output
+        .lock()
+        .await
+        .send(Event::Failure {
+            code: "authentication_method_mismatch",
+            message,
+            retryable: false,
+        })
+        .await?;
+    bail!("authentication method mismatch")
 }
 
 async fn request_credential(
