@@ -69,7 +69,7 @@ import Sparkle
                                   reply: @escaping (SPUUserUpdateChoice) -> Void) {
         if state.stage == .installing {
             installationPending = true
-            if !model.updating {
+            if !model.readyForUpdate {
                 Task { @MainActor in
                     guard await model.prepareForUpdate() else {
                         model.holdForPendingUpdate()
@@ -88,7 +88,7 @@ import Sparkle
         super.showUpdateFound(with: appcastItem, state: state) { [weak self] choice in
             guard let self, choice == .install else { reply(choice); return }
             Task { @MainActor in
-                let prepared = self.model.updating ? true : await self.model.prepareForUpdate()
+                let prepared = self.model.readyForUpdate ? true : await self.model.prepareForUpdate()
                 guard prepared else {
                     reply(.dismiss)
                     let alert = NSAlert()

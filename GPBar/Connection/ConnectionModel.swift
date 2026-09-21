@@ -40,7 +40,10 @@ import CryptoTokenKit
     private let pathMonitor = NWPathMonitor()
     private(set) var recovering = false
     private(set) var recentEvents: [String] = []
-    private(set) var updating = false
+    private enum UpdatePreparation { case idle, preparing, ready, blocked }
+    private var updatePreparation = UpdatePreparation.idle
+    var updating: Bool { updatePreparation != .idle }
+    var readyForUpdate: Bool { updatePreparation == .ready }
     private var restoreHelperAfterUpdate = false
     var settingsLocked: Bool { sessionID != nil || phase.isActive }
 
@@ -633,10 +636,10 @@ import CryptoTokenKit
 
     func prepareForUpdate() async -> Bool {
         guard !updating, !settingsLocked, !cleanupRequired, !checkingHelper, !recovering else { return false }
-        updating = true
+        updatePreparation = .preparing
         restoreHelperAfterUpdate = service.status == .enabled
         guard service.status == .enabled, helperVerified, await helper.prepareForUpdate() else {
-            updating = false
+            updatePreparation = .idle
             helper.cancel()
             refresh()
             return false
@@ -645,7 +648,7 @@ import CryptoTokenKit
             try await service.unregister()
             guard service.status == .notRegistered else { throw HelperClient.HelperError.unavailable }
         } catch {
-            updating = false
+            updatePreparation = .idle
             helper.cancel()
             refresh()
             return false
@@ -654,18 +657,19 @@ import CryptoTokenKit
         helperVerified = false
         helperStatus = service.status
         helperMessage = "The VPN helper is stopped while GPBar updates."
+        updatePreparation = .ready
         return true
     }
 
     func holdForPendingUpdate() {
-        updating = true
+        updatePreparation = .blocked
         engineAvailable = false
         helperMessage = "An earlier update needs attention. Disconnect, then restart GPBar before connecting again."
     }
 
     func finishUpdateAttempt() {
         guard updating else { return }
-        updating = false
+        updatePreparation = .idle
         if restoreHelperAfterUpdate { startHelper() }
         else { refresh() }
         restoreHelperAfterUpdate = false

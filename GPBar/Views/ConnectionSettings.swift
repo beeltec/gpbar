@@ -153,7 +153,7 @@ struct ConnectionSettings: View {
                     Text(updates.unavailableReason ?? "GPBar asks before installing. Disconnect the VPN before updating.")
                         .font(.caption).foregroundStyle(.secondary)
                     if model.updating {
-                        Text("The VPN helper is stopped for this update. Finish the update or restart GPBar before connecting.")
+                        Text("Finish the update or restart GPBar before connecting.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 } header: { Text("Updates") }

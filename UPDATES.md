@@ -103,6 +103,8 @@ Observed results:
 - Manual checking displayed the expected empty-feed result.
 - Automatic checks could be disabled. The setting remained disabled after quitting and reopening.
 - A missing feed displayed Sparkle's retrieval error.
+- A missing archive displayed a download error, then restored the helper and enabled Connect.
+- Installation with an unregistered helper was refused until helper setup could confirm cleanup.
 - A newer signed archive appeared in the native update window. Closing it left the helper available.
 - An invalid Ed25519 signature was rejected before installation. Connect stayed blocked until restart or successful update.
 - A valid update replaced build 1 with build 3, then relaunched automatically.
