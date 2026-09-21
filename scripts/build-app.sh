@@ -31,6 +31,10 @@ for library in "$app_work/GPBar.app/Contents/Frameworks/"*.dylib; do
 done
 codesign --force --options runtime --timestamp --identifier com.beeltec.GPBar.engine --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app/Contents/MacOS/openprotect"
 codesign --force --options runtime --timestamp --preserve-metadata=identifier,entitlements --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app/Contents/MacOS/GPBarHelper"
+helper_plist="$app_work/GPBar.app/Contents/Library/LaunchDaemons/com.beeltec.GPBar.helper.plist"
+/usr/libexec/PlistBuddy -c 'Add :SpawnConstraint dict' "$helper_plist"
+/usr/libexec/PlistBuddy -c "Add :SpawnConstraint:team-identifier string $GPBAR_TEAM" "$helper_plist"
+/usr/libexec/PlistBuddy -c 'Add :SpawnConstraint:signing-identifier string com.beeltec.GPBar.helper' "$helper_plist"
 codesign --force --options runtime --timestamp --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app"
 codesign --verify --deep --strict --verbose=2 "$app_work/GPBar.app"
 mkdir -p "$(dirname -- "$GPBAR_OUTPUT")"

@@ -63,6 +63,8 @@ The packaged application includes its runtime libraries and needs no Homebrew in
 The pipeline calls the same build, runtime packaging, and notarization scripts used locally.
 It signs nested code, verifies the full bundle, submits it to Apple, staples the ticket, and checks Gatekeeper.
 A failed signing, notarization, stapling, or verification step prevents publication.
+The packaged daemon plist restricts helper launch to its signing identifier and the selected signing team.
+This explicit constraint avoids relying on macOS to infer the helper identity from older development registrations.
 
 ## Publish
 
