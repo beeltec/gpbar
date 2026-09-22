@@ -40,6 +40,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.endswith('/prelogin.esp'):
             fallback = params.get('kerberos-support') == ['no']
             if fallback:
+                if mode == 'fallback-redirect':
+                    self.reply(302, '<html>Redirect</html>', [('Location', 'https://127.0.0.1:1/never')])
+                    return
                 if mode not in ('missing', 'reject', 'failed-status', 'initial-failure') or authorization:
                     self.reply(403)
                 else:
@@ -68,7 +71,7 @@ class Handler(BaseHTTPRequestHandler):
             if mode == 'invalid-continuation':
                 self.reply(401, headers=[('WWW-Authenticate', 'Negotiate ' + encoded('invalid'))])
                 return
-            if mode == 'reject':
+            if mode in ('reject', 'fallback-redirect'):
                 self.reply(401, headers=[('WWW-Authenticate', 'Negotiate')])
                 return
             fields = '<krb-auth-status>1</krb-auth-status><krb-norm-username>alice</krb-norm-username>'

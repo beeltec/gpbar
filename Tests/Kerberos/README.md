@@ -30,3 +30,19 @@ The Rust checks use production OpenProtect request and credential code:
 The HTTPS fixture uses synthetic Negotiate tokens. Real cryptography is checked separately through the native adapter and temporary realm.
 No matching GlobalProtect firewall or complete VPN tunnel is tested.
 The successful firewall handoff still needs provider validation. See [protocol evidence and limits](../../AUTHENTICATION.md#kerberos-sso).
+
+## Live app checks
+
+On macOS 26.6.2, a signed app build opened successfully.
+The existing installed helper was unavailable, with no running VPN engine. This blocked complete app connection tests.
+An isolated UI copy used separate preferences and an unregistered helper label. No helper was installed through that copy.
+
+Live checks confirmed:
+
+- A test portal address saved and survived relaunch.
+- Kerberos SSO appeared with its ticket-only explanation and survived relaunch.
+- Switching back to Automatic preserved the selected default browser.
+- Browser controls were hidden for strict Kerberos SSO.
+
+The native ticket checks and synthetic HTTPS suite passed on the same machine.
+These results do not establish compatibility with a real GlobalProtect Kerberos server.

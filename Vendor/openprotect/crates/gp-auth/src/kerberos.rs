@@ -192,6 +192,9 @@ impl GpBar {
             .send()
             .await?
             .error_for_status()?;
+        if !response.status().is_success() {
+            return Err(failure());
+        }
         let body = self.read_body(response).await?;
         let parsed = PreloginResponse::parse(&body)?;
         if matches!(parsed, PreloginResponse::Kerberos { .. }) {

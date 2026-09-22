@@ -158,6 +158,7 @@ async fn kerberos_https_portal_gateway_and_failure_policy() {
         "empty-status",
         "missing-status",
         "http-error",
+        "fallback-redirect",
         "bad-header",
         "redirect",
         "unsolicited",

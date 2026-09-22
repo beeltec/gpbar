@@ -742,6 +742,10 @@ async fn authenticate_once(
     if needs_gateway_login {
         let gateway_client = options.client(params.clone())?;
         let prelogin = options.prelogin(&gateway_client, &gateway, output).await?;
+        if matches!(prelogin, PreloginResponse::Kerberos { .. }) {
+            options.save(None, output).await?;
+            updated = None;
+        }
         let (credential, id) =
             request_credential(&gateway, &prelogin, output, answers, options, false).await?;
         gateway_credential = credential;
@@ -820,6 +824,10 @@ async fn authenticate_once(
                 allow_cookie_fallback = false;
                 let gateway_client = options.client(params.clone())?;
                 let prelogin = options.prelogin(&gateway_client, &gateway, output).await?;
+                if matches!(prelogin, PreloginResponse::Kerberos { .. }) {
+                    options.save(None, output).await?;
+                    updated = None;
+                }
                 let (credential, id) =
                     request_credential(&gateway, &prelogin, output, answers, options, false).await?;
                 gateway_credential = credential;
@@ -909,7 +917,9 @@ async fn request_credential(
     portal_login: bool,
 ) -> Result<(Credential, String)> {
     let id = challenge_id()?;
-    output.lock().await.phase("authenticating", 0).await?;
+    if !matches!(prelogin, PreloginResponse::Kerberos { .. }) {
+        output.lock().await.phase("authenticating", 0).await?;
+    }
     let saml = match prelogin {
         PreloginResponse::Kerberos { username, prelogin_cookie, .. } => return Ok((Credential::Prelogin {
             username: username.clone(), prelogin_cookie: Some(prelogin_cookie.clone()), token: None,

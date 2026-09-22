@@ -83,7 +83,7 @@ async fn kerberos_cancel_drops_the_pending_exchange() {
 #[tokio::test]
 async fn kerberos_credentials_use_the_existing_handoff_for_each_endpoint() {
     for portal in [true, false] {
-        let (output, _reader) = output();
+        let (output, mut reader) = output();
         let (_, mut answers) = mpsc::channel(1);
         let options = AuthenticationOptions {
             method: app::AuthenticationMethod::Automatic,
@@ -110,6 +110,15 @@ async fn kerberos_credentials_use_the_existing_handoff_for_each_endpoint() {
         )
         .await
         .unwrap();
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(20),
+                reader.read_line(&mut String::new())
+            )
+            .await
+            .is_err(),
+            "silent Kerberos handoff must not request an interactive sign-in window"
+        );
         let params = credential.to_params();
         assert!(params.contains(&("user", "alice".into())));
         assert!(params.contains(&("prelogin-cookie", "secret".into())));
