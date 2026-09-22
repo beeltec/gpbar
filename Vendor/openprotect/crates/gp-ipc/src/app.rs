@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 7;
+pub const VERSION: u32 = 8;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -54,6 +54,7 @@ pub enum Command {
 pub enum AuthenticationMethod {
     Automatic,
     Saml,
+    CloudIdentity,
     Password,
     Certificate,
 }
@@ -106,6 +107,7 @@ pub enum Event<'a> {
     AuthenticationRequired {
         challenge_id: &'a str,
         launch_url: &'a str,
+        cloud_identity: bool,
     },
     ResourceAuthenticationRequired {
         challenge_id: &'a str,

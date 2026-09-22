@@ -24,13 +24,14 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Save one portal address and an optional connection name across launches.
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
-- Choose automatic authentication, SAML, username and password, or a Keychain client certificate.
+- Choose automatic authentication, SAML, Cloud Identity Engine, username and password, or a Keychain client certificate.
 - Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
 - Recover recorded network changes and remove the VPN helper from connection settings.
 - Debug builds include local diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
 
 SAML has live connection evidence. Password, certificate, smart-card, and saved-sign-in flows still need broader live validation.
+Cloud Identity Engine OIDC has synthetic checks but no live provider evidence.
 External browser callback handling and automatic tab closure also need further validation.
 
 ## Get started
@@ -47,8 +48,8 @@ Before reinstalling, disconnect, remove the helper in Edit Connection, and quit 
 5. Click **Connect** and complete sign-in. Browser callbacks continue connection setup automatically.
 6. Use **Disconnect** in the menu bar panel when finished.
 
-The in-app browser is the default for SAML.
-If your provider requires an external browser, select **SAML** in **Edit Connection** to change the browser choice.
+The in-app browser is the default for browser sign-in.
+Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** in **Edit Connection**.
 That choice remains saved when you return to **Automatic**.
 
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
@@ -114,6 +115,7 @@ Keep changes focused and follow the existing code style. Use Conventional Commit
 The project uses live macOS and browser validation, alongside builds and static checks.
 Do not add automated tests or test targets unless explicitly requested. Preserve existing upstream tests.
 Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMFA/README.md), since no matching live server is available.
+Issue #20 includes an explicitly requested [CIE suite](Tests/CloudIdentity/README.md) for the same reason.
 Record what you checked and any remaining limits in your pull request.
 
 ## Third-party software and licensing

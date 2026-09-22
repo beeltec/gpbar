@@ -2,12 +2,14 @@ import Foundation
 
 enum AuthenticationMethod: String, Codable, Sendable, CaseIterable, Identifiable {
     case automatic, saml, password, certificate
+    case cloudIdentity = "cloud_identity"
 
     var id: String { rawValue }
     var title: String {
         switch self {
         case .automatic: "Automatic"
         case .saml: "SAML"
+        case .cloudIdentity: "Cloud Identity Engine"
         case .password: "Username and password"
         case .certificate: "Client certificate"
         }
@@ -90,6 +92,7 @@ struct EngineEvent: Codable, Sendable {
     var attempt: Int?
     var challengeID: String?
     var launchURL: String?
+    var cloudIdentity: Bool?
     var message: String?
     var snapshot: ConnectionSnapshot?
     var code: String?
@@ -109,6 +112,7 @@ struct EngineEvent: Codable, Sendable {
         case expiresAtUnix = "expires_at_unix"
         case type, openconnectVersion = "openconnect_version", phase, attempt, challengeID = "challenge_id"
         case launchURL = "launch_url", message, snapshot, code, retryable, cleanup
+        case cloudIdentity = "cloud_identity"
         case server, usernameLabel = "username_label", passwordLabel = "password_label"
         case requestID = "request_id", scheme, digest, input
         case savedAuthentication = "saved_authentication"

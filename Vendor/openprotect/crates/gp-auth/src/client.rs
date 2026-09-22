@@ -393,3 +393,6 @@ impl GpBar {
         Ok(GatewayLoginResult::parse(&body, &self.gp_params.computer)?)
     }
 }
+
+#[cfg(test)]
+mod cie_tests;

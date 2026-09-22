@@ -34,6 +34,7 @@ import WebKit
     @ObservationIgnored private var browser: BrowserChoice = .inApp
     @ObservationIgnored private var browserID = ""
     @ObservationIgnored private var closing = false
+    @ObservationIgnored private var cloudIdentity = false
 
     func begin(sessionID: String, event: EngineEvent, preferences: ConnectionPreferences, browserOverride: BrowserChoice? = nil) {
         guard let challengeID = event.challengeID else { return }
@@ -43,6 +44,7 @@ import WebKit
         hostname = ""
         self.sessionID = sessionID
         self.challengeID = challengeID
+        cloudIdentity = event.cloudIdentity == true
         isOTP = event.type == .otpRequired
         isCredentials = event.type == .credentialsRequired
         usernameLabel = event.usernameLabel ?? "Username"
@@ -142,6 +144,7 @@ import WebKit
         username = ""
         password = ""
         launchURL = nil
+        cloudIdentity = false
         closeOwnedWindows()
     }
 
@@ -252,7 +255,7 @@ import WebKit
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
-        guard sessionID != nil, let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+        guard owns(webView), sessionID != nil, let url = navigationAction.request.url else { decisionHandler(.cancel); return }
         if url.scheme?.lowercased() == "globalprotectcallback" {
             decisionHandler(.cancel)
             submitCallback(url.absoluteString)
@@ -266,6 +269,48 @@ import WebKit
         }
     }
 
+    private func owns(_ webView: WKWebView) -> Bool {
+        webView === self.webView || popupWindows.contains(where: { $0.contentView === webView })
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard cloudIdentity, owns(webView), !submitted, let sessionID, let challengeID,
+              let page = webView.url, page.scheme == "https" else { return }
+        webView.evaluateJavaScript(Self.cloudIdentityCompletion) { [weak self, weak webView] result, _ in
+            guard let self, let webView, self.owns(webView), self.sessionID == sessionID,
+                  self.challengeID == challengeID, webView.url == page, let callback = result as? String else { return }
+            self.submitCallback(callback)
+        }
+    }
+
+    private static let cloudIdentityCompletion = #"""
+    (() => {
+        const fields = new Map();
+        const collect = root => {
+            for (const name of ['cas-as', 'un', 'token']) {
+                for (const node of root.querySelectorAll(name)) {
+                    if (fields.has(name) || node.children.length) throw new Error('Invalid completion');
+                    fields.set(name, node.textContent);
+                }
+            }
+        };
+        if (document.documentElement.outerHTML.length > 262144) return null;
+        try {
+            collect(document);
+            const comments = document.createTreeWalker(document, NodeFilter.SHOW_COMMENT);
+            while (comments.nextNode()) {
+                collect(new DOMParser().parseFromString(comments.currentNode.data, 'text/html'));
+            }
+            const status = fields.get('cas-as');
+            if (!status || status === '0') return null;
+            if (status !== '1') return 'globalprotectcallback:cas-as=-1';
+            const user = fields.get('un'), token = fields.get('token');
+            if (!user || !token || user.length > 1024 || token.length > 131072) return null;
+            return 'globalprotectcallback:' + new URLSearchParams({'cas-as': status, un: user, token});
+        } catch { return null; }
+    })()
+    """#
+
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         if webView === self.webView { hostname = webView.url?.host ?? "" }
         if let popup = popupWindows.first(where: { $0.contentView === webView }) {
@@ -274,11 +319,13 @@ import WebKit
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard owns(webView) else { return }
         if (error as NSError).code == NSURLErrorCancelled { return }
         self.error = "The sign-in page could not load. Cancel and try again, or choose an external browser."
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        guard owns(webView), sessionID != nil else { return nil }
         if navigationAction.request.url?.scheme?.lowercased() == "globalprotectcallback" {
             submitCallback(navigationAction.request.url?.absoluteString)
             return nil

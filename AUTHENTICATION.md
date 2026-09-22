@@ -20,7 +20,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
-| Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
+| Cloud Identity Engine OIDC | CAS browser handoff, completion capture, and portal/gateway token submission. CIE owns the OIDC exchange. | Synthetic HTTPS and native browser checks; no matching live provider. See the protocol evidence below. |
 | MFA notifications for protected non-browser resources | Session-bound UDP notifications with trusted-origin and tunnel-ingress checks, followed by browser sign-in. | Synthetic protocol and native-window checks; no matching live firewall. See the restrictions below. |
 | Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
@@ -48,6 +48,7 @@ Inspect the pinned source, not only upstream feature lists, before replacing a w
 | Portal configuration | One OpenProtect HTTP request path shared by CLI and app mode. | App mode also recognizes challenges and rejects replies without usable gateways. |
 | MFA | OpenProtect challenge representation and gateway request code. | Native prompts, portal challenge handling, bounded retries, and session ownership. |
 | Gateway selection | OpenProtect's existing selection function. | Origin validation before using returned gateways. |
+| Cloud Identity Engine | OpenProtect launch pages, HTTP client, and credential serialization. | CAS classification, strict completion validation, and native browser capture. |
 | Resource MFA | Existing portal XML tree, authenticated tunnel, and native browser APIs. | Bounded notification parsing, source checks, session expiry, and isolated browser presentation. |
 | HIP and tunnel | OpenProtect reporting and OpenConnect's HIP submission and tunnel APIs. | Observed macOS facts, private HIP inputs, and network recovery. |
 
@@ -92,6 +93,58 @@ MFA replaces the password value and retains the challenge state.
 It does not append another conflicting password field.
 The implementation follows the established OpenConnect exchange.
 [OpenConnect authentication source](https://gitlab.com/openconnect/openconnect/-/blob/master/auth-globalprotect.c)
+
+### Cloud Identity Engine, including OIDC
+
+Choose Automatic or Cloud Identity Engine in Edit Connection. Browser settings are available under either choice and under SAML.
+The same saved browser choice applies to portal and independent gateway sign-in.
+Explicit Cloud Identity Engine requires `cas-auth=yes` from the portal. It does not fall back to password entry.
+Explicit SAML and password choices reject a CAS portal before sending credentials or saved cookies.
+
+CIE is the OIDC client. Its configuration contains the identity provider's client ID, client secret, and issuer.
+The provider redirects to the CIE instance's `oidc/callback` endpoint.
+GPBar opens the portal's browser handoff and returns the resulting CAS credential to that VPN endpoint.
+It does not exchange an OIDC authorization code, verify an OIDC ID token, or hold the provider's client secret.
+[Vendor OIDC setup](https://docs.paloaltonetworks.com/identity/cloud-identity-engine/authenticate-users-with-the-cloud-identity-engine/set-up-oidc-authentication)
+
+The library audit considered [AppAuth for macOS](https://github.com/openid/AppAuth-iOS) and [openidconnect for Rust](https://docs.rs/openidconnect/4.0.1/openidconnect/).
+Both implement OIDC client exchanges. Neither replaces this GlobalProtect CAS handoff, whose OIDC client runs on CIE.
+No new OIDC client or dependency is implemented in GPBar.
+OpenProtect already advertises `cas-support=yes` and supports launch-page rendering and `token` credential submission.
+Its previous callback parser ignored CAS failure status and chose the credential field using a JWT shape check.
+GPBar now requires CAS success and preserves even an opaque CAS token in the `token` field.
+OpenConnect 9.21 has no CIE-specific OIDC discovery or code-exchange path to reuse.
+
+#### Protocol evidence
+
+Vendor configuration guides establish OIDC support, but omit the native wire exchange.
+Inspection used the same signed GlobalProtect 6.3.3-h8 macOS package referenced under resource MFA below.
+The package was inspected only. Its code and binaries are not included in this repository.
+
+The inspected `CPanMSService::PreloginPortal` reads `cas-auth` alongside `saml-auth-method` and `saml-request`.
+The native browser path accepts a base64 POST document or redirect through that existing handoff.
+`handleCASResponse` accepts status `cas-as=1`, username `un`, and `token` from `globalprotectcallback:`.
+Its embedded browser also reads `cas-as`, `un`, and `token` completion tags, including HTML comments.
+Portal configuration and gateway login submit the credential as `token` to their existing GlobalProtect endpoints.
+These observations, combined with CIE's documented OIDC callback, support using the CAS path for CIE-backed OIDC.
+That conclusion remains an integration inference until a matching provider is available.
+[GlobalProtect CIE support](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/embedded-web-view-with-cie-for-force-authentication)
+
+GPBar preserves the server's signed launch payload and any state inside it without decoding or rewriting it.
+Callbacks require the current session and challenge, and can be consumed only once.
+Cancellation closes owned windows and the private launch listener. TLS verification remains enabled.
+Missing, failed, duplicate, malformed, and oversized CAS completion fields are rejected.
+Embedded completion reads only the three named result fields from a bounded HTTPS page in the owned browser.
+It does not read login form values, save browser cookies, or grant pages a native message bridge.
+
+The observed CAS callback has no client-generated state value that GPBar can verify independently.
+Session and challenge ownership prevent stale application events; they do not cryptographically bind an externally supplied token to the launch request.
+The VPN endpoint must validate the CAS token and its server-side binding. GPBar does not treat its contents as verified identity.
+External callback-scheme routing retains the existing browser limitations. Selected-browser tabs must be closed manually.
+
+The owner explicitly requested a server-free suite for issue #20, overriding its earlier live-only validation rule.
+Run [the CIE suite](Tests/CloudIdentity/README.md) for synthetic HTTPS, callback, session, and native WebKit checks.
+Real OIDC providers, MFA, passkeys, hardware, and VPN connection success remain unverified for this method.
 
 ### Protected-resource MFA
 
@@ -249,22 +302,19 @@ Kerberos server password authentication and Kerberos SSO are separate capabiliti
 The latter uses tickets from the user's login session and needs a dedicated implementation.
 [Official Kerberos setup](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/set-up-external-authentication/set-up-kerberos-authentication)
 
-Cloud Identity Engine documents SAML, certificates, and OIDC.
-Its configuration guide does not provide a complete third-party wire protocol for OIDC.
-Protocol evidence is required before claiming that an existing SAML callback also implements OIDC.
-[Cloud Identity Engine guide](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/embedded-web-view-with-cie-for-force-authentication)
+CIE implementation evidence and remaining provider checks are listed [above](#cloud-identity-engine-including-oidc).
 
-These gaps remain open. The password and challenge implementation does not close full authentication parity.
+The unverified provider and hardware gaps remain open. The password and challenge implementation does not close full authentication parity.
 
 ## Authentication selection and detection
 
 Automatic detection reuses the pinned OpenProtect `PreloginResponse::parse` and `GpBar::prelogin` implementations.
-The response advertises SAML through `saml-auth-method` and `saml-request`; other responses use the existing standard credential path.
-OpenConnect also handles these fields in its GlobalProtect implementation. No new endpoint probe or parser is needed.
+The response advertises browser login through `saml-auth-method` and `saml-request`. The `cas-auth=yes` flag identifies Cloud Identity Engine.
+OpenConnect also handles these fields in its GlobalProtect implementation. CAS adds validation to the existing parser without a new endpoint probe.
 See the [OpenConnect protocol notes](https://github.com/dlenski/openconnect/blob/master/PAN_GlobalProtect_protocol_doc.md).
 
 Detection runs after Connect, never from the hostname or while saving settings.
-The dropdown offers Automatic, SAML, Username and password, and Client certificate.
+The dropdown offers Automatic, SAML, Cloud Identity Engine, Username and password, and Client certificate.
 Explicit SAML and password choices validate the portal response before submitting credentials or saved cookies.
 A mismatch stops with guidance to change the selection. Gateway requirements remain independent.
 The app-mode selection check is the integration gap; upstream prelogin already supplies the required classification.
@@ -272,7 +322,7 @@ The app-mode selection check is the integration gap; upstream prelogin already s
 Certificate requirements can occur during TLS, before a prelogin response exists.
 The response cannot choose the correct Keychain identity or reliably establish certificate-only policy.
 Client certificate mode requires an explicit identity and retains the existing certificate-only toggle and combined authentication.
-Browser settings appear only under SAML; certificate settings appear only under Client certificate.
+Browser settings appear under Automatic, SAML, and Cloud Identity Engine. Certificate settings appear only under Client certificate.
 Hidden browser settings remain saved and serve Automatic, gateway, and certificate flows that require SAML.
 Hidden certificates are retained but are not used outside Client certificate mode.
 Existing certificate configurations migrate to Client certificate. Other configurations default to Automatic.
