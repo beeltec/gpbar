@@ -7,6 +7,8 @@ import CryptoTokenKit
 @MainActor @Observable final class ConnectionModel {
     let preferences = ConnectionPreferences()
     let authentication = AuthenticationCoordinator()
+    let resourceAuthentication = ResourceAuthenticationCoordinator()
+    private(set) var resourceAuthenticationMessage: String?
     private(set) var phase: ConnectionPhase = .unknown
     private(set) var snapshot: ConnectionSnapshot?
     private(set) var cleanupRequired = false
@@ -85,6 +87,7 @@ import CryptoTokenKit
             guard let self else { return }
             self.cancelPendingQuit()
             self.helperVerified = false
+            self.resourceAuthentication.finish()
             self.receivedAuthenticationUpdate = nil
             self.lastSequence = 0
             if self.sessionID != nil { self.phase = .unknown }
@@ -272,6 +275,8 @@ import CryptoTokenKit
     func disconnect() {
         guard sessionID != nil, phase != .disconnecting else { return }
         phase = .disconnecting
+        resourceAuthentication.finish()
+        resourceAuthenticationMessage = nil
         authentication.finish()
         certificateContext?.invalidate()
         certificateContext = nil
@@ -434,6 +439,15 @@ import CryptoTokenKit
         }
         if recentEvents.count > 100 { recentEvents.removeFirst() }
         switch event.type {
+        case .resourceAuthenticationRequired:
+            guard phase == .connected,
+                  let request = ResourceAuthenticationRequest(sessionID: envelope.sessionID, event: event) else { break }
+            resourceAuthentication.begin(request, browser: preferences.browser, browserID: preferences.browserID)
+        case .resourceAuthenticationCleared:
+            resourceAuthentication.finish()
+        case .resourceAuthenticationUnavailable:
+            resourceAuthentication.finish()
+            resourceAuthenticationMessage = "Resource sign-in notifications are unavailable for this connection."
         case .authenticationCacheChanged:
             guard let portal = event.server, PortalAddress.normalize(portal) == portal,
                   let revision = event.cacheRevision else { break }
@@ -447,6 +461,7 @@ import CryptoTokenKit
         case .phaseChanged:
             if let phase = event.phase {
                 self.phase = phase
+                if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
                 if phase == .connected { error = nil }
             }
@@ -454,6 +469,7 @@ import CryptoTokenKit
             if let snapshot = event.snapshot {
                 self.snapshot = snapshot
                 phase = snapshot.phase
+                if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
                 if phase == .connected { error = nil }
             }
@@ -463,6 +479,7 @@ import CryptoTokenKit
         case .authenticationCompleted:
             authentication.complete(challengeID: event.challengeID)
         case .failure:
+            resourceAuthentication.finish()
             error = event.message ?? "The VPN session could not finish."
             if event.code == "engine_exit" {
                 phase = .unknown
@@ -470,6 +487,8 @@ import CryptoTokenKit
                 authentication.finish()
             }
         case .stopped:
+            resourceAuthentication.finish()
+            resourceAuthenticationMessage = nil
             certificateContext?.invalidate()
             certificateContext = nil
             signatureRequestID = nil

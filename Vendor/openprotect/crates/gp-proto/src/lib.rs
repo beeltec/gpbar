@@ -26,3 +26,5 @@ pub use params::GpParams;
 pub use portal::PortalConfig;
 pub use prelogin::PreloginResponse;
 pub use tunnel::TunnelConfig;
+
+pub mod resource_mfa;

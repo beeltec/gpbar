@@ -1,7 +1,7 @@
 import Foundation
 
 let helperServiceName = "com.beeltec.GPBar.helper"
-let helperProtocolVersion = 6
+let helperProtocolVersion = 7
 let maximumMessageBytes = 256 * 1024
 
 @objc protocol HelperProtocol {

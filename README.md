@@ -25,6 +25,7 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
 - Choose automatic authentication, SAML, username and password, or a Keychain client certificate.
+- Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
 - Recover recorded network changes and remove the VPN helper from connection settings.
 - Debug builds include local diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
@@ -111,7 +112,8 @@ Debug builds can export diagnostics. Review them before sharing. Remove credenti
 
 Keep changes focused and follow the existing code style. Use Conventional Commits for commit messages.
 The project uses live macOS and browser validation, alongside builds and static checks.
-Do not add automated tests or test targets. Preserve existing upstream tests.
+Do not add automated tests or test targets unless explicitly requested. Preserve existing upstream tests.
+Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMFA/README.md), since no matching live server is available.
 Record what you checked and any remaining limits in your pull request.
 
 ## Third-party software and licensing

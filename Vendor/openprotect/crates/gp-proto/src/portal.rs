@@ -23,6 +23,7 @@ pub struct PortalConfig {
     /// Configuration digest (opaque hash).
     pub config_digest: Option<String>,
     pub cookie_lifetime_seconds: Option<u64>,
+    pub resource_mfa: Option<crate::resource_mfa::ResourceMfaPolicy>,
 }
 
 impl PortalConfig {
@@ -65,6 +66,7 @@ impl PortalConfig {
             gateways,
             config_digest,
             cookie_lifetime_seconds: cookie_lifetime_seconds(&root),
+            resource_mfa: crate::resource_mfa::ResourceMfaPolicy::parse(&root),
         })
     }
 

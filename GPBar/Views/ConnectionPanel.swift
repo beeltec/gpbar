@@ -69,6 +69,14 @@ struct ConnectionPanel: View {
                     }
                     .font(.caption).textSelection(.enabled)
                 }
+                if model.phase == .connected {
+                    if model.resourceAuthentication.request != nil {
+                        Button("Open resource sign-in") { model.resourceAuthentication.reopen() }
+                    }
+                    if let message = model.resourceAuthenticationMessage {
+                        Text(message).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 primaryAction.controlSize(.large)
                 if model.phase == .authenticating {
                     Button("Cancel sign-in") { model.disconnect() }.font(.caption)
