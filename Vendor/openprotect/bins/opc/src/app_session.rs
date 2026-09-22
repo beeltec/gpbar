@@ -4,7 +4,10 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
-use gp_auth::{saml_common::parse_globalprotect_callback, GpBar};
+use gp_auth::{
+    saml_common::{parse_cas_callback, parse_globalprotect_callback},
+    GpBar,
+};
 use gp_ipc::app::{self, AppSnapshot, Command, CommandEnvelope, Event, EventEnvelope};
 use gp_proto::{AuthCookie, ClientOs, Credential, GatewayLoginResult, GpParams, PreloginResponse};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -818,7 +821,14 @@ async fn validate_portal_method(
     method: app::AuthenticationMethod,
     output: &SharedOutput,
 ) -> Result<()> {
+    let is_cas = matches!(prelogin, PreloginResponse::Saml(saml) if saml.is_cas);
     let message = match (method, prelogin) {
+        (app::AuthenticationMethod::CloudIdentity, _) if !is_cas => {
+            "The portal did not offer Cloud Identity Engine. Select Automatic in Edit Connection."
+        }
+        (app::AuthenticationMethod::Saml | app::AuthenticationMethod::Password, _) if is_cas => {
+            "The portal requires Cloud Identity Engine. Select Automatic or Cloud Identity Engine in Edit Connection."
+        }
         (app::AuthenticationMethod::Saml, PreloginResponse::Standard(_)) => {
             "The portal did not offer SAML. Select Automatic or Username and password in Edit Connection."
         }
@@ -916,6 +926,7 @@ async fn request_credential(
         out.send(Event::AuthenticationRequired {
             challenge_id: &id,
             launch_url: &url,
+            cloud_identity: saml.is_cas,
         })
         .await?;
         drop(out);
@@ -924,9 +935,13 @@ async fn request_credential(
             result = serve_launch(listener, &authority, &path, &body) => { result?; bail!("launch server stopped"); }
         }
     };
-    let credential = parse_globalprotect_callback(&raw)
-        .context("invalid callback")?
-        .into_credential();
+    let credential = if saml.is_cas {
+        parse_cas_callback(&raw).context("invalid CAS callback")?
+    } else {
+        parse_globalprotect_callback(&raw)
+            .context("invalid callback")?
+            .into_credential()
+    };
     Ok((credential, id))
 }
 
@@ -1274,3 +1289,6 @@ fn tunnel_failure(error: &anyhow::Error) -> (String, String) {
         format!("VPN setup failed during {stage}."),
     )
 }
+
+#[cfg(test)]
+mod cie_tests;

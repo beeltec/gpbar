@@ -1532,6 +1532,7 @@ mod launch_body_tests {
     fn redirect_method_decodes_base64_into_absolute_url() {
         let url = "https://login.microsoftonline.com/tenant-id/saml2?SAMLRequest=abc%2Bdef&RelayState=xyz";
         let saml = SamlPrelogin {
+            is_cas: false,
             region: "Default".into(),
             saml_auth_method: "REDIRECT".into(),
             saml_request: B64.encode(url),
@@ -1560,6 +1561,7 @@ mod launch_body_tests {
     fn post_method_returns_decoded_form() {
         let form = "<html><body><form action=\"https://idp.example.com\">…</form></body></html>";
         let saml = SamlPrelogin {
+            is_cas: false,
             region: "Default".into(),
             saml_auth_method: "POST".into(),
             saml_request: B64.encode(form),

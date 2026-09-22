@@ -42,7 +42,10 @@ struct ConnectionSettings: View {
                     }
                     switch preferences.authenticationMethod {
                     case .automatic:
-                        Text("Detect SAML or password login when you connect. SAML uses your saved browser choice. Select SAML to change it.")
+                        Text("Detect the portal’s sign-in method when you connect. Browser login uses your saved choice.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    case .cloudIdentity:
+                        Text("Use your organization’s Cloud Identity Engine, including OIDC sign-in. Provider compatibility still needs live validation.")
                             .font(.caption).foregroundStyle(.secondary)
                     case .saml, .password:
                         Text("The portal must support this method. Gateway sign-in follows the gateway’s requirements.")
@@ -54,7 +57,7 @@ struct ConnectionSettings: View {
                 } header: { Text("Authentication") }
                 .disabled(model.settingsLocked)
 
-                if preferences.authenticationMethod == .saml {
+                if [.automatic, .saml, .cloudIdentity].contains(preferences.authenticationMethod) {
                     Section {
                         Picker("Sign in using", selection: $preferences.browser) {
                             ForEach(BrowserChoice.allCases) { browser in Text(browser.title).tag(browser) }

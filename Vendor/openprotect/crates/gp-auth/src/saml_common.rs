@@ -81,7 +81,71 @@ pub fn parse_globalprotect_callback(uri: &str) -> Option<SamlCapture> {
     parse_query_callback(rest).or_else(|| parse_classic_cookie_callback(rest))
 }
 
+/// CAS returns a token for the VPN endpoint, not an OIDC authorization code.
+pub fn parse_cas_callback(uri: &str) -> Option<Credential> {
+    if uri.len() > 192 * 1024 {
+        return None;
+    }
+    let query = uri.strip_prefix("globalprotectcallback:")?;
+    let query = query.strip_prefix('?').unwrap_or(query);
+    if query.contains('#')
+        || query.contains(char::is_whitespace)
+        || query.contains(char::is_control)
+    {
+        return None;
+    }
+    let mut fields = std::collections::HashMap::new();
+    for pair in query.split('&') {
+        let (key, value) = pair.split_once('=')?;
+        if fields.len() >= 16
+            || key.is_empty()
+            || !key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return None;
+        }
+        let value = percent_decode(value)?;
+        if value.is_empty()
+            || value.contains(char::is_control)
+            || fields.insert(key, value).is_some()
+        {
+            return None;
+        }
+    }
+    if fields.remove("cas-as")?.as_str() != "1"
+        || fields.contains_key("user")
+        || fields.contains_key("prelogin-cookie")
+        || fields.contains_key("portal-userauthcookie")
+    {
+        return None;
+    }
+    let username = fields.remove("un")?;
+    let token = fields.remove("token")?;
+    if username.len() > 1024 || token.len() > 128 * 1024 {
+        return None;
+    }
+    Some(Credential::Prelogin {
+        username,
+        prelogin_cookie: None,
+        token: Some(token),
+    })
+}
+
 fn parse_query_callback(rest: &str) -> Option<SamlCapture> {
+    if rest.split('&').any(|pair| pair.starts_with("cas-as=")) {
+        let Credential::Prelogin {
+            username,
+            token: Some(token),
+            ..
+        } = parse_cas_callback(&format!("globalprotectcallback:{rest}"))?
+        else {
+            return None;
+        };
+        return Some(SamlCapture {
+            username,
+            prelogin_cookie: token,
+            portal_user_auth_cookie: None,
+        });
+    }
     let mut username: Option<String> = None;
     let mut secret: Option<String> = None;
     let mut portal_user_auth_cookie: Option<String> = None;

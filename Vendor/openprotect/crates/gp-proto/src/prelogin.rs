@@ -29,6 +29,7 @@ pub struct StandardPrelogin {
 #[derive(Debug, Clone)]
 pub struct SamlPrelogin {
     pub region: String,
+    pub is_cas: bool,
     /// `"POST"` or `"REDIRECT"`.
     pub saml_auth_method: String,
     /// Base64-encoded SAML request body or redirect URL.
@@ -39,6 +40,29 @@ impl PreloginResponse {
     /// Parse from the XML body returned by `prelogin.esp`.
     pub fn parse(xml: &str) -> Result<Self, ProtoError> {
         let root = XmlNode::parse(xml)?;
+
+        for name in ["status", "cas-auth", "saml-auth-method", "saml-request"] {
+            let mut fields = root.children_named(name);
+            if let Some(field) = fields.next() {
+                if fields.next().is_some() || !field.children.is_empty() {
+                    return Err(ProtoError::Protocol("ambiguous prelogin response".into()));
+                }
+            }
+        }
+        let is_cas = match root.child("cas-auth").map(|field| field.text.as_str()) {
+            Some("yes") => true,
+            None | Some("no" | "") => false,
+            _ => {
+                return Err(ProtoError::Protocol(
+                    "invalid CAS authentication flag".into(),
+                ))
+            }
+        };
+        if is_cas
+            && (root.name != "prelogin-response" || root.child_text("status") != Some("Success"))
+        {
+            return Err(ProtoError::Protocol("invalid CAS prelogin response".into()));
+        }
 
         // Check status
         let status = root.child_text("status").unwrap_or("Success");
@@ -60,14 +84,25 @@ impl PreloginResponse {
 
             return Ok(Self::Saml(SamlPrelogin {
                 region,
+                is_cas,
                 saml_auth_method: method.to_string(),
                 saml_request: request,
             }));
         }
 
+        if is_cas {
+            return Err(ProtoError::MissingField {
+                field: "saml-auth-method",
+                context: "CAS prelogin response",
+            });
+        }
+
         // Standard (password) auth
         Ok(Self::Standard(StandardPrelogin {
-            certificate_username: root.child_text("ccusername").filter(|value| !value.is_empty()).map(str::to_owned),
+            certificate_username: root
+                .child_text("ccusername")
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned),
             region,
             auth_message: root
                 .child_text("authentication-message")
