@@ -406,3 +406,6 @@ mod login_sso_tests;
 
 #[cfg(test)]
 mod kerberos_tests;
+
+#[cfg(test)]
+mod authentication_tests;

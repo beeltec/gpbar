@@ -121,6 +121,9 @@ Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMF
 Issue #20 includes an explicitly requested [CIE suite](Tests/CloudIdentity/README.md) for the same reason.
 Issue #19 includes an explicitly requested [macOS login SSO suite](Tests/LoginSSO/README.md).
 Issue #18 includes an explicitly requested [Kerberos SSO suite](Tests/Kerberos/README.md).
+Issue #14 adds [shared authentication checks and a full-suite command](Tests/Authentication/README.md).
+Run `scripts/test-authentication.sh` after building the native dependencies.
+These synthetic checks do not establish real provider or smart-card compatibility.
 Record what you checked and any remaining limits in your pull request.
 
 ## Third-party software and licensing

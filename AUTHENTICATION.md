@@ -16,13 +16,13 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Token or OTP as the initial password | Server-provided password label and masked credential field. | New implementation; no live provider available. |
 | Portal and gateway MFA challenges | Bounded challenge exchange using `inputStr` and one `passwd` value. Supports XML and existing HTML challenge responses. | New portal support; corrected gateway submission. Push-only and provider-specific exchanges remain unverified. |
 | Different portal and gateway authentication | Separate gateway prelogin and sign-in when portal cookies are absent or rejected. | New implementation; no live provider available. Passwords are not silently forwarded to another host. |
-| Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
+| Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Native RSA/EC signatures and synthetic mutual TLS checked. Certificate UI and SAML startup/cancellation checked live. No matching provider is available. |
 | Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
 | Kerberos SSO | User-session GSS tickets, HTTP Negotiate, and origin-bound prelogin-cookie handoff for portals and gateways. | Local KDC and synthetic HTTPS checks. No matching GlobalProtect provider is available. See the limits below. |
 | OS-login SSO | Optional Authorization Services plug-in and one-use, session-bound portal credentials. | Synthetic checks only. System installation, login capture, FileVault, and provider behavior remain unverified. See [macOS login SSO](LOGIN-SSO.md). |
 | Cloud Identity Engine OIDC | CAS browser handoff, completion capture, and portal/gateway token submission. CIE owns the OIDC exchange. | Synthetic HTTPS and native browser checks; no matching live provider. See the protocol evidence below. |
 | MFA notifications for protected non-browser resources | Session-bound UDP notifications with trusted-origin and tunnel-ingress checks, followed by browser sign-in. | Synthetic protocol and native-window checks; no matching live firewall. See the restrictions below. |
-| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
+| Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Synthetic Keychain storage, expiry, policy, and HTTPS cookie checks. Reuse remains unverified against a live provider. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
 
 The official client supports local, external, certificate, and multi-factor authentication.
@@ -72,7 +72,8 @@ Any Keychain bridge must keep private keys in the user's session and reuse the T
 
 Kerberos, OIDC, cookie policy, and resource MFA require separate checks of their actual GlobalProtect exchanges.
 A general library feature does not prove support for that feature under every VPN protocol.
-The remaining work is tracked in [the authentication tickets](https://github.com/beeltec/gpbar/issues/14).
+The method implementations are tracked in [the authentication tickets](https://github.com/beeltec/gpbar/issues/14).
+Each method ticket has a merged implementation. The validation limits below still apply.
 
 ### Kerberos SSO
 
@@ -404,3 +405,8 @@ Successful password login, client-certificate login, smart-card hardware, and se
 Saved-cookie persistence, reuse, expiry, and policy changes also need live validation.
 Full external-browser callback handling and page cleanup remain unverified.
 Builds and source reviews do not establish compatibility with a provider.
+
+Issue #14 explicitly authorizes [the shared authentication suite](Tests/Authentication/README.md).
+It adds native Keychain signing and cookie checks, synthetic mutual TLS, engine ownership checks, and native password/MFA window checks.
+Its full command also runs the Resource MFA, CIE, macOS login SSO, and Kerberos suites.
+These checks supplement live validation. They do not prove full official-client parity.
