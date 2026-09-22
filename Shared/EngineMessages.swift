@@ -34,6 +34,7 @@ struct EngineCommand: Codable, Sendable {
         case submitCredentials = "submit_credentials"
         case submitSignature = "submit_signature"
         case acknowledgeAuthenticationCache = "acknowledge_authentication_cache"
+        case clearLoginCredentials = "clear_login_credentials"
     }
     let type: Kind
     var portal: String?
@@ -52,6 +53,7 @@ struct EngineCommand: Codable, Sendable {
     var rememberAuthentication: Bool?
     var savedAuthentication: SavedAuthentication?
     var cacheRevision: UUID?
+    var useLoginCredentials: Bool?
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
@@ -60,6 +62,7 @@ struct EngineCommand: Codable, Sendable {
         case requestID = "request_id", signature
         case rememberAuthentication = "remember_authentication", savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
+        case useLoginCredentials = "use_login_credentials"
     }
 }
 
@@ -107,6 +110,7 @@ struct EngineEvent: Codable, Sendable {
     var input: Data?
     var savedAuthentication: SavedAuthentication?
     var cacheRevision: UUID?
+    var loginSSOAllowed: Bool?
 
     enum CodingKeys: String, CodingKey {
         case expiresAtUnix = "expires_at_unix"
@@ -117,6 +121,7 @@ struct EngineEvent: Codable, Sendable {
         case requestID = "request_id", scheme, digest, input
         case savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
+        case loginSSOAllowed = "login_sso_allowed"
     }
 }
 

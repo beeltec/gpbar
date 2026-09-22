@@ -66,3 +66,11 @@ The "obvious" alternative — submit HIP *before* the tunnel-connect — does
 Resolution (v0.2.0-alpha.20): keep the functional DPD reconnect; just stop
 it looking scary by downgrading the `GPST Dead Peer Detection` line from
 `error` to `warn` in `is_benign_error` (`crates/gp-openconnect-sys/src/lib.rs`).
+
+## macOS login SSO, issue #19
+
+Protocol version 9 adds `login_sso_allowed` to password challenges.
+Only the portal password path can set it; gateways and non-password labels cannot.
+The macOS helper reuses the existing credential command after checking login-session ownership and explicit portal consent.
+The engine receives no new credential source or wire protocol.
+The owner requested a server-free suite; see [the suite](../../../Tests/LoginSSO/README.md).

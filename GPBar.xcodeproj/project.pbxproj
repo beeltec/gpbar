@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08051D5AB40590FF49F17904 /* LoginSSOAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74799272DFB6A5CAE0F5CB2B /* LoginSSOAuthorization.swift */; };
+		0E92533F1B2B32D5F6671DB6 /* LoginSSO.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0820114707F390803A21A0 /* LoginSSO.swift */; };
 		10C60EA437D94C29A082CDBE /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
 		134B70452A3E01A83E50826F /* AuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */; };
 		1E117553B02A5EDAE6406DBB /* ResourceAuthenticationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */; };
@@ -17,10 +19,13 @@
 		239FD415686AC2A772F822F5 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
 		261FDB0FBCF637E50820065C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B71A5530BCB89DA27C8676E /* Assets.xcassets */; };
 		2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A45A7B43AB47061045E5CA7 /* HelperClient.swift */; };
+		2F9E7FDC59C30AED2491D431 /* LoginPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = F3F207AB1F1FC2B36AEAFF1B /* LoginPlugin.m */; };
 		33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
 		34DF5FFA08C292067C50103F /* ConnectionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */; };
 		3E3AF5D11083C70A8B0CC117 /* KeychainAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */; };
+		4566F325FB44ED1703654C28 /* LoginSSOInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7745D995B1793C8882744FE4 /* LoginSSOInstallation.swift */; };
 		468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
+		472B1FEE72C14F6197576078 /* LoginCredentialCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */; };
 		4E0923A29AF0BB7131580FB3 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */; };
 		50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		52F4DF260C755D2934A33AB6 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C5D01350B137A91D07109DCC /* Sparkle */; };
@@ -34,8 +39,10 @@
 		83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */; };
 		84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22032C5BBA8F2C25237F631 /* GPBarApp.swift */; };
+		86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 722E9924852CF38FB102AA62 /* GPBarLogin.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A3354E3F1A2B409D37E104D7 /* ConnectionPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA43745F44E29F4874CD768F /* ConnectionPath.swift */; };
 		A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 554E85928561E10EA94E38BC /* GPBarHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		AC3973DD98920BD6C3BF4CF0 /* LoginSSO.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0820114707F390803A21A0 /* LoginSSO.swift */; };
 		B29693496FCF7F7E8E236460 /* SessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F339BC676C83BE555B1F2AE4 /* SessionController.swift */; };
 		B5333863007CD748BD5699F5 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB61916931634D0644C4377 /* UpdateController.swift */; };
 		B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */; };
@@ -45,9 +52,13 @@
 		C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */; };
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
 		CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A116881E418FF3CF77CA5A4C /* UserKeychain.swift */; };
+		DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
 		F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */; };
+		F926B22E2F28D5CDE460CA2F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 70D2E572EBC1DB08E0FCC30E /* Security.framework */; };
+		FB9F739CF86BECCB5FAD1D4A /* LoginSSOSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED17FC405B675512961631C /* LoginSSOSettings.swift */; };
+		FD0BD6CDE22EDD3E540226E2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD6377244151BCD70CBF1C73 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,9 +69,27 @@
 			remoteGlobalIDString = 43B5BEA1F8EEA70315F98E4B;
 			remoteInfo = GPBarHelper;
 		};
+		4B4CFCA5A2F60C787238704D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0D79379E5D4AB4F89E3673 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 343B8868CD2E7100D4CD503C;
+			remoteInfo = GPBarLogin;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		5F7C54F520DD63CB37CCB463 /* Embed Dependencies */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
+			);
+			name = "Embed Dependencies";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6025D9000E71931F3A2F26CD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -75,9 +104,9 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 6;
+			dstSubfolderSpec = 13;
 			files = (
-				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
+				86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */,
 			);
 			name = "Embed Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -101,29 +130,49 @@
 		61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.beeltec.GPBar.helper.plist; sourceTree = "<group>"; };
 		63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPreferences.swift; sourceTree = "<group>"; };
+		6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginCredentialCache.swift; sourceTree = "<group>"; };
+		70D2E572EBC1DB08E0FCC30E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		722E9924852CF38FB102AA62 /* GPBarLogin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GPBarLogin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		74799272DFB6A5CAE0F5CB2B /* LoginSSOAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOAuthorization.swift; sourceTree = "<group>"; };
+		7745D995B1793C8882744FE4 /* LoginSSOInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOInstallation.swift; sourceTree = "<group>"; };
 		7A45A7B43AB47061045E5CA7 /* HelperClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperClient.swift; sourceTree = "<group>"; };
 		8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSettings.swift; sourceTree = "<group>"; };
 		8B71A5530BCB89DA27C8676E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
 		94131D702B90C08815A2340E /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
 		9AB61916931634D0644C4377 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		9ED17FC405B675512961631C /* LoginSSOSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOSettings.swift; sourceTree = "<group>"; };
 		A116881E418FF3CF77CA5A4C /* UserKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserKeychain.swift; sourceTree = "<group>"; };
 		A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A490690342F7B2351CA3B2F4 /* EngineMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineMessages.swift; sourceTree = "<group>"; };
 		A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationView.swift; sourceTree = "<group>"; };
+		AD6377244151BCD70CBF1C73 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		C8F2204076A5B786845CBF4D /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
 		C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperMain.swift; sourceTree = "<group>"; };
+		C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginCaptureService.swift; sourceTree = "<group>"; };
+		DD0820114707F390803A21A0 /* LoginSSO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSO.swift; sourceTree = "<group>"; };
 		E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		F22032C5BBA8F2C25237F631 /* GPBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPBarApp.swift; sourceTree = "<group>"; };
 		F339BC676C83BE555B1F2AE4 /* SessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionController.swift; sourceTree = "<group>"; };
+		F3F207AB1F1FC2B36AEAFF1B /* LoginPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoginPlugin.m; sourceTree = "<group>"; };
 		F3F4F75C9EE34C930F864DD2 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		F9607C0C6736DF535B26F24F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F9864886AF6003FFB04C6349 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FA43745F44E29F4874CD768F /* ConnectionPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPath.swift; sourceTree = "<group>"; };
 		FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedAuthentication.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		275353DE838BD8FC997F7421 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F926B22E2F28D5CDE460CA2F /* Security.framework in Frameworks */,
+				FD0BD6CDE22EDD3E540226E2 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CE6C194415E57F0E3BA175FD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -140,12 +189,22 @@
 			children = (
 				A490690342F7B2351CA3B2F4 /* EngineMessages.swift */,
 				94131D702B90C08815A2340E /* HelperProtocol.swift */,
+				DD0820114707F390803A21A0 /* LoginSSO.swift */,
 				5C4C3956223045607EF9CADC /* PortalAddress.swift */,
 				5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */,
 				FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */,
 				C8F2204076A5B786845CBF4D /* SigningIdentity.swift */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		2F40F6DADD11C9EC57B4A4CC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AD6377244151BCD70CBF1C73 /* Foundation.framework */,
+				70D2E572EBC1DB08E0FCC30E /* Security.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		45D367BBD461CE851D61BD24 /* App */ = {
@@ -174,8 +233,18 @@
 			children = (
 				553D6B58F0381EA28CDF2DBB /* GPBar.app */,
 				554E85928561E10EA94E38BC /* GPBarHelper */,
+				722E9924852CF38FB102AA62 /* GPBarLogin.bundle */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5EF50E25E7E776ED9C87B529 /* GPBarLoginPlugin */ = {
+			isa = PBXGroup;
+			children = (
+				F9607C0C6736DF535B26F24F /* Info.plist */,
+				F3F207AB1F1FC2B36AEAFF1B /* LoginPlugin.m */,
+			);
+			path = GPBarLoginPlugin;
 			sourceTree = "<group>";
 		};
 		B14FC32CE2435F723F0505B4 /* Views */ = {
@@ -186,6 +255,7 @@
 				FA43745F44E29F4874CD768F /* ConnectionPath.swift */,
 				8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */,
 				E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */,
+				9ED17FC405B675512961631C /* LoginSSOSettings.swift */,
 				92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */,
 				A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */,
 				F3F4F75C9EE34C930F864DD2 /* SignInView.swift */,
@@ -197,6 +267,9 @@
 			isa = PBXGroup;
 			children = (
 				C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */,
+				C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */,
+				6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */,
+				7745D995B1793C8882744FE4 /* LoginSSOInstallation.swift */,
 				05D011F424654D4C425384C4 /* NetworkSession.swift */,
 				43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */,
 				F339BC676C83BE555B1F2AE4 /* SessionController.swift */,
@@ -211,6 +284,7 @@
 				7A45A7B43AB47061045E5CA7 /* HelperClient.swift */,
 				3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */,
 				0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */,
+				74799272DFB6A5CAE0F5CB2B /* LoginSSOAuthorization.swift */,
 				C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */,
 				9AB61916931634D0644C4377 /* UpdateController.swift */,
 				A116881E418FF3CF77CA5A4C /* UserKeychain.swift */,
@@ -243,8 +317,10 @@
 				5ACB57778BC88D588B84B179 /* Licenses */,
 				4A315D92FF1C775320E00FC6 /* GPBar */,
 				BA12FB6AB5CCE84CFC2AAE04 /* GPBarHelper */,
+				5EF50E25E7E776ED9C87B529 /* GPBarLoginPlugin */,
 				BEEC98299756F3637CA9F2A5 /* LaunchDaemons */,
 				2AAF7E3BA278978AE801C02E /* Shared */,
+				2F40F6DADD11C9EC57B4A4CC /* Frameworks */,
 				5A979795FB9EA6B0DCEE9DEA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -261,6 +337,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		343B8868CD2E7100D4CD503C /* GPBarLogin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 190B8070C93D709116C5DEBE /* Build configuration list for PBXNativeTarget "GPBarLogin" */;
+			buildPhases = (
+				CAE17002E23A5F5A1919F68F /* Sources */,
+				275353DE838BD8FC997F7421 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GPBarLogin;
+			packageProductDependencies = (
+			);
+			productName = GPBarLogin;
+			productReference = 722E9924852CF38FB102AA62 /* GPBarLogin.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		43B5BEA1F8EEA70315F98E4B /* GPBarHelper */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FCCF248989F195C69593D0D3 /* Build configuration list for PBXNativeTarget "GPBarHelper" */;
@@ -287,10 +381,12 @@
 				6025D9000E71931F3A2F26CD /* CopyFiles */,
 				CE6C194415E57F0E3BA175FD /* Frameworks */,
 				E687ADD277EE8C9B02D7F947 /* Embed Dependencies */,
+				5F7C54F520DD63CB37CCB463 /* Embed Dependencies */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7A8776123AFA572CAC369C0B /* PBXTargetDependency */,
 				03C7FA1E1493476D5769F49C /* PBXTargetDependency */,
 			);
 			name = GPBar;
@@ -310,6 +406,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					343B8868CD2E7100D4CD503C = {
+						ProvisioningStyle = Manual;
+					};
 					43B5BEA1F8EEA70315F98E4B = {
 						ProvisioningStyle = Manual;
 					};
@@ -337,6 +436,7 @@
 			targets = (
 				CB9497823BE1AE874BD3CE4D /* GPBar */,
 				43B5BEA1F8EEA70315F98E4B /* GPBarHelper */,
+				343B8868CD2E7100D4CD503C /* GPBarLogin */,
 			);
 		};
 /* End PBXProject section */
@@ -363,6 +463,10 @@
 				5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */,
 				233C3267215AAFF659A63908 /* HelperMain.swift in Sources */,
 				BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */,
+				DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */,
+				472B1FEE72C14F6197576078 /* LoginCredentialCache.swift in Sources */,
+				0E92533F1B2B32D5F6671DB6 /* LoginSSO.swift in Sources */,
+				4566F325FB44ED1703654C28 /* LoginSSOInstallation.swift in Sources */,
 				F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */,
 				50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */,
 				BE77525EF0492C271ACCF3CE /* ResourceAuthenticationRequest.swift in Sources */,
@@ -391,6 +495,9 @@
 				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
 				3E3AF5D11083C70A8B0CC117 /* KeychainAuthentication.swift in Sources */,
 				C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */,
+				AC3973DD98920BD6C3BF4CF0 /* LoginSSO.swift in Sources */,
+				08051D5AB40590FF49F17904 /* LoginSSOAuthorization.swift in Sources */,
+				FB9F739CF86BECCB5FAD1D4A /* LoginSSOSettings.swift in Sources */,
 				6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */,
 				83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */,
 				F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */,
@@ -404,6 +511,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CAE17002E23A5F5A1919F68F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F9E7FDC59C30AED2491D431 /* LoginPlugin.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -411,6 +526,11 @@
 			isa = PBXTargetDependency;
 			target = 43B5BEA1F8EEA70315F98E4B /* GPBarHelper */;
 			targetProxy = 09436E7A603F58ADC3D258CE /* PBXContainerItemProxy */;
+		};
+		7A8776123AFA572CAC369C0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 343B8868CD2E7100D4CD503C /* GPBarLogin */;
+			targetProxy = 4B4CFCA5A2F60C787238704D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -589,6 +709,23 @@
 			};
 			name = Debug;
 		};
+		97E34EEA9B8795BF01A2D7C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = GPBarLoginPlugin/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACH_O_TYPE = mh_bundle;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.beeltec.GPBar.login-sso";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 		AF7F2E69143786E235B36A3B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -603,6 +740,23 @@
 				SDKROOT = macosx;
 			};
 			name = Release;
+		};
+		C22466CCC9CD83C310ED83BA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = GPBarLoginPlugin/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACH_O_TYPE = mh_bundle;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.beeltec.GPBar.login-sso";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
 		};
 		E68EF4787542F33DD981E5BE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -623,6 +777,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		190B8070C93D709116C5DEBE /* Build configuration list for PBXNativeTarget "GPBarLogin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C22466CCC9CD83C310ED83BA /* Debug */,
+				97E34EEA9B8795BF01A2D7C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		1D91B591F4ADCD330A651EC6 /* Build configuration list for PBXProject "GPBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

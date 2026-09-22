@@ -1,5 +1,13 @@
 #!/bin/sh
 set -eu
+login_rule=$(/usr/bin/security authorizationdb read system.login.console 2>/dev/null) || {
+    echo 'The macOS login rule could not be checked. Installation stopped.' >&2
+    exit 1
+}
+if printf '%s\n' "$login_rule" | /usr/bin/grep -Fq 'GPBarLogin:'; then
+    echo 'Disable macOS login SSO for every enrolled user before installing GPBar.' >&2
+    exit 1
+fi
 for process in GPBar GPBarHelper openprotect; do
     if /usr/bin/pgrep -x "$process" >/dev/null; then
         echo 'Disconnect, remove the helper in Edit Connection, and quit GPBar before installing.' >&2

@@ -1,5 +1,9 @@
 # Automatic updates
 
+Disable [macOS login SSO](LOGIN-SSO.md) for every enrolled user before updating or reinstalling GPBar.
+The app blocks helper removal and Sparkle preparation while its login mechanism is active.
+The PKG installer also checks this rule. Re-enable the integration after updating.
+
 GPBar uses Sparkle 2.10.0, pinned through Swift Package Manager.
 It checks daily by default. Users can disable checks in Edit Connection → Updates.
 The same section and application menu provide Check for Updates.

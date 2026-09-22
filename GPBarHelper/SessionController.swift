@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import SystemConfiguration
+import Security
 
 actor SessionController {
     static let shared = SessionController()
@@ -18,6 +19,10 @@ actor SessionController {
     private var engineURL: URL?
     private var owner: uid_t?
     private var sessionPortal: String?
+    private var loginCredentials = LoginCredentialCache()
+    private var loginCredentialExpiry: Task<Void, Never>?
+    private var loginCaptureID = UUID()
+    private var loginAuditSessionID: UInt32?
     private var pendingAuthenticationUpdates: [uid_t: [String: AuthenticationCacheUpdate]] = [:]
     private var sessionID: String?
     private var observer: (@Sendable (Data) -> Void)?
@@ -57,13 +62,16 @@ actor SessionController {
         guard currentConsoleUser() == userID, observerID == connectionID,
               updateConnectionID == nil || updateConnectionID == connectionID,
               process == nil, sessionID == nil, !finishing,
-              (try? SecureRuntime.hasPendingSessions()) == false else { return false }
+              (try? SecureRuntime.hasPendingSessions()) == false,
+              (try? LoginSSOInstallation.state(userID: userID).installed) == false else { return false }
+        loginCredentials.clear()
         updateConnectionID = connectionID
         return true
     }
 
     func detach(connectionID: UUID) {
         guard observerID == connectionID else { return }
+        loginCredentials.clear()
         observer = nil
         observerID = nil
         observerUser = nil
@@ -75,12 +83,59 @@ actor SessionController {
         }
     }
 
-    func send(_ bytes: Data, userID: uid_t) async -> CommandReply {
+    func configureLoginSSO(_ request: LoginSSORequest, userID: uid_t, connectionID: UUID) -> Bool {
+        guard currentConsoleUser() == userID, observerID == connectionID,
+              updateConnectionID == nil, process == nil, sessionID == nil, !finishing else { return false }
+        loginCredentials.clear()
+        do {
+            try LoginSSOInstallation.configure(userID: userID, portal: request.portal, authorization: request.authorization)
+            return true
+        } catch { return false }
+    }
+
+    func captureLogin(username: String, password: String, userID: uid_t, auditSessionID: UInt32) {
+        guard updateConnectionID == nil,
+              let state = try? LoginSSOInstallation.state(userID: userID), state.installed, let portal = state.portal,
+              Self.validLoginSession(auditSessionID) else { return }
+        loginCredentials.capture(username: username, password: password, userID: userID, auditSessionID: auditSessionID, portal: portal)
+        loginCredentialExpiry?.cancel()
+        let captureID = UUID()
+        loginCaptureID = captureID
+        loginCredentialExpiry = Task { [weak self] in
+            var wasActive = false
+            for _ in 0..<300 {
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                if !Self.validLoginSession(auditSessionID) { break }
+                let active = await self?.currentConsoleUser() == userID
+                if wasActive && !active { break }
+                wasActive = active
+            }
+            await self?.clearLoginCredentials(captureID: captureID)
+        }
+    }
+
+    private func clearLoginCredentials(captureID: UUID) {
+        if loginCaptureID == captureID { loginCredentials.clear() }
+    }
+
+    private static func validLoginSession(_ id: UInt32) -> Bool {
+        guard id != 0, id != UInt32.max else { return false }
+        var attributes = SessionAttributeBits()
+        return SessionGetInfo(id, nil, &attributes) == errSecSuccess
+            && !attributes.contains(.sessionIsRoot) && !attributes.contains(.sessionIsRemote)
+    }
+
+    func send(_ bytes: Data, userID: uid_t, auditSessionID: UInt32) async -> CommandReply {
         guard bytes.count <= maximumMessageBytes,
               let message = try? JSONDecoder().decode(EngineCommandEnvelope.self, from: bytes),
               message.protocolVersion == helperProtocolVersion,
               UUID(uuidString: message.sessionID) != nil,
               UUID(uuidString: message.commandID) != nil else { return CommandReply(accepted: false, code: "invalid_command") }
+        if message.command.type == .clearLoginCredentials {
+            guard currentConsoleUser() == userID else { return CommandReply(accepted: false, code: "user_not_active") }
+            loginCredentials.clear()
+            return CommandReply(accepted: true, code: nil)
+        }
         if message.command.type == .acknowledgeAuthenticationCache {
             guard currentConsoleUser() == userID, let portal = message.command.portal,
                   let revision = message.command.cacheRevision else {
@@ -128,12 +183,21 @@ actor SessionController {
             }
             owner = userID
             sessionPortal = portal
+            loginAuditSessionID = auditSessionID
+            loginCredentials.begin(userID: userID, auditSessionID: auditSessionID, portal: portal,
+                enabled: message.command.useLoginCredentials == true && [.automatic, .password].contains(method))
             completed = nil
             sessionID = message.sessionID
             do {
-                try start(bytes)
+                var forwarded = message.command
+                forwarded.useLoginCredentials = nil
+                let envelope = EngineCommandEnvelope(protocolVersion: message.protocolVersion, sessionID: message.sessionID,
+                    commandID: message.commandID, command: forwarded)
+                try start(JSONEncoder().encode(envelope))
                 return CommandReply(accepted: true, code: nil)
             } catch {
+                loginCredentials.clear()
+                loginAuditSessionID = nil
                 owner = nil
                 sessionPortal = nil
                 sessionID = nil
@@ -144,6 +208,7 @@ actor SessionController {
             return CommandReply(accepted: false, code: "session_not_owned")
         }
         if message.command.type == .cancel || message.command.type == .disconnect {
+            loginCredentials.clear()
             await stop()
             return CommandReply(accepted: true, code: nil)
         }
@@ -339,6 +404,17 @@ actor SessionController {
         case .authenticationRequired, .otpRequired, .credentialsRequired:
             guard event.event.challengeID != nil else { throw ControllerError.invalidFrame }
             challenge = event
+            if let owner, let auditSessionID = loginAuditSessionID,
+               let credential = loginCredentials.respond(to: event.event, activeUser: currentConsoleUser(),
+                   enrolledPortal: try? LoginSSOInstallation.state(userID: owner).portal,
+                   validSession: Self.validLoginSession(auditSessionID)) {
+                let command = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: event.sessionID,
+                    commandID: UUID().uuidString, command: EngineCommand(type: .submitCredentials,
+                        challengeID: event.event.challengeID, username: credential.username, password: credential.password))
+                challenge = nil
+                try await write(JSONEncoder().encode(command))
+                return
+            }
         case .authenticationCompleted:
             challenge = nil
         case .snapshot, .phaseChanged:
@@ -375,6 +451,7 @@ actor SessionController {
     }
 
     private func stop() async {
+        loginCredentials.clear()
         guard let sessionID, let process, process.isRunning else { return }
         if let engineURL { try? SecureRuntime.cancelNetworkWork(engine: engineURL) }
         if escalationTask == nil {
@@ -462,6 +539,8 @@ actor SessionController {
         sessionID = nil
         owner = nil
         sessionPortal = nil
+        loginCredentials.clear()
+        loginAuditSessionID = nil
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil

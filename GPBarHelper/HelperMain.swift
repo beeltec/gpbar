@@ -5,11 +5,25 @@ final class InspectionService: NSObject, HelperProtocol {
     private let userID: uid_t
     private let events: ClientEvents
     private let connectionID: UUID
+    private let auditSessionID: UInt32
 
     init(userID: uid_t, connection: NSXPCConnection, connectionID: UUID) {
         self.userID = userID
         self.events = ClientEvents(connection)
         self.connectionID = connectionID
+        self.auditSessionID = UInt32(bitPattern: connection.auditSessionIdentifier)
+    }
+
+    func configureLoginSSO(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
+        guard data.count <= 8192,
+              let request = try? JSONDecoder().decode(LoginSSORequest.self, from: data),
+              request.protocolVersion == helperProtocolVersion else { reply(Data()); return }
+        let userID = userID
+        let connectionID = connectionID
+        Task {
+            let accepted = await SessionController.shared.configureLoginSSO(request, userID: userID, connectionID: connectionID)
+            reply((try? JSONEncoder().encode(CommandReply(accepted: accepted, code: accepted ? nil : "login_sso_configuration_failed"))) ?? Data())
+        }
     }
 
     func prepareForUpdate(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
@@ -48,15 +62,17 @@ final class InspectionService: NSObject, HelperProtocol {
             let response = HelperReply(protocolVersion: helperProtocolVersion, commandID: request.commandID,
                 runningAsRoot: geteuid() == 0, authorizedUser: authorized, engineSessionsAvailable: !preparingUpdate,
                 activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired,
-                pendingAuthenticationUpdates: attachment.pendingAuthenticationUpdates)
+                pendingAuthenticationUpdates: attachment.pendingAuthenticationUpdates,
+                loginSSO: authorized ? try? LoginSSOInstallation.state(userID: userID) : nil)
             reply((try? JSONEncoder().encode(response)) ?? Data())
         }
     }
 
     func send(_ command: Data, reply: @escaping @Sendable (Data) -> Void) {
         let userID = userID
+        let auditSessionID = auditSessionID
         Task {
-            let result = await SessionController.shared.send(command, userID: userID)
+            let result = await SessionController.shared.send(command, userID: userID, auditSessionID: auditSessionID)
             reply((try? JSONEncoder().encode(result)) ?? Data())
         }
     }
@@ -85,6 +101,13 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
     }
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+        if connection.effectiveUserIdentifier == 0 {
+            connection.setCodeSigningRequirement(loginSSOHostRequirement)
+            connection.exportedInterface = NSXPCInterface(with: LoginCaptureProtocol.self)
+            connection.exportedObject = LoginCaptureService(auditSessionID: UInt32(bitPattern: connection.auditSessionIdentifier))
+            connection.resume()
+            return true
+        }
         var consoleUser: uid_t = 0
         guard SCDynamicStoreCopyConsoleUser(nil, &consoleUser, nil) != nil,
               connection.effectiveUserIdentifier != 0,
@@ -104,6 +127,10 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
 
 @main enum HelperMain {
     static func main() {
+        if CommandLine.arguments == [CommandLine.arguments[0], "--remove-login-sso"] {
+            do { try LoginSSOInstallation.removeForRecovery(); exit(EXIT_SUCCESS) }
+            catch { exit(EXIT_FAILURE) }
+        }
         if CommandLine.arguments.count == 2,
            ["--network-script", "--network-recover", "--network-verify"].contains(CommandLine.arguments[1]) {
             do { try NetworkSession().run(mode: CommandLine.arguments[1]); exit(EXIT_SUCCESS) }
@@ -114,7 +141,7 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
               let requirement = try? SigningIdentity.requirement(for: "com.beeltec.GPBar") else { exit(EXIT_FAILURE) }
         let delegate = HelperListener(requirement: requirement)
         let listener = NSXPCListener(machServiceName: helperServiceName)
-        listener.setConnectionCodeSigningRequirement(requirement)
+        listener.setConnectionCodeSigningRequirement("(\(requirement)) or (\(loginSSOHostRequirement))")
         listener.delegate = delegate
         listener.resume()
         withExtendedLifetime(delegate) { RunLoop.current.run() }

@@ -157,7 +157,7 @@ enum SecureRuntime {
         try FileManager.default.removeItem(at: session)
     }
 
-    private static func ensurePrivateDirectory(_ url: URL) throws {
+    static func ensurePrivateDirectory(_ url: URL) throws {
         if !FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         }
@@ -169,7 +169,7 @@ enum SecureRuntime {
         }
     }
 
-    private static func verify(_ url: URL, identifier: String) throws {
+    static func verify(_ url: URL, identifier: String) throws {
         var code: SecStaticCode?
         var requirement: SecRequirement?
         let expression = try SigningIdentity.requirement(for: identifier)

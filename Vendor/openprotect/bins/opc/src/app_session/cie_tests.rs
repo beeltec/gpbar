@@ -105,6 +105,7 @@ async fn cie_loopback_handoff_and_single_challenge_response() {
             &output,
             &mut answers,
             &options(app::AuthenticationMethod::Automatic),
+            true,
         )
         .await
     });
@@ -150,6 +151,7 @@ async fn cie_cancel_and_wrong_challenge_close_the_launch_listener() {
                 &output,
                 &mut answers,
                 &options(app::AuthenticationMethod::CloudIdentity),
+                true,
             )
             .await
         });

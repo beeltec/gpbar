@@ -19,7 +19,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
 | Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
-| OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
+| OS-login SSO | Optional Authorization Services plug-in and one-use, session-bound portal credentials. | Synthetic checks only. System installation, login capture, FileVault, and provider behavior remain unverified. See [macOS login SSO](LOGIN-SSO.md). |
 | Cloud Identity Engine OIDC | CAS browser handoff, completion capture, and portal/gateway token submission. CIE owns the OIDC exchange. | Synthetic HTTPS and native browser checks; no matching live provider. See the protocol evidence below. |
 | MFA notifications for protected non-browser resources | Session-bound UDP notifications with trusted-origin and tunnel-ingress checks, followed by browser sign-in. | Synthetic protocol and native-window checks; no matching live firewall. See the restrictions below. |
 | Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
@@ -73,6 +73,14 @@ Any Keychain bridge must keep private keys in the user's session and reuse the T
 Kerberos, OIDC, cookie policy, and resource MFA require separate checks of their actual GlobalProtect exchanges.
 A general library feature does not prove support for that feature under every VPN protocol.
 The remaining work is tracked in [the authentication tickets](https://github.com/beeltec/gpbar/issues/14).
+
+### macOS login SSO
+
+An optional, administrator-approved plug-in captures the next password-based macOS login for an enrolled user and portal.
+The helper keeps one credential in memory for five minutes and uses the existing OpenProtect password submission.
+It requires the same user, audit session, active console, and exact portal. Gateway, browser, and MFA prompts cannot consume it.
+This does not implement Kerberos ticket SSO or read another application’s Keychain entries.
+See [installation, removal, recovery, library evidence, and validation limits](LOGIN-SSO.md).
 
 ### Native application flow
 

@@ -1,5 +1,9 @@
 # Tagged releases
 
+Disable [macOS login SSO](LOGIN-SSO.md) for every enrolled user before updating or reinstalling GPBar.
+The app blocks helper removal and Sparkle preparation while its login mechanism is active.
+The PKG installer also checks this rule. Re-enable the integration after updating.
+
 The repository is public. GitHub Actions builds a notarized release only after a SemVer tag is pushed.
 Branch pushes, pull requests, deleted tags, and manual dispatch do not run the release build.
 The workflow first validates the full tag and requires its commit to be reachable from `main`.
