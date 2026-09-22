@@ -15,6 +15,7 @@ use tokio::net::unix::pipe::{Receiver, Sender};
 use tokio::sync::{mpsc, watch, Mutex};
 
 mod cookies;
+mod kerberos;
 mod resource_mfa;
 mod signing;
 
@@ -24,10 +25,36 @@ struct AuthenticationOptions {
     certificate_only: bool,
     certificate_username: Option<String>,
     remember_authentication: bool,
+    kerberos: Option<kerberos::Bridge>,
+    kerberos_fallback_until: std::sync::atomic::AtomicU64,
     saved_authentication: Mutex<Option<app::SavedAuthentication>>,
 }
 
 impl AuthenticationOptions {
+    async fn prelogin(&self, client: &GpBar, server: &str, output: &SharedOutput) -> Result<PreloginResponse> {
+        output.lock().await.phase("preparing", 0).await?;
+        if matches!(self.method, app::AuthenticationMethod::Automatic | app::AuthenticationMethod::Kerberos) {
+            if let Some(bridge) = &self.kerberos {
+                let fallback_until = if self.method == app::AuthenticationMethod::Kerberos { 0 } else {
+                    self.kerberos_fallback_until.load(std::sync::atomic::Ordering::Relaxed)
+                };
+                let mut result = client.prelogin_with_kerberos(server, bridge, &challenge_id()?, fallback_until).await;
+                if self.method == app::AuthenticationMethod::Kerberos
+                    && result.as_ref().is_ok_and(|prelogin| !matches!(prelogin, PreloginResponse::Kerberos { .. }))
+                {
+                    result = Err(gp_auth::AuthError::Kerberos);
+                }
+                if matches!(&result, Err(gp_auth::AuthError::Kerberos)) {
+                    output.lock().await.send(Event::Failure {
+                        code: "kerberos_failed", message: "Kerberos sign-in failed. Check your tickets and VPN policy, then try again.", retryable: true,
+                    }).await?;
+                }
+                return Ok(result?);
+            }
+        }
+        Ok(client.prelogin(server).await?)
+    }
+
     async fn save(
         &self,
         saved: Option<app::SavedAuthentication>,
@@ -270,6 +297,7 @@ pub async fn run() -> Result<()> {
         certificate_only,
         certificate_username,
         remember_authentication,
+        kerberos_fallback_until,
         saved_authentication,
     } = first.command
     else {
@@ -305,6 +333,7 @@ pub async fn run() -> Result<()> {
     let (stop, _) = watch::channel(false);
     let (answers, mut answer_rx) = mpsc::channel(4);
     let (signature_answers, signature_rx) = mpsc::channel(1);
+    let (kerberos_answers, kerberos_rx) = mpsc::channel(1);
     let (identity, signer_task) = match identity {
         Some(identity) => {
             let (identity, task) =
@@ -319,6 +348,8 @@ pub async fn run() -> Result<()> {
         certificate_only,
         certificate_username,
         remember_authentication,
+        kerberos: Some(kerberos::Bridge { output: output.clone(), answers: Mutex::new(kerberos_rx) }),
+        kerberos_fallback_until: std::sync::atomic::AtomicU64::new(kerberos_fallback_until.min(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 86400)),
         saved_authentication: Mutex::new(saved_authentication),
     };
     let reader_output = output.clone();
@@ -378,6 +409,15 @@ pub async fn run() -> Result<()> {
                     otp: false,
                     username: Some(username),
                 }),
+                Command::SubmitKerberos { request_id, token, complete, kerberos_failed } => {
+                    if !app::valid_id(&request_id) || token.as_ref().is_some_and(|token| token.len() > 65536)
+                        || kerberos_answers.try_send(kerberos::Answer { request_id, token, complete, failed: kerberos_failed }).is_err()
+                    {
+                        let _ = reader_stop.send(true);
+                        return;
+                    }
+                    None
+                }
                 Command::SubmitSignature {
                     request_id,
                     signature,
@@ -534,12 +574,15 @@ async fn authenticate_once(
     answers: &mut mpsc::Receiver<Answer>,
     options: &AuthenticationOptions,
 ) -> Result<Authentication> {
-    output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
     let client = options.client(params.clone())?;
-    let mut prelogin = client.prelogin(portal).await?;
+    let mut prelogin = options.prelogin(&client, portal, output).await?;
     validate_portal_method(&prelogin, options.method, output).await?;
     let mut saved = options.saved_authentication.lock().await.clone();
+    if matches!(prelogin, PreloginResponse::Kerberos { .. }) && saved.is_some() {
+        options.save(None, output).await?;
+        saved = None;
+    }
     let mut history = saved.clone();
     if let Some(saved) = &mut saved {
         saved.portal_cookie = saved.portal_cookie.take().filter(cookies::current);
@@ -585,7 +628,7 @@ async fn authenticate_once(
                 options.save(None, output).await?;
                 saved = None;
                 allow_cached_fallback = false;
-                prelogin = options.client(params.clone())?.prelogin(portal).await?;
+                prelogin = options.prelogin(&options.client(params.clone())?, portal, output).await?;
                 validate_portal_method(&prelogin, options.method, output).await?;
                 let (fresh, id) =
                     request_credential(portal, &prelogin, output, answers, options, true).await?;
@@ -595,6 +638,12 @@ async fn authenticate_once(
             Err(error) => return Err(error.into()),
         }
     };
+    options.kerberos_fallback_until.store(if configuration.kerberos_fallback {
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 86400
+    } else { 0 }, std::sync::atomic::Ordering::Relaxed);
+    output.lock().await.send(Event::KerberosPolicyChanged {
+        kerberos_fallback_until: options.kerberos_fallback_until.load(std::sync::atomic::Ordering::Relaxed),
+    }).await?;
     drop(credential);
     drop(portal_params);
     if let Some(id) = completed_challenge {
@@ -692,7 +741,11 @@ async fn authenticate_once(
     drop(configuration);
     if needs_gateway_login {
         let gateway_client = options.client(params.clone())?;
-        let prelogin = gateway_client.prelogin(&gateway).await?;
+        let prelogin = options.prelogin(&gateway_client, &gateway, output).await?;
+        if matches!(prelogin, PreloginResponse::Kerberos { .. }) {
+            options.save(None, output).await?;
+            updated = None;
+        }
         let (credential, id) =
             request_credential(&gateway, &prelogin, output, answers, options, false).await?;
         gateway_credential = credential;
@@ -770,7 +823,11 @@ async fn authenticate_once(
                 }
                 allow_cookie_fallback = false;
                 let gateway_client = options.client(params.clone())?;
-                let prelogin = gateway_client.prelogin(&gateway).await?;
+                let prelogin = options.prelogin(&gateway_client, &gateway, output).await?;
+                if matches!(prelogin, PreloginResponse::Kerberos { .. }) {
+                    options.save(None, output).await?;
+                    updated = None;
+                }
                 let (credential, id) =
                     request_credential(&gateway, &prelogin, output, answers, options, false).await?;
                 gateway_credential = credential;
@@ -823,6 +880,8 @@ async fn validate_portal_method(
 ) -> Result<()> {
     let is_cas = matches!(prelogin, PreloginResponse::Saml(saml) if saml.is_cas);
     let message = match (method, prelogin) {
+        (app::AuthenticationMethod::Kerberos, PreloginResponse::Kerberos { .. }) => return Ok(()),
+        (app::AuthenticationMethod::Kerberos, _) => "The portal did not complete Kerberos SSO. Check your tickets or select Automatic in Edit Connection.",
         (app::AuthenticationMethod::CloudIdentity, _) if !is_cas => {
             "The portal did not offer Cloud Identity Engine. Select Automatic in Edit Connection."
         }
@@ -858,8 +917,12 @@ async fn request_credential(
     portal_login: bool,
 ) -> Result<(Credential, String)> {
     let id = challenge_id()?;
-    output.lock().await.phase("authenticating", 0).await?;
+    let phase = if matches!(prelogin, PreloginResponse::Kerberos { .. }) { "preparing" } else { "authenticating" };
+    output.lock().await.phase(phase, 0).await?;
     let saml = match prelogin {
+        PreloginResponse::Kerberos { username, prelogin_cookie, .. } => return Ok((Credential::Prelogin {
+            username: username.clone(), prelogin_cookie: Some(prelogin_cookie.clone()), token: None,
+        }, id)),
         PreloginResponse::Standard(standard) => {
             if options.certificate_only {
                 let username = standard
@@ -1298,3 +1361,6 @@ mod cie_tests;
 
 #[cfg(test)]
 mod login_sso_tests;
+
+#[cfg(test)]
+mod kerberos_tests;

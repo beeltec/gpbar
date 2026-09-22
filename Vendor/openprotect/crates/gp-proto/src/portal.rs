@@ -23,6 +23,7 @@ pub struct PortalConfig {
     /// Configuration digest (opaque hash).
     pub config_digest: Option<String>,
     pub cookie_lifetime_seconds: Option<u64>,
+    pub kerberos_fallback: bool,
     pub resource_mfa: Option<crate::resource_mfa::ResourceMfaPolicy>,
 }
 
@@ -66,6 +67,9 @@ impl PortalConfig {
             gateways,
             config_digest,
             cookie_lifetime_seconds: cookie_lifetime_seconds(&root),
+            kerberos_fallback: root.name == "policy" && unique_child(&root, "agent-config")
+                .and_then(|agent| unique_child(agent, "krb-auth-fail-fallback"))
+                .is_some_and(|field| field.children.is_empty() && field.text == "yes"),
             resource_mfa: crate::resource_mfa::ResourceMfaPolicy::parse(&root),
         })
     }

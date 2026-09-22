@@ -7,7 +7,7 @@ use crate::hip::cookie_to_form_fields;
 
 /// HTTP client wrapping the GlobalProtect REST-ish API.
 pub struct GpBar {
-    http: reqwest::Client,
+    pub(crate) http: reqwest::Client,
     bounded_responses: bool,
     /// The GP request parameters attached to every call.
     pub gp_params: GpParams,
@@ -106,7 +106,7 @@ impl GpBar {
         Ok(Self { http, bounded_responses, gp_params })
     }
 
-    async fn read_body(&self, mut response: reqwest::Response) -> Result<String, AuthError> {
+    pub(crate) async fn read_body(&self, mut response: reqwest::Response) -> Result<String, AuthError> {
         if !self.bounded_responses { return Ok(response.text().await?); }
         const LIMIT: usize = 2 * 1024 * 1024;
         if response.content_length().is_some_and(|length| length > LIMIT as u64) {
@@ -138,7 +138,11 @@ impl GpBar {
         let body = self.read_body(response).await?;
 
         tracing::trace!("prelogin response ({} bytes)", body.len());
-        Ok(PreloginResponse::parse(&body)?)
+        let parsed = PreloginResponse::parse(&body)?;
+        if matches!(parsed, PreloginResponse::Kerberos { .. }) {
+            return Err(AuthError::Failed("Kerberos negotiation required".into()));
+        }
+        Ok(parsed)
     }
 
     /// Retrieve the portal configuration (gateway list + auth cookies).
@@ -399,3 +403,6 @@ mod cie_tests;
 
 #[cfg(test)]
 mod login_sso_tests;
+
+#[cfg(test)]
+mod kerberos_tests;

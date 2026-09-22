@@ -23,6 +23,7 @@ actor SessionController {
     private var loginCredentialExpiry: Task<Void, Never>?
     private var loginCaptureID = UUID()
     private var loginAuditSessionID: UInt32?
+    private var pendingKerberosPolicies: [uid_t: [String: KerberosPolicyUpdate]] = [:]
     private var pendingAuthenticationUpdates: [uid_t: [String: AuthenticationCacheUpdate]] = [:]
     private var sessionID: String?
     private var observer: (@Sendable (Data) -> Void)?
@@ -33,6 +34,7 @@ actor SessionController {
     private var lastSnapshot: EngineEventEnvelope?
     private var challenge: EngineEventEnvelope?
     private var signatureRequest: EngineEventEnvelope?
+    private var kerberosRequest: EngineEventEnvelope?
     private var terminal: EngineEventEnvelope?
     private var exitCode: Int32?
     private var stdoutEnded = false
@@ -43,9 +45,10 @@ actor SessionController {
     private var escalationTask: Task<Void, Never>?
     private var uiLossTask: Task<Void, Never>?
 
-    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> (sessionID: String?, busy: Bool, recoveryRequired: Bool, pendingAuthenticationUpdates: [AuthenticationCacheUpdate]) {
+    func attach(userID: uid_t, connectionID: UUID, observer: @escaping @Sendable (Data) -> Void) -> (sessionID: String?, busy: Bool, recoveryRequired: Bool, pendingAuthenticationUpdates: [AuthenticationCacheUpdate], pendingKerberosPolicies: [KerberosPolicyUpdate]) {
         let pending = Array(pendingAuthenticationUpdates[userID, default: [:]].values)
-        guard owner == nil || owner == userID else { return (nil, true, false, pending) }
+        let policies = Array(pendingKerberosPolicies[userID, default: [:]].values)
+        guard owner == nil || owner == userID else { return (nil, true, false, pending, policies) }
         self.observer = observer
         observerID = connectionID
         observerUser = userID
@@ -55,7 +58,7 @@ actor SessionController {
         if let signatureRequest, let bytes = try? JSONEncoder().encode(signatureRequest) { observer(bytes) }
         if let lastSnapshot, let bytes = try? JSONEncoder().encode(lastSnapshot) { observer(bytes) }
         let recoveryRequired = sessionID == nil && ((try? SecureRuntime.hasPendingSessions()) ?? true)
-        return (sessionID, false, recoveryRequired, pending)
+        return (sessionID, false, recoveryRequired, pending, policies)
     }
 
     func prepareForUpdate(userID: uid_t, connectionID: UUID) -> Bool {
@@ -75,6 +78,7 @@ actor SessionController {
         observer = nil
         observerID = nil
         observerUser = nil
+        if kerberosRequest != nil { Task { await stop() } }
         if challenge != nil || signatureRequest != nil {
             uiLossTask = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
@@ -136,6 +140,17 @@ actor SessionController {
             loginCredentials.clear()
             return CommandReply(accepted: true, code: nil)
         }
+        if message.command.type == .acknowledgeKerberosPolicy {
+            guard currentConsoleUser() == userID, let portal = message.command.portal,
+                  let revision = message.command.cacheRevision else {
+                return CommandReply(accepted: false, code: "invalid_policy_acknowledgement")
+            }
+            if pendingKerberosPolicies[userID]?[portal]?.revision == revision {
+                pendingKerberosPolicies[userID]?.removeValue(forKey: portal)
+                if pendingKerberosPolicies[userID]?.isEmpty == true { pendingKerberosPolicies.removeValue(forKey: userID) }
+            }
+            return CommandReply(accepted: true, code: nil)
+        }
         if message.command.type == .acknowledgeAuthenticationCache {
             guard currentConsoleUser() == userID, let portal = message.command.portal,
                   let revision = message.command.cacheRevision else {
@@ -181,6 +196,10 @@ actor SessionController {
                     || pendingAuthenticationUpdates[userID]?[portal] != nil else {
                 return CommandReply(accepted: false, code: "authentication_cache_cleanup_required")
             }
+            guard pendingKerberosPolicies[userID, default: [:]].count < 128
+                    || pendingKerberosPolicies[userID]?[portal] != nil else {
+                return CommandReply(accepted: false, code: "kerberos_policy_cleanup_required")
+            }
             owner = userID
             sessionPortal = portal
             loginAuditSessionID = auditSessionID
@@ -191,6 +210,9 @@ actor SessionController {
             do {
                 var forwarded = message.command
                 forwarded.useLoginCredentials = nil
+                if let policy = pendingKerberosPolicies[userID]?[portal] {
+                    forwarded.kerberosFallbackUntil = policy.fallbackUntil
+                }
                 let envelope = EngineCommandEnvelope(protocolVersion: message.protocolVersion, sessionID: message.sessionID,
                     commandID: message.commandID, command: forwarded)
                 try start(JSONEncoder().encode(envelope))
@@ -223,6 +245,17 @@ actor SessionController {
                   let password = message.command.password, !password.isEmpty, password.utf8.count <= 4096 else {
                 return CommandReply(accepted: false, code: "invalid_credentials")
             }
+        }
+        if message.command.type == .submitKerberos {
+            guard let kerberosRequest, message.command.requestID == kerberosRequest.event.requestID,
+                  auditSessionID == loginAuditSessionID, Self.validLoginSession(auditSessionID),
+                  message.command.token.map({ $0.count <= 49152 }) != false,
+                  message.command.complete != nil, message.command.kerberosFailed != nil,
+                  message.command.kerberosFailed != true || (message.command.token == nil && message.command.complete == false),
+                  message.command.token != nil || message.command.complete == false else {
+                return CommandReply(accepted: false, code: "kerberos_expired")
+            }
+            self.kerberosRequest = nil
         }
         if message.command.type == .submitSignature {
             guard let signatureRequest, message.command.requestID == signatureRequest.event.requestID,
@@ -291,6 +324,7 @@ actor SessionController {
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         exitCode = nil
         stdoutEnded = false
         networkMayHaveChanged = true
@@ -394,6 +428,25 @@ actor SessionController {
                 sequence: event.sequence, event: payload)
             emit(try JSONEncoder().encode(delivery))
             return
+        case .kerberosRequired:
+            guard kerberosRequest == nil, KerberosRequest(event: event.event) != nil,
+                  currentConsoleUser() == owner, observer != nil else { throw ControllerError.invalidFrame }
+            kerberosRequest = event
+        case .kerberosFinished:
+            guard event.event.contextID != nil else { throw ControllerError.invalidFrame }
+            kerberosRequest = nil
+        case .kerberosPolicyChanged:
+            guard let owner, let portal = sessionPortal, let until = event.event.kerberosFallbackUntil,
+                  until <= UInt64(Date().timeIntervalSince1970) + 86400 else { throw ControllerError.invalidFrame }
+            let update = KerberosPolicyUpdate(portal: portal, revision: UUID(), fallbackUntil: until)
+            pendingKerberosPolicies[owner, default: [:]][portal] = update
+            var payload = event.event
+            payload.server = portal
+            payload.cacheRevision = update.revision
+            let delivery = EngineEventEnvelope(protocolVersion: event.protocolVersion, sessionID: event.sessionID,
+                sequence: event.sequence, event: payload)
+            emit(try JSONEncoder().encode(delivery))
+            return
         case .signatureRequired:
             guard let requestID = event.event.requestID, !requestID.isEmpty, requestID.utf8.count <= 64,
                   requestID.allSatisfy({ $0.isHexDigit }), event.event.scheme != nil, event.event.digest != nil,
@@ -424,6 +477,7 @@ actor SessionController {
             networkMayHaveChanged = event.event.cleanup != "not_needed"
             challenge = nil
             signatureRequest = nil
+            kerberosRequest = nil
         default: break
         }
         if event.event.type != .stopped { emit(bytes) }
@@ -507,6 +561,7 @@ actor SessionController {
         process = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         if let sessionID {
             sequence += 1
             let state = EngineEventEnvelope(protocolVersion: helperProtocolVersion, sessionID: sessionID, sequence: sequence,
@@ -544,6 +599,7 @@ actor SessionController {
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         terminal = nil
         engineURL = nil
         pendingStart = nil

@@ -1,7 +1,7 @@
 import Foundation
 
 enum AuthenticationMethod: String, Codable, Sendable, CaseIterable, Identifiable {
-    case automatic, saml, password, certificate
+    case automatic, saml, password, certificate, kerberos
     case cloudIdentity = "cloud_identity"
 
     var id: String { rawValue }
@@ -9,6 +9,7 @@ enum AuthenticationMethod: String, Codable, Sendable, CaseIterable, Identifiable
         switch self {
         case .automatic: "Automatic"
         case .saml: "SAML"
+        case .kerberos: "Kerberos SSO"
         case .cloudIdentity: "Cloud Identity Engine"
         case .password: "Username and password"
         case .certificate: "Client certificate"
@@ -33,7 +34,9 @@ struct EngineCommand: Codable, Sendable {
         case recoverNetwork = "recover_network"
         case submitCredentials = "submit_credentials"
         case submitSignature = "submit_signature"
+        case submitKerberos = "submit_kerberos"
         case acknowledgeAuthenticationCache = "acknowledge_authentication_cache"
+        case acknowledgeKerberosPolicy = "acknowledge_kerberos_policy"
         case clearLoginCredentials = "clear_login_credentials"
     }
     let type: Kind
@@ -54,6 +57,10 @@ struct EngineCommand: Codable, Sendable {
     var savedAuthentication: SavedAuthentication?
     var cacheRevision: UUID?
     var useLoginCredentials: Bool?
+    var token: Data?
+    var complete: Bool?
+    var kerberosFailed: Bool?
+    var kerberosFallbackUntil: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
@@ -63,6 +70,7 @@ struct EngineCommand: Codable, Sendable {
         case rememberAuthentication = "remember_authentication", savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
         case useLoginCredentials = "use_login_credentials"
+        case token, complete, kerberosFailed = "kerberos_failed", kerberosFallbackUntil = "kerberos_fallback_until"
     }
 }
 
@@ -83,6 +91,8 @@ struct EngineEvent: Codable, Sendable {
         case authenticationCompleted = "authentication_completed", otpRequired = "otp_required", snapshot, failure, stopped
         case credentialsRequired = "credentials_required"
         case signatureRequired = "signature_required"
+        case kerberosRequired = "kerberos_required", kerberosFinished = "kerberos_finished"
+        case kerberosPolicyChanged = "kerberos_policy_changed"
         case authenticationCacheChanged = "authentication_cache_changed"
         case resourceAuthenticationRequired = "resource_authentication_required"
         case resourceAuthenticationCleared = "resource_authentication_cleared"
@@ -111,6 +121,8 @@ struct EngineEvent: Codable, Sendable {
     var savedAuthentication: SavedAuthentication?
     var cacheRevision: UUID?
     var loginSSOAllowed: Bool?
+    var contextID: String?
+    var kerberosFallbackUntil: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case expiresAtUnix = "expires_at_unix"
@@ -122,6 +134,7 @@ struct EngineEvent: Codable, Sendable {
         case savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
         case loginSSOAllowed = "login_sso_allowed"
+        case contextID = "context_id", kerberosFallbackUntil = "kerberos_fallback_until"
     }
 }
 

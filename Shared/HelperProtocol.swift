@@ -1,7 +1,7 @@
 import Foundation
 
 let helperServiceName = "com.beeltec.GPBar.helper"
-let helperProtocolVersion = 9
+let helperProtocolVersion = 10
 let maximumMessageBytes = 256 * 1024
 
 @objc protocol HelperProtocol {
@@ -26,10 +26,17 @@ struct HelperReply: Codable, Sendable {
     let sessionBusy: Bool
     let recoveryRequired: Bool
     let pendingAuthenticationUpdates: [AuthenticationCacheUpdate]
+    let pendingKerberosPolicies: [KerberosPolicyUpdate]
     let loginSSO: LoginSSOState?
 }
 
 struct AuthenticationCacheUpdate: Codable, Sendable, Equatable {
     let portal: String
     let revision: UUID
+}
+
+struct KerberosPolicyUpdate: Codable, Sendable, Equatable {
+    let portal: String
+    let revision: UUID
+    let fallbackUntil: UInt64
 }

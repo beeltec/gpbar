@@ -8,6 +8,8 @@ fn options(method: app::AuthenticationMethod) -> AuthenticationOptions {
         certificate_only: false,
         certificate_username: None,
         remember_authentication: false,
+        kerberos: None,
+        kerberos_fallback_until: std::sync::atomic::AtomicU64::new(0),
         saved_authentication: Mutex::new(None),
     }
 }

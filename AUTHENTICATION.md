@@ -18,7 +18,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Different portal and gateway authentication | Separate gateway prelogin and sign-in when portal cookies are absent or rejected. | New implementation; no live provider available. Passwords are not silently forwarded to another host. |
 | Client certificates, including certificates combined with passwords or SAML | Selected Keychain identity, with signing delegated to the user app for OpenProtect and OpenConnect TLS. | Certificate picker and unchanged SAML startup/cancellation checked live. No certificate-enabled provider is available. |
 | Smart cards and CACs | Uses identities exposed through macOS CryptoTokenKit and the existing delegated certificate signer. | Picker and SAML startup/cancellation checked live. Hardware and certificate-provider behavior remain unverified. |
-| Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
+| Kerberos SSO | User-session GSS tickets, HTTP Negotiate, and origin-bound prelogin-cookie handoff for portals and gateways. | Local KDC and synthetic HTTPS checks. No matching GlobalProtect provider is available. See the limits below. |
 | OS-login SSO | Optional Authorization Services plug-in and one-use, session-bound portal credentials. | Synthetic checks only. System installation, login capture, FileVault, and provider behavior remain unverified. See [macOS login SSO](LOGIN-SSO.md). |
 | Cloud Identity Engine OIDC | CAS browser handoff, completion capture, and portal/gateway token submission. CIE owns the OIDC exchange. | Synthetic HTTPS and native browser checks; no matching live provider. See the protocol evidence below. |
 | MFA notifications for protected non-browser resources | Session-bound UDP notifications with trusted-origin and tunnel-ingress checks, followed by browser sign-in. | Synthetic protocol and native-window checks; no matching live firewall. See the restrictions below. |
@@ -73,6 +73,65 @@ Any Keychain bridge must keep private keys in the user's session and reuse the T
 Kerberos, OIDC, cookie policy, and resource MFA require separate checks of their actual GlobalProtect exchanges.
 A general library feature does not prove support for that feature under every VPN protocol.
 The remaining work is tracked in [the authentication tickets](https://github.com/beeltec/gpbar/issues/14).
+
+### Kerberos SSO
+
+Automatic authentication advertises Kerberos support when starting portal and gateway prelogin.
+HTTP Negotiate uses Apple GSS in the logged-in user app. The root engine cannot read the user's ticket cache.
+GPBar acquires existing Kerberos credentials with UI disabled. It does not request a password, acquire a new TGT, or enable NTLM.
+SPNEGO uses a credential containing only the Kerberos mechanism. Credential delegation is disabled.
+Each exchange targets `HTTP/<endpoint hostname>`. The resulting GSS target must match that hostname before any token leaves the app.
+Portal and gateway exchanges use separate contexts, including when they share a hostname.
+Mutual authentication must complete before GPBar accepts the prelogin response.
+[Apple GSS](https://developer.apple.com/documentation/gss), [HTTP Negotiate](https://www.rfc-editor.org/rfc/rfc4559),
+[Official service principal setup](https://knowledgebase.paloaltonetworks.com/KCSArticleDetail?id=kA10g000000boBiCAI&lang=en_US)
+
+Successful prelogin requires `krb-auth-status=1`, a nonempty `krb-norm-username`, and a nonempty `prelogin-cookie`.
+The existing OpenProtect credential serializer submits the returned username and cookie to the same endpoint's login request.
+The password remains empty. Tickets and HTTP Authorization headers are never reused for another endpoint or login request.
+A response claiming success without completed GSS negotiation is rejected.
+Servers using another successful handoff are unsupported until their exchange is verified.
+
+**Fallback policy:** Automatic may retry the server's default authentication only after an authenticated portal policy explicitly permits fallback.
+The policy comes from `policy/agent-config/krb-auth-fail-fallback=yes`.
+The app retains this non-secret policy for the same portal and user for up to 24 hours.
+The engine checks the deadline at each fallback decision, including reconnects.
+Changing the portal clears that permission. A missing, malformed, duplicated, or negative policy disables fallback.
+The latest authenticated portal policy governs subsequent gateway authentication and reconnects.
+The helper retains each portal-bound update until the app acknowledges it, keeping its original expiry.
+Pending updates override older preferences when another session starts.
+Before GPBar learns a policy, Kerberos failure stops the attempt. An administrator can confirm another explicit authentication choice for initial setup.
+Selecting **Kerberos SSO** disables fallback for the entire connection.
+Fallback uses a fresh prelogin with Kerberos disabled, then the existing password, SAML, or CIE flow.
+TLS errors, redirects, invalid handoffs, and failed mutual authentication never trigger fallback.
+[Official failure policy](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/set-up-external-authentication/set-up-kerberos-authentication)
+
+IPC binds each operation to the session, request, context, endpoint, active user, and originating audit session.
+Exchanges allow four rounds, 48 KiB tokens, and 30 seconds per user-process response.
+Cancellation stops the engine wait and suppresses late native replies. GSS resources are released when an in-flight operating-system call returns.
+Tickets, tokens, and handoff cookies remain in memory and private IPC. They are excluded from logs and snapshots.
+A fresh Kerberos handoff replaces saved authentication, so an older cookie cannot switch the account.
+
+**Reuse and protocol evidence:** The pinned OpenProtect code has no ticket SSO provider.
+OpenConnect 9.21 implements generic HTTP Negotiate in `gssapi.c`, inside its own process.
+Its GlobalProtect parser does not consume `krb-auth-status` or `krb-norm-username`.
+GPBar therefore reuses Apple GSS, OpenProtect's HTTP client and credential serializer, and the existing OpenConnect tunnel.
+It adds the missing prelogin negotiation and user-process bridge.
+[OpenConnect 9.21](https://gitlab.com/openconnect/openconnect/-/blob/v9.21/gssapi.c)
+
+Protocol research also inspected Palo Alto's signed GlobalProtect 6.2.8-263 macOS package without installing or executing it.
+The vendor implementation advertises `kerberos-support=yes`, recognizes status `1`, and selects the normalized username for automatic submission.
+Its portal and gateway prelogin parsers retain `prelogin-cookie`; their login serializers submit that field.
+This establishes the implemented client handoff, but does not prove that every Kerberos-enabled firewall supplies that cookie.
+The package SHA-256 is `e392b79ff9efdc6830b39231380f1056afafd498f82361edd8b47e260cde873c`.
+No vendor binary or source is redistributed.
+[Vendor package](https://pan-gp-client.s3.amazonaws.com/6.2.8-263/GlobalProtect.pkg),
+[Vendor connection flow](https://live.paloaltonetworks.com/twzvq79624/attachments/twzvq79624/CommunityBlog/3903/2/GlobalProtect%20Presentation.pdf)
+
+The owner explicitly requested [a Kerberos suite](Tests/Kerberos/README.md), overriding the issue's earlier no-tests instruction.
+It exercises real Apple GSS tickets against an isolated MIT KDC and acceptor, plus synthetic GlobalProtect HTTPS responses.
+A real Kerberos-enabled GlobalProtect portal, gateway, corporate realm, and hardware-backed ticket source remain unverified.
+The suite does not establish live provider compatibility or a working VPN tunnel.
 
 ### macOS login SSO
 
@@ -307,7 +366,7 @@ Using the existing native adapter preserves user-session PIN handling across bot
 [OpenConnect PKCS#11 guide](https://www.infradead.org/openconnect/pkcs11.html)
 
 Kerberos server password authentication and Kerberos SSO are separate capabilities.
-The latter uses tickets from the user's login session and needs a dedicated implementation.
+The latter uses existing tickets from the user's login session through the dedicated adapter described above.
 [Official Kerberos setup](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/set-up-external-authentication/set-up-kerberos-authentication)
 
 CIE implementation evidence and remaining provider checks are listed [above](#cloud-identity-engine-including-oidc).
@@ -322,7 +381,7 @@ OpenConnect also handles these fields in its GlobalProtect implementation. CAS a
 See the [OpenConnect protocol notes](https://github.com/dlenski/openconnect/blob/master/PAN_GlobalProtect_protocol_doc.md).
 
 Detection runs after Connect, never from the hostname or while saving settings.
-The dropdown offers Automatic, SAML, Cloud Identity Engine, Username and password, and Client certificate.
+The dropdown offers Automatic, SAML, Cloud Identity Engine, Kerberos SSO, Username and password, and Client certificate.
 Explicit SAML and password choices validate the portal response before submitting credentials or saved cookies.
 A mismatch stops with guidance to change the selection. Gateway requirements remain independent.
 The app-mode selection check is the integration gap; upstream prelogin already supplies the required classification.

@@ -8,6 +8,7 @@ pub mod context;
 pub mod error;
 pub mod hip;
 mod identity;
+pub mod kerberos;
 pub mod okta;
 pub mod password;
 pub mod saml_common;

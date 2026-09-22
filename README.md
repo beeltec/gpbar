@@ -24,7 +24,7 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Save one portal address and an optional connection name across launches.
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
-- Choose automatic authentication, SAML, Cloud Identity Engine, username and password, or a Keychain client certificate.
+- Choose automatic authentication, SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
 - Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
 - Recover recorded network changes and remove the VPN helper from connection settings.
 - Debug builds include local diagnostics and export.
@@ -66,7 +66,7 @@ Launching GPBar again registers the helper again.
 ## Known limits
 
 - GPBar stores one connection and runs one tunnel at a time.
-- Kerberos SSO and some provider-specific authentication methods are unavailable.
+- Kerberos SSO has local KDC and synthetic HTTPS checks, but no matching GlobalProtect provider validation.
 - Optional [macOS login SSO](LOGIN-SSO.md) has synthetic checks. Real login capture and provider compatibility remain unverified.
 - Crash recovery, sleep/wake, reconnect, and IPv6 behavior still need live validation.
 - GPBar has no kill switch. Traffic routing depends on the gateway's configuration.
@@ -120,6 +120,7 @@ Do not add automated tests or test targets unless explicitly requested. Preserve
 Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMFA/README.md), since no matching live server is available.
 Issue #20 includes an explicitly requested [CIE suite](Tests/CloudIdentity/README.md) for the same reason.
 Issue #19 includes an explicitly requested [macOS login SSO suite](Tests/LoginSSO/README.md).
+Issue #18 includes an explicitly requested [Kerberos SSO suite](Tests/Kerberos/README.md).
 Record what you checked and any remaining limits in your pull request.
 
 ## Third-party software and licensing

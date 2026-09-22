@@ -19,11 +19,16 @@ import CryptoTokenKit
     private var certificateContext: KeychainContext?
     private var signatureRequestID: String?
     private(set) var authenticationStorageMessage: String?
+    private var kerberos: KerberosSession?
+    private var kerberosTask: Task<Void, Never>?
+    private var kerberosRequestID: String?
+    private var cancelledKerberosSessionID: String?
     private(set) var loginSSO: LoginSSOState?
     private(set) var configuringLoginSSO = false
     private(set) var loginSSOMessage: String?
     private var authenticationStorageRevision = UUID()
     private var authenticationStorageOperations: [String: UUID] = [:]
+    private var receivedKerberosPolicy: KerberosPolicyUpdate?
     private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
@@ -89,6 +94,7 @@ import CryptoTokenKit
         helper.onInterruption = { [weak self] in
             guard let self else { return }
             self.cancelPendingQuit()
+            self.finishKerberos()
             self.helperVerified = false
             self.loginSSO = nil
             self.resourceAuthentication.finish()
@@ -160,6 +166,7 @@ import CryptoTokenKit
                                     certificateOnly: usesCertificate && preferences.certificateOnly,
                                     certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
+        command.kerberosFallbackUntil = preferences.kerberosFallbackUntil
         command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
@@ -279,6 +286,7 @@ import CryptoTokenKit
 
     func disconnect() {
         guard sessionID != nil, phase != .disconnecting else { return }
+        cancelledKerberosSessionID = sessionID
         phase = .disconnecting
         resourceAuthentication.finish()
         resourceAuthenticationMessage = nil
@@ -286,6 +294,7 @@ import CryptoTokenKit
         certificateContext?.invalidate()
         certificateContext = nil
         signatureRequestID = nil
+        finishKerberos()
         if !engineStartSent {
             let cancelledSession = sessionID
             let request = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
@@ -296,6 +305,7 @@ import CryptoTokenKit
                 self.startPending = false
                 self.phase = .disconnected
                 if !reply.accepted {
+                    self.finishKerberos()
                     self.helperVerified = false
                     self.error = "Login credential removal could not be confirmed. Check the helper before connecting again."
                 }
@@ -347,6 +357,48 @@ import CryptoTokenKit
         guard preferences.authenticationMethod == .certificate, preferences.certificateTokenID == tokenID else { return }
         if sessionID != nil { disconnect() }
         error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
+    }
+
+    private func negotiateKerberos(_ event: EngineEvent, session: String) {
+        guard helperVerified, cancelledKerberosSessionID != session,
+              let request = KerberosRequest(event: event), phase != .disconnecting,
+              [.automatic, .kerberos].contains(preferences.authenticationMethod) else { disconnect(); return }
+        if kerberosRequestID == request.requestID { return }
+        kerberosTask?.cancel()
+        let kerberos = self.kerberos ?? KerberosSession()
+        self.kerberos = kerberos
+        kerberosRequestID = request.requestID
+        kerberosTask = Task {
+            var reply: KerberosSession.Reply?
+            var failed = false
+            do { reply = try await kerberos.step(request) }
+            catch KerberosSession.Failure.unavailable {}
+            catch { failed = true }
+            guard !Task.isCancelled, sessionID == session, cancelledKerberosSessionID != session,
+                  kerberosRequestID == request.requestID, phase != .disconnecting else { return }
+            guard helperVerified else { disconnect(); return }
+            kerberosRequestID = nil
+            kerberosTask = nil
+            send(EngineCommand(type: .submitKerberos, requestID: request.requestID,
+                               token: reply?.token, complete: reply?.complete ?? false, kerberosFailed: failed))
+        }
+    }
+
+    private func storeKerberosPolicy(_ update: KerberosPolicyUpdate) {
+        preferences.saveKerberosPolicy(update)
+        let command = EngineCommand(type: .acknowledgeKerberosPolicy, portal: update.portal, cacheRevision: update.revision)
+        let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
+            commandID: UUID().uuidString, command: command)
+        helper.send(envelope) { _ in }
+    }
+
+    private func finishKerberos(_ contextID: String? = nil) {
+        kerberosTask?.cancel()
+        kerberosTask = nil
+        kerberosRequestID = nil
+        let current = kerberos
+        if contextID == nil { kerberos = nil }
+        Task { await current?.finish(contextID) }
     }
 
     private func sign(_ event: EngineEvent, session: String) {
@@ -471,6 +523,16 @@ import CryptoTokenKit
                 $0.isValid && $0.portal == portal && portal == preferences.portal && preferences.rememberAuthentication ? $0 : nil
             }
             storeAuthentication(saved, portal: portal, cacheRevision: revision)
+        case .kerberosRequired:
+            negotiateKerberos(event, session: envelope.sessionID)
+        case .kerberosFinished:
+            finishKerberos(event.contextID)
+        case .kerberosPolicyChanged:
+            guard let portal = event.server, PortalAddress.normalize(portal) == portal,
+                  let revision = event.cacheRevision, let until = event.kerberosFallbackUntil else { break }
+            let update = KerberosPolicyUpdate(portal: portal, revision: revision, fallbackUntil: until)
+            receivedKerberosPolicy = update
+            storeKerberosPolicy(update)
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:
@@ -502,6 +564,7 @@ import CryptoTokenKit
                 authentication.finish()
             }
         case .stopped:
+            finishKerberos()
             resourceAuthentication.finish()
             resourceAuthenticationMessage = nil
             certificateContext?.invalidate()
@@ -570,6 +633,7 @@ import CryptoTokenKit
         checkingHelper = true
         let inspectedSessionID = sessionID
         let inspectedAuthenticationUpdate = receivedAuthenticationUpdate
+        let inspectedKerberosPolicy = receivedKerberosPolicy
         helper.inspect { [weak self] result in
             guard let self else { return }
             self.checkingHelper = false
@@ -587,16 +651,25 @@ import CryptoTokenKit
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
                 guard self.helperVerified else {
                     self.engineAvailable = false
-                    if self.sessionID != nil { self.phase = .unknown }
+                    if self.kerberosRequestID != nil { self.disconnect() }
+                    else if self.sessionID != nil { self.phase = .unknown }
                     self.helperMessage = "The helper could not confirm access for this user."
                     return
                 }
-                guard reply.pendingAuthenticationUpdates.count <= 128,
+                guard reply.pendingKerberosPolicies.count <= 128,
+                      reply.pendingKerberosPolicies.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }),
+                      reply.pendingAuthenticationUpdates.count <= 128,
                       reply.pendingAuthenticationUpdates.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }) else {
+                    if self.kerberosRequestID != nil { self.disconnect() }
                     self.helperVerified = false
                     self.engineAvailable = false
                     self.helperMessage = "The helper returned an invalid saved sign-in state."
                     return
+                }
+                for update in reply.pendingKerberosPolicies {
+                    if let received = self.receivedKerberosPolicy, received.portal == update.portal,
+                       received != update && received != inspectedKerberosPolicy { continue }
+                    self.storeKerberosPolicy(update)
                 }
                 for update in reply.pendingAuthenticationUpdates {
                     if let received = self.receivedAuthenticationUpdate, received.portal == update.portal,
@@ -637,6 +710,7 @@ import CryptoTokenKit
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
             case .failure:
+                if self.kerberosRequestID != nil { self.disconnect() }
                 self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
             }
