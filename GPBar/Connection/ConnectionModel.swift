@@ -164,7 +164,7 @@ import CryptoTokenKit
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
                 Task { @MainActor in
-                    guard let self, self.sessionID == newSession else { return }
+                    guard let self, self.sessionID == newSession, self.phase != .disconnecting else { return }
                     guard self.phase == .preparing else {
                         self.disconnect()
                         self.error = "Saved sign-in loading was interrupted. Check the helper and try again."
@@ -192,7 +192,7 @@ import CryptoTokenKit
             Task {
                 do {
                     let identity = try await KeychainIdentity.load(reference: reference, context: context)
-                    guard sessionID == newSession else { return }
+                    guard sessionID == newSession, phase != .disconnecting else { return }
                     guard phase == .preparing else {
                         disconnect()
                         self.error = "Certificate loading was interrupted. Check the helper and try again."
@@ -203,7 +203,7 @@ import CryptoTokenKit
                     engineStartSent = true
                     send(command)
                 } catch {
-                    guard sessionID == newSession else { return }
+                    guard sessionID == newSession, phase != .disconnecting else { return }
                     certificateContext?.invalidate()
                     certificateContext = nil
                     sessionID = nil

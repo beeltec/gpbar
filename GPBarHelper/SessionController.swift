@@ -71,6 +71,7 @@ actor SessionController {
 
     func detach(connectionID: UUID) {
         guard observerID == connectionID else { return }
+        loginCredentials.clear()
         observer = nil
         observerID = nil
         observerUser = nil

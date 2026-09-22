@@ -45,7 +45,7 @@ Consumption requires a signed GPBar app in that same login session, running as t
 
 Credentials remain in memory and private IPC. They are never written to preferences, Keychain, files, logs, or command arguments.
 The cache holds one credential and expires it after five minutes using a monotonic clock.
-Consumption, cancellation, consent changes, and helper restart clear it.
+Consumption, cancellation, consent changes, lost app contact, and helper restart clear it.
 The helper also checks session lifetime and console switching once per second.
 Swift strings and IPC can create copies; GPBar does not promise guaranteed memory zeroing.
 GPBar never reads credentials belonging to the official GlobalProtect application.
