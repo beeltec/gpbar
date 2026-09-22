@@ -19,6 +19,9 @@ import CryptoTokenKit
     private var certificateContext: KeychainContext?
     private var signatureRequestID: String?
     private(set) var authenticationStorageMessage: String?
+    private var kerberos: KerberosSession?
+    private var kerberosTask: Task<Void, Never>?
+    private var kerberosRequestID: String?
     private(set) var loginSSO: LoginSSOState?
     private(set) var configuringLoginSSO = false
     private(set) var loginSSOMessage: String?
@@ -89,6 +92,7 @@ import CryptoTokenKit
         helper.onInterruption = { [weak self] in
             guard let self else { return }
             self.cancelPendingQuit()
+            self.finishKerberos()
             self.helperVerified = false
             self.loginSSO = nil
             self.resourceAuthentication.finish()
@@ -160,6 +164,7 @@ import CryptoTokenKit
                                     certificateOnly: usesCertificate && preferences.certificateOnly,
                                     certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
+        command.kerberosFallback = preferences.kerberosFallback
         command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
@@ -286,6 +291,7 @@ import CryptoTokenKit
         certificateContext?.invalidate()
         certificateContext = nil
         signatureRequestID = nil
+        finishKerberos()
         if !engineStartSent {
             let cancelledSession = sessionID
             let request = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
@@ -296,7 +302,8 @@ import CryptoTokenKit
                 self.startPending = false
                 self.phase = .disconnected
                 if !reply.accepted {
-                    self.helperVerified = false
+                    self.finishKerberos()
+            self.helperVerified = false
                     self.error = "Login credential removal could not be confirmed. Check the helper before connecting again."
                 }
                 if self.quitAfterDisconnect { self.quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
@@ -347,6 +354,34 @@ import CryptoTokenKit
         guard preferences.authenticationMethod == .certificate, preferences.certificateTokenID == tokenID else { return }
         if sessionID != nil { disconnect() }
         error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
+    }
+
+    private func negotiateKerberos(_ event: EngineEvent, session: String) {
+        guard let request = KerberosRequest(event: event), phase != .disconnecting,
+              [.automatic, .kerberos].contains(preferences.authenticationMethod) else { disconnect(); return }
+        if kerberosRequestID == request.requestID { return }
+        kerberosTask?.cancel()
+        let kerberos = self.kerberos ?? KerberosSession()
+        self.kerberos = kerberos
+        kerberosRequestID = request.requestID
+        kerberosTask = Task {
+            let reply = try? await kerberos.step(request)
+            guard !Task.isCancelled, sessionID == session, kerberosRequestID == request.requestID,
+                  phase != .disconnecting else { return }
+            kerberosRequestID = nil
+            kerberosTask = nil
+            send(EngineCommand(type: .submitKerberos, requestID: request.requestID,
+                               token: reply?.token, complete: reply?.complete ?? false))
+        }
+    }
+
+    private func finishKerberos(_ contextID: String? = nil) {
+        kerberosTask?.cancel()
+        kerberosTask = nil
+        kerberosRequestID = nil
+        let current = kerberos
+        if contextID == nil { kerberos = nil }
+        Task { await current?.finish(contextID) }
     }
 
     private func sign(_ event: EngineEvent, session: String) {
@@ -471,6 +506,12 @@ import CryptoTokenKit
                 $0.isValid && $0.portal == portal && portal == preferences.portal && preferences.rememberAuthentication ? $0 : nil
             }
             storeAuthentication(saved, portal: portal, cacheRevision: revision)
+        case .kerberosRequired:
+            negotiateKerberos(event, session: envelope.sessionID)
+        case .kerberosFinished:
+            finishKerberos(event.contextID)
+        case .kerberosPolicyChanged:
+            if let allowed = event.kerberosFallback { preferences.saveKerberosPolicy(allowed) }
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:
@@ -502,6 +543,7 @@ import CryptoTokenKit
                 authentication.finish()
             }
         case .stopped:
+            finishKerberos()
             resourceAuthentication.finish()
             resourceAuthenticationMessage = nil
             certificateContext?.invalidate()
@@ -593,7 +635,8 @@ import CryptoTokenKit
                 }
                 guard reply.pendingAuthenticationUpdates.count <= 128,
                       reply.pendingAuthenticationUpdates.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }) else {
-                    self.helperVerified = false
+                    self.finishKerberos()
+            self.helperVerified = false
                     self.engineAvailable = false
                     self.helperMessage = "The helper returned an invalid saved sign-in state."
                     return
@@ -637,7 +680,8 @@ import CryptoTokenKit
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
             case .failure:
-                self.helperVerified = false
+                self.finishKerberos()
+            self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
             }
         }

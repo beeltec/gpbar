@@ -33,6 +33,7 @@ actor SessionController {
     private var lastSnapshot: EngineEventEnvelope?
     private var challenge: EngineEventEnvelope?
     private var signatureRequest: EngineEventEnvelope?
+    private var kerberosRequest: EngineEventEnvelope?
     private var terminal: EngineEventEnvelope?
     private var exitCode: Int32?
     private var stdoutEnded = false
@@ -75,6 +76,7 @@ actor SessionController {
         observer = nil
         observerID = nil
         observerUser = nil
+        if kerberosRequest != nil { Task { await stop() } }
         if challenge != nil || signatureRequest != nil {
             uiLossTask = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
@@ -224,6 +226,16 @@ actor SessionController {
                 return CommandReply(accepted: false, code: "invalid_credentials")
             }
         }
+        if message.command.type == .submitKerberos {
+            guard let kerberosRequest, message.command.requestID == kerberosRequest.event.requestID,
+                  auditSessionID == loginAuditSessionID, Self.validLoginSession(auditSessionID),
+                  message.command.token.map({ $0.count <= 49152 }) != false,
+                  message.command.complete != nil,
+                  message.command.token != nil || message.command.complete == false else {
+                return CommandReply(accepted: false, code: "kerberos_expired")
+            }
+            self.kerberosRequest = nil
+        }
         if message.command.type == .submitSignature {
             guard let signatureRequest, message.command.requestID == signatureRequest.event.requestID,
                   message.command.signature.map({ !$0.isEmpty && $0.count <= 1024 }) != false else {
@@ -291,6 +303,7 @@ actor SessionController {
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         exitCode = nil
         stdoutEnded = false
         networkMayHaveChanged = true
@@ -394,6 +407,15 @@ actor SessionController {
                 sequence: event.sequence, event: payload)
             emit(try JSONEncoder().encode(delivery))
             return
+        case .kerberosRequired:
+            guard kerberosRequest == nil, KerberosRequest(event: event.event) != nil,
+                  currentConsoleUser() == owner, observer != nil else { throw ControllerError.invalidFrame }
+            kerberosRequest = event
+        case .kerberosFinished:
+            guard event.event.contextID != nil else { throw ControllerError.invalidFrame }
+            kerberosRequest = nil
+        case .kerberosPolicyChanged:
+            guard event.event.kerberosFallback != nil else { throw ControllerError.invalidFrame }
         case .signatureRequired:
             guard let requestID = event.event.requestID, !requestID.isEmpty, requestID.utf8.count <= 64,
                   requestID.allSatisfy({ $0.isHexDigit }), event.event.scheme != nil, event.event.digest != nil,
@@ -424,6 +446,7 @@ actor SessionController {
             networkMayHaveChanged = event.event.cleanup != "not_needed"
             challenge = nil
             signatureRequest = nil
+        kerberosRequest = nil
         default: break
         }
         if event.event.type != .stopped { emit(bytes) }
@@ -507,6 +530,7 @@ actor SessionController {
         process = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         if let sessionID {
             sequence += 1
             let state = EngineEventEnvelope(protocolVersion: helperProtocolVersion, sessionID: sessionID, sequence: sequence,
@@ -544,6 +568,7 @@ actor SessionController {
         lastSnapshot = nil
         challenge = nil
         signatureRequest = nil
+        kerberosRequest = nil
         terminal = nil
         engineURL = nil
         pendingStart = nil

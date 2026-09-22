@@ -36,6 +36,8 @@ async fn login_sso_only_marks_initial_portal_password_prompts() {
                 certificate_only: false,
                 certificate_username: None,
                 remember_authentication: false,
+                kerberos: None,
+                kerberos_fallback: std::sync::atomic::AtomicBool::new(false),
                 saved_authentication: Mutex::new(None),
             };
             request_credential(

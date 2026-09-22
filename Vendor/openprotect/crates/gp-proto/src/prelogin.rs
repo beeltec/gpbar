@@ -7,8 +7,9 @@ use crate::error::ProtoError;
 use crate::xml::XmlNode;
 
 /// Parsed prelogin response from a portal or gateway.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum PreloginResponse {
+    Kerberos { region: String, username: String, prelogin_cookie: String },
     /// Standard username + password authentication.
     Standard(StandardPrelogin),
     /// SAML-based authentication (browser redirect or POST).
@@ -42,7 +43,7 @@ impl PreloginResponse {
     pub fn parse(xml: &str) -> Result<Self, ProtoError> {
         let root = XmlNode::parse(xml)?;
 
-        for name in ["status", "cas-auth", "saml-auth-method", "saml-request", "password-label"] {
+        for name in ["status", "cas-auth", "saml-auth-method", "saml-request", "password-label", "krb-auth-status", "krb-norm-username", "prelogin-cookie"] {
             let mut fields = root.children_named(name);
             if let Some(field) = fields.next() {
                 if fields.next().is_some() || !field.children.is_empty() {
@@ -72,6 +73,22 @@ impl PreloginResponse {
         }
 
         let region = root.child_text("region").unwrap_or("Unknown").to_string();
+
+        match root.child_text("krb-auth-status") {
+            Some("1") => {
+                let username = root.child_text("krb-norm-username").unwrap_or("");
+                let cookie = root.child_text("prelogin-cookie").unwrap_or("");
+                if root.name != "prelogin-response" || root.child_text("status") != Some("Success")
+                    || username.is_empty() || username.len() > 1024 || username.contains(char::is_control)
+                    || cookie.is_empty() || cookie.len() > 16384 || cookie.contains(char::is_control)
+                {
+                    return Err(ProtoError::Protocol("invalid Kerberos credential handoff".into()));
+                }
+                return Ok(Self::Kerberos { region, username: username.into(), prelogin_cookie: cookie.into() });
+            }
+            None | Some("0") => {}
+            _ => return Err(ProtoError::Protocol("invalid Kerberos status".into())),
+        }
 
         // SAML auth?
         if let Some(method) = root.child_text("saml-auth-method") {
@@ -124,6 +141,7 @@ impl PreloginResponse {
     /// Server region string.
     pub fn region(&self) -> &str {
         match self {
+            Self::Kerberos { region, .. } => region,
             Self::Standard(s) => &s.region,
             Self::Saml(s) => &s.region,
         }
@@ -132,6 +150,16 @@ impl PreloginResponse {
     /// Whether the server requires SAML authentication.
     pub fn is_saml(&self) -> bool {
         matches!(self, Self::Saml(_))
+    }
+}
+
+impl std::fmt::Debug for PreloginResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Kerberos { .. } => f.write_str("Kerberos [REDACTED]"),
+            Self::Standard(value) => value.fmt(f),
+            Self::Saml(value) => value.fmt(f),
+        }
     }
 }
 

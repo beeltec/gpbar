@@ -11,6 +11,7 @@ name = "opc"
 path = "src/main.rs"
 
 [dependencies]
+async-trait = { workspace = true }
 base64 = "0.23"
 gp-proto = { workspace = true }
 gp-auth = { workspace = true }

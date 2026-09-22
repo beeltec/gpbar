@@ -50,6 +50,9 @@ struct ConnectionSettings: View {
                     case .saml, .password:
                         Text("The portal must support this method. Gateway sign-in follows the gateway’s requirements.")
                             .font(.caption).foregroundStyle(.secondary)
+                    case .kerberos:
+                        Text("Use existing macOS Kerberos tickets. Stop if Kerberos sign-in fails.")
+                            .font(.caption).foregroundStyle(.secondary)
                     case .certificate:
                         Text("Choose a Keychain or smart-card identity. The server can also require a password or SAML sign-in.")
                             .font(.caption).foregroundStyle(.secondary)

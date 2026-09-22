@@ -26,10 +26,12 @@
 		4566F325FB44ED1703654C28 /* LoginSSOInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7745D995B1793C8882744FE4 /* LoginSSOInstallation.swift */; };
 		468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
 		472B1FEE72C14F6197576078 /* LoginCredentialCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */; };
+		49E3A7E68BB0616C9BC6277E /* KerberosRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */; };
 		4E0923A29AF0BB7131580FB3 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */; };
 		50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		52F4DF260C755D2934A33AB6 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C5D01350B137A91D07109DCC /* Sparkle */; };
 		5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */; };
+		5BB3FC42976A4AD8F3CF0053 /* KerberosSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B80941A93BF21148AC2319 /* KerberosSession.swift */; };
 		5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
 		5D0E91D93D7B9B234603B98D /* ResourceAuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */; };
 		6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */; };
@@ -53,6 +55,7 @@
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
 		CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A116881E418FF3CF77CA5A4C /* UserKeychain.swift */; };
 		DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */; };
+		DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
 		F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */; };
@@ -130,6 +133,7 @@
 		61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.beeltec.GPBar.helper.plist; sourceTree = "<group>"; };
 		63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPreferences.swift; sourceTree = "<group>"; };
+		65B80941A93BF21148AC2319 /* KerberosSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KerberosSession.swift; sourceTree = "<group>"; };
 		6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginCredentialCache.swift; sourceTree = "<group>"; };
 		70D2E572EBC1DB08E0FCC30E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		722E9924852CF38FB102AA62 /* GPBarLogin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GPBarLogin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -147,6 +151,7 @@
 		A490690342F7B2351CA3B2F4 /* EngineMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineMessages.swift; sourceTree = "<group>"; };
 		A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationView.swift; sourceTree = "<group>"; };
 		AD6377244151BCD70CBF1C73 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KerberosRequest.swift; sourceTree = "<group>"; };
 		C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		C8F2204076A5B786845CBF4D /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
 		C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperMain.swift; sourceTree = "<group>"; };
@@ -189,6 +194,7 @@
 			children = (
 				A490690342F7B2351CA3B2F4 /* EngineMessages.swift */,
 				94131D702B90C08815A2340E /* HelperProtocol.swift */,
+				AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */,
 				DD0820114707F390803A21A0 /* LoginSSO.swift */,
 				5C4C3956223045607EF9CADC /* PortalAddress.swift */,
 				5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */,
@@ -282,6 +288,7 @@
 			children = (
 				118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */,
 				7A45A7B43AB47061045E5CA7 /* HelperClient.swift */,
+				65B80941A93BF21148AC2319 /* KerberosSession.swift */,
 				3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */,
 				0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */,
 				74799272DFB6A5CAE0F5CB2B /* LoginSSOAuthorization.swift */,
@@ -463,6 +470,7 @@
 				5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */,
 				233C3267215AAFF659A63908 /* HelperMain.swift in Sources */,
 				BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */,
+				49E3A7E68BB0616C9BC6277E /* KerberosRequest.swift in Sources */,
 				DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */,
 				472B1FEE72C14F6197576078 /* LoginCredentialCache.swift in Sources */,
 				0E92533F1B2B32D5F6671DB6 /* LoginSSO.swift in Sources */,
@@ -493,6 +501,8 @@
 				84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */,
 				2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */,
 				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
+				DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */,
+				5BB3FC42976A4AD8F3CF0053 /* KerberosSession.swift in Sources */,
 				3E3AF5D11083C70A8B0CC117 /* KeychainAuthentication.swift in Sources */,
 				C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */,
 				AC3973DD98920BD6C3BF4CF0 /* LoginSSO.swift in Sources */,

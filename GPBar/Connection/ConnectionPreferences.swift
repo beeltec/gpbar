@@ -83,6 +83,19 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod")
     }
 
+    var kerberosFallback: Bool {
+        let received = defaults.double(forKey: "connection.kerberosPolicyReceived")
+        let age = Date().timeIntervalSince1970 - received
+        return age >= 0 && age < 86400 && defaults.string(forKey: "connection.kerberosPolicyPortal") == portal
+            && defaults.bool(forKey: "connection.kerberosFallback")
+    }
+
+    func saveKerberosPolicy(_ allowed: Bool) {
+        defaults.set(portal, forKey: "connection.kerberosPolicyPortal")
+        defaults.set(allowed, forKey: "connection.kerberosFallback")
+        defaults.set(Date().timeIntervalSince1970, forKey: "connection.kerberosPolicyReceived")
+    }
+
     var title: String {
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? (URL(string: portal)?.host ?? "GPBar") : name
@@ -99,7 +112,7 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         addressDraft = normalized
         addressError = nil
         defaults.set(normalized, forKey: "connection.portal")
-        if changed { clearCertificate(); onAddressChange?(previousPortal) }
+        if changed { saveKerberosPolicy(false); clearCertificate(); onAddressChange?(previousPortal) }
         return true
     }
 

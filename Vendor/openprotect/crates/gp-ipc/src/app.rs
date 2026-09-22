@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 9;
+pub const VERSION: u32 = 10;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -25,6 +25,8 @@ pub enum Command {
         certificate_username: Option<String>,
         #[serde(default)]
         remember_authentication: bool,
+        #[serde(default)]
+        kerberos_fallback: bool,
         saved_authentication: Option<Box<SavedAuthentication>>,
     },
     SubmitCallback {
@@ -39,6 +41,12 @@ pub enum Command {
         challenge_id: String,
         username: String,
         password: String,
+    },
+    SubmitKerberos {
+        request_id: String,
+        token: Option<String>,
+        #[serde(default)]
+        complete: bool,
     },
     SubmitSignature {
         request_id: String,
@@ -55,6 +63,7 @@ pub enum AuthenticationMethod {
     Automatic,
     Saml,
     CloudIdentity,
+    Kerberos,
     Password,
     Certificate,
 }
@@ -133,6 +142,14 @@ pub enum Event<'a> {
         password_label: &'a str,
         login_sso_allowed: bool,
     },
+    KerberosRequired {
+        request_id: &'a str,
+        context_id: &'a str,
+        server: &'a str,
+        input: Option<&'a str>,
+    },
+    KerberosFinished { context_id: &'a str },
+    KerberosPolicyChanged { kerberos_fallback: bool },
     SignatureRequired {
         request_id: &'a str,
         scheme: u16,
