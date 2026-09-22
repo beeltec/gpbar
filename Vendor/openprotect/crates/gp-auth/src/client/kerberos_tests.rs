@@ -88,6 +88,10 @@ fn kerberos_handoff_and_policy_reject_ambiguous_inputs() {
             "<krb-auth-status>1</krb-auth-status>",
             "<krb-auth-status>2</krb-auth-status>",
         ),
+        "<error><krb-auth-status>0</krb-auth-status></error>".into(),
+        "<prelogin-response><krb-auth-status>0</krb-auth-status></prelogin-response>".into(),
+        "<prelogin-response><status/><krb-auth-status>0</krb-auth-status></prelogin-response>"
+            .into(),
         valid.replace("alice", "a&#10;b"),
         valid.replace("secret", &"a".repeat(16385)),
     ] {

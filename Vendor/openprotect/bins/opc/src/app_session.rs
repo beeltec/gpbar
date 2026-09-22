@@ -32,6 +32,7 @@ struct AuthenticationOptions {
 
 impl AuthenticationOptions {
     async fn prelogin(&self, client: &GpBar, server: &str, output: &SharedOutput) -> Result<PreloginResponse> {
+        output.lock().await.phase("preparing", 0).await?;
         if matches!(self.method, app::AuthenticationMethod::Automatic | app::AuthenticationMethod::Kerberos) {
             if let Some(bridge) = &self.kerberos {
                 let fallback_until = if self.method == app::AuthenticationMethod::Kerberos { 0 } else {
@@ -573,7 +574,6 @@ async fn authenticate_once(
     answers: &mut mpsc::Receiver<Answer>,
     options: &AuthenticationOptions,
 ) -> Result<Authentication> {
-    output.lock().await.phase("preparing", 0).await?;
     let params = GpParams::new(ClientOs::Mac);
     let client = options.client(params.clone())?;
     let mut prelogin = options.prelogin(&client, portal, output).await?;
@@ -917,9 +917,8 @@ async fn request_credential(
     portal_login: bool,
 ) -> Result<(Credential, String)> {
     let id = challenge_id()?;
-    if !matches!(prelogin, PreloginResponse::Kerberos { .. }) {
-        output.lock().await.phase("authenticating", 0).await?;
-    }
+    let phase = if matches!(prelogin, PreloginResponse::Kerberos { .. }) { "preparing" } else { "authenticating" };
+    output.lock().await.phase(phase, 0).await?;
     let saml = match prelogin {
         PreloginResponse::Kerberos { username, prelogin_cookie, .. } => return Ok((Credential::Prelogin {
             username: username.clone(), prelogin_cookie: Some(prelogin_cookie.clone()), token: None,

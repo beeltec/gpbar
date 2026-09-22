@@ -110,14 +110,12 @@ async fn kerberos_credentials_use_the_existing_handoff_for_each_endpoint() {
         )
         .await
         .unwrap();
-        assert!(
-            tokio::time::timeout(
-                Duration::from_millis(20),
-                reader.read_line(&mut String::new())
-            )
-            .await
-            .is_err(),
-            "silent Kerberos handoff must not request an interactive sign-in window"
+        let mut line = String::new();
+        reader.read_line(&mut line).await.unwrap();
+        let event: serde_json::Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(
+            event["event"]["phase"], "preparing",
+            "silent Kerberos handoff must clear an earlier interactive sign-in phase"
         );
         let params = credential.to_params();
         assert!(params.contains(&("user", "alice".into())));

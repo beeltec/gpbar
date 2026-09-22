@@ -705,8 +705,7 @@ import CryptoTokenKit
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
             case .failure:
-                self.finishKerberos()
-            self.helperVerified = false
+                self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
             }
         }
