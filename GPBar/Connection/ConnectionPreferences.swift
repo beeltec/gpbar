@@ -84,17 +84,17 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     }
 
     var kerberosFallbackUntil: UInt64 {
-        let received = defaults.double(forKey: "connection.kerberosPolicyReceived")
-        let age = Date().timeIntervalSince1970 - received
-        guard age >= 0 && age < 86400 && defaults.string(forKey: "connection.kerberosPolicyPortal") == portal,
-              defaults.bool(forKey: "connection.kerberosFallback") else { return 0 }
-        return UInt64(received + 86400)
+        let until = defaults.double(forKey: "connection.kerberosFallbackUntil")
+        let now = Date().timeIntervalSince1970
+        guard until > now, until <= now + 86400,
+              defaults.string(forKey: "connection.kerberosPolicyPortal") == portal else { return 0 }
+        return UInt64(until)
     }
 
-    func saveKerberosPolicy(_ allowed: Bool) {
+    func saveKerberosPolicy(_ update: KerberosPolicyUpdate) {
+        guard update.portal == portal else { return }
         defaults.set(portal, forKey: "connection.kerberosPolicyPortal")
-        defaults.set(allowed, forKey: "connection.kerberosFallback")
-        defaults.set(Date().timeIntervalSince1970, forKey: "connection.kerberosPolicyReceived")
+        defaults.set(Double(update.fallbackUntil), forKey: "connection.kerberosFallbackUntil")
     }
 
     var title: String {
@@ -113,7 +113,11 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         addressDraft = normalized
         addressError = nil
         defaults.set(normalized, forKey: "connection.portal")
-        if changed { saveKerberosPolicy(false); clearCertificate(); onAddressChange?(previousPortal) }
+        if changed {
+            defaults.removeObject(forKey: "connection.kerberosFallbackUntil")
+            clearCertificate()
+            onAddressChange?(previousPortal)
+        }
         return true
     }
 

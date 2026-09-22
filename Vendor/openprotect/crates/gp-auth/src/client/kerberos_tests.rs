@@ -155,6 +155,9 @@ async fn kerberos_https_portal_gateway_and_failure_policy() {
         "failed-status",
         "initial-failure",
         "invalid-continuation",
+        "empty-status",
+        "missing-status",
+        "http-error",
         "bad-header",
         "redirect",
         "unsolicited",
@@ -167,6 +170,9 @@ async fn kerberos_https_portal_gateway_and_failure_policy() {
             let result = client(mode, false)
                 .prelogin_with_kerberos(&origin, &tickets, "context", fallback_until)
                 .await;
+            if mode == "http-error" {
+                assert!(matches!(&result, Err(AuthError::Http(_))));
+            }
             assert_eq!(
                 result.is_ok(),
                 fallback

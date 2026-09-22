@@ -86,6 +86,7 @@ impl GpBar {
         params.push(("kerberos-support", "yes".into()));
         let mut response = self.http.post(&url).form(&params).send().await?;
         if response.status() != StatusCode::UNAUTHORIZED {
+            response = response.error_for_status()?;
             if !response.status().is_success() {
                 return Err(failure());
             }
@@ -159,7 +160,10 @@ impl GpBar {
             if matches!(parsed, PreloginResponse::Kerberos { .. }) {
                 return Ok(parsed);
             }
-            return self.kerberos_fallback(server, fallback_until).await;
+            if PreloginResponse::kerberos_failed(&body)? {
+                return self.kerberos_fallback(server, fallback_until).await;
+            }
+            return Err(failure());
         }
         Err(failure())
     }

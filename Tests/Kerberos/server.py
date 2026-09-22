@@ -45,12 +45,17 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     self.reply(200, '<prelogin-response><status>Success</status><password-label>Password</password-label></prelogin-response>')
                 return
+            if mode == 'http-error':
+                self.reply(503)
+                return
             if mode == 'redirect':
                 self.reply(302, headers=[('Location', 'https://127.0.0.1:1/never')])
                 return
             if not authorization:
                 if mode == 'initial-failure':
                     self.reply(200, '<prelogin-response><status>Success</status><krb-auth-status>0</krb-auth-status></prelogin-response>')
+                elif mode == 'empty-status':
+                    self.reply(200, '<prelogin-response><status>Success</status><krb-auth-status/></prelogin-response>')
                 elif mode == 'unsolicited':
                     self.reply(200, f'<prelogin-response><status>Success</status><krb-auth-status>1</krb-auth-status><krb-norm-username>alice</krb-norm-username><prelogin-cookie>{cookie}</prelogin-cookie></prelogin-response>')
                 else:
@@ -67,6 +72,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(401, headers=[('WWW-Authenticate', 'Negotiate')])
                 return
             fields = '<krb-auth-status>1</krb-auth-status><krb-norm-username>alice</krb-norm-username>'
+            if mode == 'missing-status':
+                fields = ''
             if mode == 'failed-status':
                 fields = '<krb-auth-status>0</krb-auth-status>'
             if mode != 'missing-cookie':

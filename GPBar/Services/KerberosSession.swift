@@ -41,7 +41,7 @@ actor KerberosSession {
                         &input, nil, &output, &flags, nil)
                 }
                 guard major == GSS_S_COMPLETE || major == continueNeeded else {
-                    throw request.input == nil ? Failure.unavailable : Failure.verificationFailed
+                    throw Failure.verificationFailed
                 }
                 guard output.length <= 49152,
                       major != GSS_S_COMPLETE || flags & OM_uint32(GSS_C_MUTUAL_FLAG) != 0,
@@ -65,20 +65,24 @@ actor KerberosSession {
         guard geteuid() != 0, let host = URL(string: request.server)?.host else { throw Failure.invalidRequest }
         var minor: OM_uint32 = 0
         var mechanisms: gss_OID_set?
-        guard gss_create_empty_oid_set(&minor, &mechanisms) == GSS_S_COMPLETE else { throw Failure.unavailable }
+        guard gss_create_empty_oid_set(&minor, &mechanisms) == GSS_S_COMPLETE else { throw Failure.verificationFailed }
         defer { gss_release_oid_set(&minor, &mechanisms) }
-        guard var set = mechanisms else { throw Failure.unavailable }
+        guard var set = mechanisms else { throw Failure.verificationFailed }
         let added = withOID(kerberosOID) { gss_add_oid_set_member(&minor, $0, &set) }
         mechanisms = set
-        guard added == GSS_S_COMPLETE,
-              gss_acquire_cred(&minor, nil, 0, mechanisms, GSS_C_INITIATE | GSS_C_CRED_NO_UI,
-                  &credential, nil, nil) == GSS_S_COMPLETE else { throw Failure.unavailable }
+        guard added == GSS_S_COMPLETE else { throw Failure.verificationFailed }
+        let acquired = gss_acquire_cred(&minor, nil, 0, mechanisms, GSS_C_INITIATE | GSS_C_CRED_NO_UI,
+            &credential, nil, nil)
+        guard acquired == GSS_S_COMPLETE else {
+            if acquired == GSS_S_NO_CRED || acquired == GSS_S_CREDENTIALS_EXPIRED { throw Failure.unavailable }
+            throw Failure.verificationFailed
+        }
         let name = Data("HTTP@\(host)".utf8)
         let status = name.withUnsafeBytes { bytes in
             var buffer = gss_buffer_desc(length: bytes.count, value: UnsafeMutableRawPointer(mutating: bytes.baseAddress))
             return withOID(hostNameOID) { gss_import_name(&minor, &buffer, $0, &target) }
         }
-        guard status == GSS_S_COMPLETE else { throw Failure.unavailable }
+        guard status == GSS_S_COMPLETE else { throw Failure.verificationFailed }
         contextID = request.contextID
         server = request.server
     }

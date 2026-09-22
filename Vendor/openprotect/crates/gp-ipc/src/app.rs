@@ -151,7 +151,7 @@ pub enum Event<'a> {
         input: Option<&'a str>,
     },
     KerberosFinished { context_id: &'a str },
-    KerberosPolicyChanged { kerberos_fallback: bool },
+    KerberosPolicyChanged { kerberos_fallback_until: u64 },
     SignatureRequired {
         request_id: &'a str,
         scheme: u16,

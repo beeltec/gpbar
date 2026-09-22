@@ -98,6 +98,8 @@ The app retains this non-secret policy for the same portal and user for up to 24
 The engine checks the deadline at each fallback decision, including reconnects.
 Changing the portal clears that permission. A missing, malformed, duplicated, or negative policy disables fallback.
 The latest authenticated portal policy governs subsequent gateway authentication and reconnects.
+The helper retains each portal-bound update until the app acknowledges it, keeping its original expiry.
+Pending updates override older preferences when another session starts.
 Before GPBar learns a policy, Kerberos failure stops the attempt. An administrator can confirm another explicit authentication choice for initial setup.
 Selecting **Kerberos SSO** disables fallback for the entire connection.
 Fallback uses a fresh prelogin with Kerberos disabled, then the existing password, SAML, or CIE flow.
@@ -108,6 +110,7 @@ IPC binds each operation to the session, request, context, endpoint, active user
 Exchanges allow four rounds, 48 KiB tokens, and 30 seconds per user-process response.
 Cancellation stops the engine wait and suppresses late native replies. GSS resources are released when an in-flight operating-system call returns.
 Tickets, tokens, and handoff cookies remain in memory and private IPC. They are excluded from logs and snapshots.
+A fresh Kerberos handoff replaces saved authentication, so an older cookie cannot switch the account.
 
 **Reuse and protocol evidence:** The pinned OpenProtect code has no ticket SSO provider.
 OpenConnect 9.21 implements generic HTTP Negotiate in `gssapi.c`, inside its own process.

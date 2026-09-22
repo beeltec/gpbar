@@ -27,6 +27,7 @@ import CryptoTokenKit
     private(set) var loginSSOMessage: String?
     private var authenticationStorageRevision = UUID()
     private var authenticationStorageOperations: [String: UUID] = [:]
+    private var receivedKerberosPolicy: KerberosPolicyUpdate?
     private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
     private(set) var certificateChoices: [CertificateChoice] = []
     private(set) var loadingCertificates = false
@@ -303,7 +304,7 @@ import CryptoTokenKit
                 self.phase = .disconnected
                 if !reply.accepted {
                     self.finishKerberos()
-            self.helperVerified = false
+                    self.helperVerified = false
                     self.error = "Login credential removal could not be confirmed. Check the helper before connecting again."
                 }
                 if self.quitAfterDisconnect { self.quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
@@ -377,6 +378,14 @@ import CryptoTokenKit
             send(EngineCommand(type: .submitKerberos, requestID: request.requestID,
                                token: reply?.token, complete: reply?.complete ?? false, kerberosFailed: failed))
         }
+    }
+
+    private func storeKerberosPolicy(_ update: KerberosPolicyUpdate) {
+        preferences.saveKerberosPolicy(update)
+        let command = EngineCommand(type: .acknowledgeKerberosPolicy, portal: update.portal, cacheRevision: update.revision)
+        let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
+            commandID: UUID().uuidString, command: command)
+        helper.send(envelope) { _ in }
     }
 
     private func finishKerberos(_ contextID: String? = nil) {
@@ -515,7 +524,11 @@ import CryptoTokenKit
         case .kerberosFinished:
             finishKerberos(event.contextID)
         case .kerberosPolicyChanged:
-            if let allowed = event.kerberosFallback { preferences.saveKerberosPolicy(allowed) }
+            guard let portal = event.server, PortalAddress.normalize(portal) == portal,
+                  let revision = event.cacheRevision, let until = event.kerberosFallbackUntil else { break }
+            let update = KerberosPolicyUpdate(portal: portal, revision: revision, fallbackUntil: until)
+            receivedKerberosPolicy = update
+            storeKerberosPolicy(update)
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:
@@ -616,6 +629,7 @@ import CryptoTokenKit
         checkingHelper = true
         let inspectedSessionID = sessionID
         let inspectedAuthenticationUpdate = receivedAuthenticationUpdate
+        let inspectedKerberosPolicy = receivedKerberosPolicy
         helper.inspect { [weak self] result in
             guard let self else { return }
             self.checkingHelper = false
@@ -637,13 +651,20 @@ import CryptoTokenKit
                     self.helperMessage = "The helper could not confirm access for this user."
                     return
                 }
-                guard reply.pendingAuthenticationUpdates.count <= 128,
+                guard reply.pendingKerberosPolicies.count <= 128,
+                      reply.pendingKerberosPolicies.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }),
+                      reply.pendingAuthenticationUpdates.count <= 128,
                       reply.pendingAuthenticationUpdates.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }) else {
                     self.finishKerberos()
-            self.helperVerified = false
+                    self.helperVerified = false
                     self.engineAvailable = false
                     self.helperMessage = "The helper returned an invalid saved sign-in state."
                     return
+                }
+                for update in reply.pendingKerberosPolicies {
+                    if let received = self.receivedKerberosPolicy, received.portal == update.portal,
+                       received != update && received != inspectedKerberosPolicy { continue }
+                    self.storeKerberosPolicy(update)
                 }
                 for update in reply.pendingAuthenticationUpdates {
                     if let received = self.receivedAuthenticationUpdate, received.portal == update.portal,

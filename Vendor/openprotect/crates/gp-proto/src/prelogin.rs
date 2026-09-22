@@ -74,7 +74,7 @@ impl PreloginResponse {
 
         let region = root.child_text("region").unwrap_or("Unknown").to_string();
 
-        match root.child_text("krb-auth-status") {
+        match root.child("krb-auth-status").map(|field| field.text.as_str()) {
             Some("1") => {
                 let username = root.child_text("krb-norm-username").unwrap_or("");
                 let cookie = root.child_text("prelogin-cookie").unwrap_or("");

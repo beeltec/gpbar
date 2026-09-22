@@ -579,6 +579,10 @@ async fn authenticate_once(
     let mut prelogin = options.prelogin(&client, portal, output).await?;
     validate_portal_method(&prelogin, options.method, output).await?;
     let mut saved = options.saved_authentication.lock().await.clone();
+    if matches!(prelogin, PreloginResponse::Kerberos { .. }) && saved.is_some() {
+        options.save(None, output).await?;
+        saved = None;
+    }
     let mut history = saved.clone();
     if let Some(saved) = &mut saved {
         saved.portal_cookie = saved.portal_cookie.take().filter(cookies::current);
@@ -637,7 +641,9 @@ async fn authenticate_once(
     options.kerberos_fallback_until.store(if configuration.kerberos_fallback {
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 86400
     } else { 0 }, std::sync::atomic::Ordering::Relaxed);
-    output.lock().await.send(Event::KerberosPolicyChanged { kerberos_fallback: configuration.kerberos_fallback }).await?;
+    output.lock().await.send(Event::KerberosPolicyChanged {
+        kerberos_fallback_until: options.kerberos_fallback_until.load(std::sync::atomic::Ordering::Relaxed),
+    }).await?;
     drop(credential);
     drop(portal_params);
     if let Some(id) = completed_challenge {

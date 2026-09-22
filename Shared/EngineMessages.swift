@@ -36,6 +36,7 @@ struct EngineCommand: Codable, Sendable {
         case submitSignature = "submit_signature"
         case submitKerberos = "submit_kerberos"
         case acknowledgeAuthenticationCache = "acknowledge_authentication_cache"
+        case acknowledgeKerberosPolicy = "acknowledge_kerberos_policy"
         case clearLoginCredentials = "clear_login_credentials"
     }
     let type: Kind
@@ -121,7 +122,7 @@ struct EngineEvent: Codable, Sendable {
     var cacheRevision: UUID?
     var loginSSOAllowed: Bool?
     var contextID: String?
-    var kerberosFallback: Bool?
+    var kerberosFallbackUntil: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case expiresAtUnix = "expires_at_unix"
@@ -133,7 +134,7 @@ struct EngineEvent: Codable, Sendable {
         case savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
         case loginSSOAllowed = "login_sso_allowed"
-        case contextID = "context_id", kerberosFallback = "kerberos_fallback"
+        case contextID = "context_id", kerberosFallbackUntil = "kerberos_fallback_until"
     }
 }
 
