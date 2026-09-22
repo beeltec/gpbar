@@ -553,7 +553,7 @@ async fn authenticate_once(
         Some(credential) => (credential, None),
         None => {
             let (credential, id) =
-                request_credential(portal, &prelogin, output, answers, options).await?;
+                request_credential(portal, &prelogin, output, answers, options, true).await?;
             (credential, Some(id))
         }
     };
@@ -588,7 +588,7 @@ async fn authenticate_once(
                 prelogin = options.client(params.clone())?.prelogin(portal).await?;
                 validate_portal_method(&prelogin, options.method, output).await?;
                 let (fresh, id) =
-                    request_credential(portal, &prelogin, output, answers, options).await?;
+                    request_credential(portal, &prelogin, output, answers, options, true).await?;
                 credential = fresh;
                 completed_challenge = Some(id);
             }
@@ -694,7 +694,7 @@ async fn authenticate_once(
         let gateway_client = options.client(params.clone())?;
         let prelogin = gateway_client.prelogin(&gateway).await?;
         let (credential, id) =
-            request_credential(&gateway, &prelogin, output, answers, options).await?;
+            request_credential(&gateway, &prelogin, output, answers, options, false).await?;
         gateway_credential = credential;
         gateway_challenge = Some(id);
     }
@@ -772,7 +772,7 @@ async fn authenticate_once(
                 let gateway_client = options.client(params.clone())?;
                 let prelogin = gateway_client.prelogin(&gateway).await?;
                 let (credential, id) =
-                    request_credential(&gateway, &prelogin, output, answers, options).await?;
+                    request_credential(&gateway, &prelogin, output, answers, options, false).await?;
                 gateway_credential = credential;
                 gateway_challenge = Some(id);
             }
@@ -855,6 +855,7 @@ async fn request_credential(
     output: &SharedOutput,
     answers: &mut mpsc::Receiver<Answer>,
     options: &AuthenticationOptions,
+    portal_login: bool,
 ) -> Result<(Credential, String)> {
     let id = challenge_id()?;
     output.lock().await.phase("authenticating", 0).await?;
@@ -889,6 +890,8 @@ async fn request_credential(
                     message: &message,
                     username_label: &username_label,
                     password_label: &password_label,
+                    login_sso_allowed: portal_login && standard.explicit_password_label
+                        && standard.label_password.eq_ignore_ascii_case("password"),
                 })
                 .await?;
             let response = tokio::time::timeout(Duration::from_secs(300), answers.recv())
@@ -1292,3 +1295,6 @@ fn tunnel_failure(error: &anyhow::Error) -> (String, String) {
 
 #[cfg(test)]
 mod cie_tests;
+
+#[cfg(test)]
+mod login_sso_tests;

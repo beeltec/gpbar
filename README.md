@@ -29,6 +29,7 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Recover recorded network changes and remove the VPN helper from connection settings.
 - Debug builds include local diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
+- Optionally reuse your next macOS login password through a separately approved system plug-in.
 
 SAML has live connection evidence. Password, certificate, smart-card, and saved-sign-in flows still need broader live validation.
 Cloud Identity Engine OIDC has synthetic checks but no live provider evidence.
@@ -57,6 +58,7 @@ Stable releases provide the update feed. See [automatic updates](UPDATES.md) for
 
 ### Remove GPBar
 
+Disable macOS login SSO for every enrolled user first, if enabled. See [removal and recovery](LOGIN-SSO.md).
 Disconnect and wait for network cleanup to finish.
 Open **Edit Connection**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
 Launching GPBar again registers the helper again.
@@ -64,7 +66,8 @@ Launching GPBar again registers the helper again.
 ## Known limits
 
 - GPBar stores one connection and runs one tunnel at a time.
-- Kerberos SSO, macOS-login SSO, and some provider-specific authentication methods are unavailable.
+- Kerberos SSO and some provider-specific authentication methods are unavailable.
+- Optional [macOS login SSO](LOGIN-SSO.md) has synthetic checks. Real login capture and provider compatibility remain unverified.
 - Crash recovery, sleep/wake, reconnect, and IPv6 behavior still need live validation.
 - GPBar has no kill switch. Traffic routing depends on the gateway's configuration.
 - Clean installation and notarized updates still need release validation.
@@ -116,6 +119,7 @@ The project uses live macOS and browser validation, alongside builds and static 
 Do not add automated tests or test targets unless explicitly requested. Preserve existing upstream tests.
 Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMFA/README.md), since no matching live server is available.
 Issue #20 includes an explicitly requested [CIE suite](Tests/CloudIdentity/README.md) for the same reason.
+Issue #19 includes an explicitly requested [macOS login SSO suite](Tests/LoginSSO/README.md).
 Record what you checked and any remaining limits in your pull request.
 
 ## Third-party software and licensing

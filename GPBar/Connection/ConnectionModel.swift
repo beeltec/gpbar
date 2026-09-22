@@ -19,6 +19,9 @@ import CryptoTokenKit
     private var certificateContext: KeychainContext?
     private var signatureRequestID: String?
     private(set) var authenticationStorageMessage: String?
+    private(set) var loginSSO: LoginSSOState?
+    private(set) var configuringLoginSSO = false
+    private(set) var loginSSOMessage: String?
     private var authenticationStorageRevision = UUID()
     private var authenticationStorageOperations: [String: UUID] = [:]
     private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
@@ -47,7 +50,7 @@ import CryptoTokenKit
     var updating: Bool { updatePreparation != .idle }
     var readyForUpdate: Bool { updatePreparation == .ready }
     private var restoreHelperAfterUpdate = false
-    var settingsLocked: Bool { sessionID != nil || phase.isActive }
+    var settingsLocked: Bool { configuringLoginSSO || sessionID != nil || phase.isActive }
 
     init() {
         availableTokenIDs = Set(tokenWatcher.tokenIDs)
@@ -87,6 +90,7 @@ import CryptoTokenKit
             guard let self else { return }
             self.cancelPendingQuit()
             self.helperVerified = false
+            self.loginSSO = nil
             self.resourceAuthentication.finish()
             self.receivedAuthenticationUpdate = nil
             self.lastSequence = 0
@@ -156,6 +160,7 @@ import CryptoTokenKit
                                     certificateOnly: usesCertificate && preferences.certificateOnly,
                                     certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
+        command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
                 Task { @MainActor in
@@ -282,10 +287,20 @@ import CryptoTokenKit
         certificateContext = nil
         signatureRequestID = nil
         if !engineStartSent {
-            sessionID = nil
-            startPending = false
-            phase = .disconnected
-            if quitAfterDisconnect { quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
+            let cancelledSession = sessionID
+            let request = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
+                commandID: UUID().uuidString, command: EngineCommand(type: .clearLoginCredentials))
+            helper.send(request) { [weak self] reply in
+                guard let self, self.sessionID == cancelledSession else { return }
+                self.sessionID = nil
+                self.startPending = false
+                self.phase = .disconnected
+                if !reply.accepted {
+                    self.helperVerified = false
+                    self.error = "Login credential removal could not be confirmed. Check the helper before connecting again."
+                }
+                if self.quitAfterDisconnect { self.quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
+            }
             return
         }
         send(EngineCommand(type: .disconnect))
@@ -568,6 +583,7 @@ import CryptoTokenKit
             }
             switch result {
             case .success(let reply):
+                self.loginSSO = reply.loginSSO
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
                 guard self.helperVerified else {
                     self.engineAvailable = false
@@ -642,6 +658,10 @@ import CryptoTokenKit
 
     func unregisterHelper() async {
         guard !updating, !settingsLocked, !cleanupRequired else { return }
+        guard (try? LoginSSORule.isInstalled()) == false else {
+            error = "Disable macOS login SSO for every enrolled user before removing the helper."
+            return
+        }
         helper.cancel()
         helperVerified = false
         do {
@@ -655,6 +675,10 @@ import CryptoTokenKit
 
     func prepareForUpdate() async -> Bool {
         guard !updating, !settingsLocked, !cleanupRequired, !checkingHelper, !recovering else { return false }
+        guard (try? LoginSSORule.isInstalled()) == false else {
+            error = "Disable macOS login SSO for every enrolled user before updating GPBar."
+            return false
+        }
         updatePreparation = .preparing
         restoreHelperAfterUpdate = service.status == .enabled
         guard service.status == .enabled, helperVerified, await helper.prepareForUpdate() else {
@@ -695,6 +719,26 @@ import CryptoTokenKit
     }
 
     func openSystemSettings() { SMAppService.openSystemSettingsLoginItems() }
+
+    func configureLoginSSO(enabled: Bool) {
+        guard !updating, !settingsLocked, helperVerified, !cleanupRequired else { return }
+        if enabled && !preferences.saveAddress() { return }
+        let portal = enabled ? preferences.portal : nil
+        configuringLoginSSO = true
+        loginSSOMessage = nil
+        Task {
+            defer { configuringLoginSSO = false; refresh() }
+            do {
+                let authorization = try await Task.detached { try LoginSSOAuthorization.request() }.value
+                let accepted = await helper.configureLoginSSO(portal: portal, authorization: authorization.data)
+                withExtendedLifetime(authorization) {}
+                loginSSOMessage = accepted
+                    ? (enabled ? "Enabled. Sign out, then sign in with your password. Connect within five minutes."
+                       : "Disabled for this user. GPBar no longer captures this user’s login password.")
+                    : "The login integration could not be changed. The login rule may be unsupported. Check the SSO recovery guide."
+            } catch { loginSSOMessage = "Administrator approval was not completed. No login settings were changed." }
+        }
+    }
 
     func recoverNetwork() {
         guard !updating, helperVerified, !recovering, sessionID == nil || phase == .unknown else { return }

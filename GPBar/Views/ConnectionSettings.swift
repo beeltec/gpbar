@@ -121,6 +121,10 @@ struct ConnectionSettings: View {
                     .disabled(model.settingsLocked)
                 }
 
+                LoginSSOSettings(state: model.loginSSO, isBusy: model.configuringLoginSSO,
+                                 message: model.loginSSOMessage, configure: model.configureLoginSSO)
+                    .disabled(model.settingsLocked || model.updating || !model.helperVerified)
+
                 Section {
                     Toggle("Remember sign-in when allowed", isOn: Binding(
                         get: { preferences.rememberAuthentication }, set: { model.setRememberAuthentication($0) }

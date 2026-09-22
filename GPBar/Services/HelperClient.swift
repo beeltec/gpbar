@@ -95,6 +95,29 @@ import Foundation
         }
     }
 
+    func configureLoginSSO(portal: String?, authorization: Data) async -> Bool {
+        guard let connection, let generation,
+              let data = try? JSONEncoder().encode(LoginSSORequest(protocolVersion: helperProtocolVersion,
+                  portal: portal, authorization: authorization)) else { return false }
+        return await withCheckedContinuation { continuation in
+            let result = CommandCompletion { continuation.resume(returning: $0.accepted) }
+            result.timeout = Task {
+                do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                result.finish(CommandReply(accepted: false, code: "login_sso_timeout"))
+            }
+            guard let proxy = connection.remoteObjectProxyWithErrorHandler({ @Sendable _ in
+                Task { @MainActor in result.finish(CommandReply(accepted: false, code: "helper_unavailable")) }
+            }) as? HelperProtocol else { result.finish(CommandReply(accepted: false, code: "helper_unavailable")); return }
+            proxy.configureLoginSSO(data) { [weak self] data in
+                let reply = data.count <= maximumMessageBytes ? try? JSONDecoder().decode(CommandReply.self, from: data) : nil
+                Task { @MainActor in
+                    result.finish(self?.generation == generation ? reply ?? CommandReply(accepted: false, code: "invalid_reply")
+                                  : CommandReply(accepted: false, code: "helper_unavailable"))
+                }
+            }
+        }
+    }
+
     private func connectIfNeeded() throws {
         guard connection == nil else { return }
         let requirement = try SigningIdentity.requirement(for: helperServiceName)

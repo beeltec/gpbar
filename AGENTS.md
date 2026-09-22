@@ -8,6 +8,7 @@ Read the public guide relevant to your change:
 | Area | Guide |
 | --- | --- |
 | Authentication, browser login, credentials, and certificates | [Authentication support](AUTHENTICATION.md) |
+| macOS login SSO, login plug-in, installation, and recovery | [macOS login SSO](LOGIN-SSO.md) |
 | Update behavior, signing, and local publishing | [Automatic updates](UPDATES.md) |
 | Build inputs, distribution, and CI releases | [Tagged releases](RELEASE.md) |
 | Dependencies and licensing | [Third-party notices](THIRD-PARTY-NOTICES.md) |

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 8;
+pub const VERSION: u32 = 9;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -131,6 +131,7 @@ pub enum Event<'a> {
         message: &'a str,
         username_label: &'a str,
         password_label: &'a str,
+        login_sso_allowed: bool,
     },
     SignatureRequired {
         request_id: &'a str,

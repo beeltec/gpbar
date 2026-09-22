@@ -22,6 +22,7 @@ pub struct StandardPrelogin {
     pub auth_message: String,
     pub label_username: String,
     pub label_password: String,
+    pub explicit_password_label: bool,
     pub certificate_username: Option<String>,
 }
 
@@ -41,7 +42,7 @@ impl PreloginResponse {
     pub fn parse(xml: &str) -> Result<Self, ProtoError> {
         let root = XmlNode::parse(xml)?;
 
-        for name in ["status", "cas-auth", "saml-auth-method", "saml-request"] {
+        for name in ["status", "cas-auth", "saml-auth-method", "saml-request", "password-label"] {
             let mut fields = root.children_named(name);
             if let Some(field) = fields.next() {
                 if fields.next().is_some() || !field.children.is_empty() {
@@ -99,6 +100,7 @@ impl PreloginResponse {
 
         // Standard (password) auth
         Ok(Self::Standard(StandardPrelogin {
+            explicit_password_label: root.child_text("password-label").is_some(),
             certificate_username: root
                 .child_text("ccusername")
                 .filter(|value| !value.is_empty())

@@ -31,6 +31,7 @@ for library in "$app_work/GPBar.app/Contents/Frameworks/"*.dylib; do
 done
 codesign --force --options runtime --timestamp --identifier com.beeltec.GPBar.engine --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app/Contents/MacOS/openprotect"
 codesign --force --options runtime --timestamp --preserve-metadata=identifier,entitlements --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app/Contents/MacOS/GPBarHelper"
+codesign --force --options runtime --timestamp --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app/Contents/PlugIns/GPBarLogin.bundle"
 codesign --force --options runtime --timestamp --sign "$GPBAR_SIGN_IDENTITY" "$app_work/GPBar.app"
 codesign --verify --deep --strict --verbose=2 "$app_work/GPBar.app"
 mkdir -p "$(dirname -- "$GPBAR_OUTPUT")"
