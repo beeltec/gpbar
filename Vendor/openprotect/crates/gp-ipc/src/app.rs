@@ -26,7 +26,7 @@ pub enum Command {
         #[serde(default)]
         remember_authentication: bool,
         #[serde(default)]
-        kerberos_fallback: bool,
+        kerberos_fallback_until: u64,
         saved_authentication: Option<Box<SavedAuthentication>>,
     },
     SubmitCallback {
@@ -47,6 +47,8 @@ pub enum Command {
         token: Option<String>,
         #[serde(default)]
         complete: bool,
+        #[serde(default)]
+        kerberos_failed: bool,
     },
     SubmitSignature {
         request_id: String,

@@ -230,7 +230,8 @@ actor SessionController {
             guard let kerberosRequest, message.command.requestID == kerberosRequest.event.requestID,
                   auditSessionID == loginAuditSessionID, Self.validLoginSession(auditSessionID),
                   message.command.token.map({ $0.count <= 49152 }) != false,
-                  message.command.complete != nil,
+                  message.command.complete != nil, message.command.kerberosFailed != nil,
+                  message.command.kerberosFailed != true || (message.command.token == nil && message.command.complete == false),
                   message.command.token != nil || message.command.complete == false else {
                 return CommandReply(accepted: false, code: "kerberos_expired")
             }

@@ -18,7 +18,7 @@ fn output() -> (SharedOutput, BufReader<Receiver>) {
 
 #[tokio::test]
 async fn kerberos_bridge_rejects_stale_replies_and_handles_unavailable_tickets() {
-    for stale in [false, true] {
+    for (stale, failed) in [(false, false), (true, false), (false, true)] {
         let (output, mut reader) = output();
         let (answers, receiver) = mpsc::channel(1);
         let bridge = kerberos::Bridge {
@@ -40,11 +40,12 @@ async fn kerberos_bridge_rejects_stale_replies_and_handles_unavailable_tickets()
                 request_id: if stale { "old" } else { id }.into(),
                 token: None,
                 complete: false,
+                failed,
             })
             .await
             .unwrap();
         let result = task.await.unwrap();
-        if stale {
+        if stale || failed {
             assert!(result.is_err());
         } else {
             assert!(result.unwrap().is_none());
@@ -72,7 +73,8 @@ async fn kerberos_cancel_drops_the_pending_exchange() {
         .send(kerberos::Answer {
             request_id: "old".into(),
             token: None,
-            complete: false
+            complete: false,
+            failed: false
         })
         .await
         .is_err());
@@ -91,7 +93,7 @@ async fn kerberos_credentials_use_the_existing_handoff_for_each_endpoint() {
             remember_authentication: false,
             saved_authentication: Mutex::new(None),
             kerberos: None,
-            kerberos_fallback: std::sync::atomic::AtomicBool::new(false),
+            kerberos_fallback_until: std::sync::atomic::AtomicU64::new(0),
         };
         let prelogin = PreloginResponse::Kerberos {
             region: "test".into(),

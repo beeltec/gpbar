@@ -26,7 +26,7 @@ struct AuthenticationOptions {
     certificate_username: Option<String>,
     remember_authentication: bool,
     kerberos: Option<kerberos::Bridge>,
-    kerberos_fallback: std::sync::atomic::AtomicBool,
+    kerberos_fallback_until: std::sync::atomic::AtomicU64,
     saved_authentication: Mutex<Option<app::SavedAuthentication>>,
 }
 
@@ -34,15 +34,16 @@ impl AuthenticationOptions {
     async fn prelogin(&self, client: &GpBar, server: &str, output: &SharedOutput) -> Result<PreloginResponse> {
         if matches!(self.method, app::AuthenticationMethod::Automatic | app::AuthenticationMethod::Kerberos) {
             if let Some(bridge) = &self.kerberos {
-                let fallback = self.method != app::AuthenticationMethod::Kerberos
-                    && self.kerberos_fallback.load(std::sync::atomic::Ordering::Relaxed);
-                let mut result = client.prelogin_with_kerberos(server, bridge, &challenge_id()?, fallback).await;
+                let fallback_until = if self.method == app::AuthenticationMethod::Kerberos { 0 } else {
+                    self.kerberos_fallback_until.load(std::sync::atomic::Ordering::Relaxed)
+                };
+                let mut result = client.prelogin_with_kerberos(server, bridge, &challenge_id()?, fallback_until).await;
                 if self.method == app::AuthenticationMethod::Kerberos
                     && result.as_ref().is_ok_and(|prelogin| !matches!(prelogin, PreloginResponse::Kerberos { .. }))
                 {
-                    result = Err(gp_auth::AuthError::Failed("Kerberos SSO was not offered".into()));
+                    result = Err(gp_auth::AuthError::Kerberos);
                 }
-                if result.is_err() {
+                if matches!(&result, Err(gp_auth::AuthError::Kerberos)) {
                     output.lock().await.send(Event::Failure {
                         code: "kerberos_failed", message: "Kerberos sign-in failed. Check your tickets and VPN policy, then try again.", retryable: true,
                     }).await?;
@@ -295,7 +296,7 @@ pub async fn run() -> Result<()> {
         certificate_only,
         certificate_username,
         remember_authentication,
-        kerberos_fallback,
+        kerberos_fallback_until,
         saved_authentication,
     } = first.command
     else {
@@ -347,7 +348,7 @@ pub async fn run() -> Result<()> {
         certificate_username,
         remember_authentication,
         kerberos: Some(kerberos::Bridge { output: output.clone(), answers: Mutex::new(kerberos_rx) }),
-        kerberos_fallback: std::sync::atomic::AtomicBool::new(kerberos_fallback),
+        kerberos_fallback_until: std::sync::atomic::AtomicU64::new(kerberos_fallback_until.min(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 86400)),
         saved_authentication: Mutex::new(saved_authentication),
     };
     let reader_output = output.clone();
@@ -407,9 +408,9 @@ pub async fn run() -> Result<()> {
                     otp: false,
                     username: Some(username),
                 }),
-                Command::SubmitKerberos { request_id, token, complete } => {
+                Command::SubmitKerberos { request_id, token, complete, kerberos_failed } => {
                     if !app::valid_id(&request_id) || token.as_ref().is_some_and(|token| token.len() > 65536)
-                        || kerberos_answers.try_send(kerberos::Answer { request_id, token, complete }).is_err()
+                        || kerberos_answers.try_send(kerberos::Answer { request_id, token, complete, failed: kerberos_failed }).is_err()
                     {
                         let _ = reader_stop.send(true);
                         return;
@@ -633,7 +634,9 @@ async fn authenticate_once(
             Err(error) => return Err(error.into()),
         }
     };
-    options.kerberos_fallback.store(configuration.kerberos_fallback, std::sync::atomic::Ordering::Relaxed);
+    options.kerberos_fallback_until.store(if configuration.kerberos_fallback {
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() + 86400
+    } else { 0 }, std::sync::atomic::Ordering::Relaxed);
     output.lock().await.send(Event::KerberosPolicyChanged { kerberos_fallback: configuration.kerberos_fallback }).await?;
     drop(credential);
     drop(portal_params);

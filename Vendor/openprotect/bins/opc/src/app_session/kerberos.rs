@@ -9,6 +9,7 @@ pub(super) struct Answer {
     pub request_id: String,
     pub token: Option<String>,
     pub complete: bool,
+    pub failed: bool,
 }
 
 pub(super) struct Bridge {
@@ -24,7 +25,7 @@ impl Negotiator for Bridge {
         server: &str,
         input: Option<&[u8]>,
     ) -> std::result::Result<Option<Step>, AuthError> {
-        let fail = || AuthError::Failed("Kerberos ticket exchange failed".into());
+        let fail = || AuthError::Kerberos;
         let id = challenge_id().map_err(|_| fail())?;
         let input = input.map(|bytes| base64::engine::general_purpose::STANDARD.encode(bytes));
         self.output
@@ -43,7 +44,7 @@ impl Negotiator for Bridge {
                 .await
                 .map_err(|_| fail())?
                 .ok_or_else(fail)?;
-        if answer.request_id != id {
+        if answer.request_id != id || answer.failed {
             return Err(fail());
         }
         let Some(token) = answer.token else {

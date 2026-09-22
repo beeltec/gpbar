@@ -83,11 +83,12 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod")
     }
 
-    var kerberosFallback: Bool {
+    var kerberosFallbackUntil: UInt64 {
         let received = defaults.double(forKey: "connection.kerberosPolicyReceived")
         let age = Date().timeIntervalSince1970 - received
-        return age >= 0 && age < 86400 && defaults.string(forKey: "connection.kerberosPolicyPortal") == portal
-            && defaults.bool(forKey: "connection.kerberosFallback")
+        guard age >= 0 && age < 86400 && defaults.string(forKey: "connection.kerberosPolicyPortal") == portal,
+              defaults.bool(forKey: "connection.kerberosFallback") else { return 0 }
+        return UInt64(received + 86400)
     }
 
     func saveKerberosPolicy(_ allowed: Bool) {

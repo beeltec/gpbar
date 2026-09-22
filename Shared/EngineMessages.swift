@@ -58,7 +58,8 @@ struct EngineCommand: Codable, Sendable {
     var useLoginCredentials: Bool?
     var token: Data?
     var complete: Bool?
-    var kerberosFallback: Bool?
+    var kerberosFailed: Bool?
+    var kerberosFallbackUntil: UInt64?
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
@@ -68,7 +69,7 @@ struct EngineCommand: Codable, Sendable {
         case rememberAuthentication = "remember_authentication", savedAuthentication = "saved_authentication"
         case cacheRevision = "cache_revision"
         case useLoginCredentials = "use_login_credentials"
-        case token, complete, kerberosFallback = "kerberos_fallback"
+        case token, complete, kerberosFailed = "kerberos_failed", kerberosFallbackUntil = "kerberos_fallback_until"
     }
 }
 

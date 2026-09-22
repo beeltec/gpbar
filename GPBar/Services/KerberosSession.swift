@@ -6,7 +6,7 @@ actor KerberosSession {
         let token: Data
         let complete: Bool
     }
-    enum Failure: Error { case unavailable, invalidRequest }
+    enum Failure: Error { case unavailable, invalidRequest, verificationFailed }
     private var context: gss_ctx_id_t?
     private var credential: gss_cred_id_t?
     private var target: gss_name_t?
@@ -40,10 +40,12 @@ actor KerberosSession {
                         OM_uint32(GSS_C_MUTUAL_FLAG | GSS_C_REPLAY_FLAG | GSS_C_SEQUENCE_FLAG), 0, nil,
                         &input, nil, &output, &flags, nil)
                 }
-                guard major == GSS_S_COMPLETE || major == continueNeeded,
-                      output.length <= 49152,
+                guard major == GSS_S_COMPLETE || major == continueNeeded else {
+                    throw request.input == nil ? Failure.unavailable : Failure.verificationFailed
+                }
+                guard output.length <= 49152,
                       major != GSS_S_COMPLETE || flags & OM_uint32(GSS_C_MUTUAL_FLAG) != 0,
-                      flags & OM_uint32(GSS_C_DELEG_FLAG) == 0 else { throw Failure.unavailable }
+                      flags & OM_uint32(GSS_C_DELEG_FLAG) == 0 else { throw Failure.verificationFailed }
                 try verifyTarget(request.server)
                 try Task.checkCancellation()
                 let token = output.value.map { Data(bytes: $0, count: output.length) } ?? Data()
@@ -89,13 +91,13 @@ actor KerberosSession {
         defer { if name != nil { gss_release_name(&minor, &name) } }
         guard gss_inquire_context(&minor, context, nil, &name, nil, &mechanism, nil, nil, nil) == GSS_S_COMPLETE,
               let name, let mechanism,
-              withOID(kerberosOID, { gss_oid_equal(mechanism, $0) != 0 }) else { throw Failure.unavailable }
+              withOID(kerberosOID, { gss_oid_equal(mechanism, $0) != 0 }) else { throw Failure.verificationFailed }
         var buffer = gss_buffer_desc(length: 0, value: nil)
         defer { gss_release_buffer(&minor, &buffer) }
         guard gss_display_name(&minor, name, &buffer, nil) == GSS_S_COMPLETE,
               buffer.length <= 4096, let bytes = buffer.value,
               let value = String(data: Data(bytes: bytes, count: buffer.length), encoding: .utf8),
-              value.hasPrefix("HTTP/\(host)@"), value.count > host.count + 6 else { throw Failure.unavailable }
+              value.hasPrefix("HTTP/\(host)@"), value.count > host.count + 6 else { throw Failure.verificationFailed }
     }
 
     private func withOID<T>(_ bytes: [UInt8], _ action: (gss_OID) throws -> T) rethrows -> T {

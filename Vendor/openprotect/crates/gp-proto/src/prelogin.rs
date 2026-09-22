@@ -138,6 +138,10 @@ impl PreloginResponse {
         }))
     }
 
+    pub fn kerberos_failed(xml: &str) -> Result<bool, ProtoError> {
+        Ok(XmlNode::parse(xml)?.child_text("krb-auth-status") == Some("0"))
+    }
+
     /// Server region string.
     pub fn region(&self) -> &str {
         match self {

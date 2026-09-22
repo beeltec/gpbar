@@ -95,6 +95,7 @@ Servers using another successful handoff are unsupported until their exchange is
 **Fallback policy:** Automatic may retry the server's default authentication only after an authenticated portal policy explicitly permits fallback.
 The policy comes from `policy/agent-config/krb-auth-fail-fallback=yes`.
 The app retains this non-secret policy for the same portal and user for up to 24 hours.
+The engine checks the deadline at each fallback decision, including reconnects.
 Changing the portal clears that permission. A missing, malformed, duplicated, or negative policy disables fallback.
 The latest authenticated portal policy governs subsequent gateway authentication and reconnects.
 Before GPBar learns a policy, Kerberos failure stops the attempt. An administrator can confirm another explicit authentication choice for initial setup.

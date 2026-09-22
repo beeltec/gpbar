@@ -20,6 +20,9 @@ pub enum AuthError {
     #[error("MFA not completed after {0} attempts")]
     MfaExhausted(u32),
 
+    #[error("Kerberos authentication failed")]
+    Kerberos,
+
     #[error("user cancelled")]
     Cancelled,
 

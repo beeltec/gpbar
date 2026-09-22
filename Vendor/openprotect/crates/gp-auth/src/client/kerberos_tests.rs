@@ -29,6 +29,9 @@ impl Negotiator for Tickets {
                 complete: false,
             }))
         } else {
+            if input == Some(b"invalid".as_slice()) {
+                return Err(AuthError::Kerberos);
+            }
             assert_eq!(input.unwrap(), format!("{}-reply", self.side).as_bytes());
             Ok(Some(Step {
                 token: vec![],
@@ -112,7 +115,7 @@ async fn kerberos_https_portal_gateway_and_failure_policy() {
         let client = client("success", gateway);
         let tickets = tickets(if gateway { "gateway" } else { "portal" }, false);
         let prelogin = client
-            .prelogin_with_kerberos(&origin, &tickets, "context", false)
+            .prelogin_with_kerberos(&origin, &tickets, "context", 0)
             .await
             .unwrap();
         let PreloginResponse::Kerberos {
@@ -150,20 +153,24 @@ async fn kerberos_https_portal_gateway_and_failure_policy() {
         "missing",
         "reject",
         "failed-status",
+        "initial-failure",
+        "invalid-continuation",
         "bad-header",
         "redirect",
         "unsolicited",
         "missing-cookie",
         "missing-mutual",
     ] {
-        for fallback in [false, true] {
+        for fallback_until in [0, 1, u64::MAX] {
+            let fallback = fallback_until == u64::MAX;
             let tickets = tickets("portal", mode == "missing");
             let result = client(mode, false)
-                .prelogin_with_kerberos(&origin, &tickets, "context", fallback)
+                .prelogin_with_kerberos(&origin, &tickets, "context", fallback_until)
                 .await;
             assert_eq!(
                 result.is_ok(),
-                fallback && ["missing", "reject", "failed-status"].contains(&mode),
+                fallback
+                    && ["missing", "reject", "failed-status", "initial-failure"].contains(&mode),
                 "{mode}, fallback={fallback}"
             );
             assert_eq!(tickets.finished.load(Ordering::SeqCst), 1);

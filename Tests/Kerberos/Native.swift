@@ -22,7 +22,7 @@ import Foundation
             do {
                 _ = try await native.step(request("portal.gpbar.test", context: context))
                 throw Failure.check("accepted missing tickets")
-            } catch is KerberosSession.Failure {}
+            } catch KerberosSession.Failure.unavailable {}
             await native.finish()
             print("PASS: missing tickets fail without password prompts")
             return
@@ -54,6 +54,11 @@ import Foundation
             _ = try await native.step(request("gateway.gpbar.test", context: context, input: Data([1])))
             throw Failure.check("accepted changed service principal")
         } catch is KerberosSession.Failure {}
+        _ = try await native.step(request("portal.gpbar.test", context: context))
+        do {
+            _ = try await native.step(request("portal.gpbar.test", context: context, input: Data([1, 2, 3])))
+            throw Failure.check("accepted invalid server token")
+        } catch KerberosSession.Failure.verificationFailed {}
         let cancelled = Task { try await native.step(request("portal.gpbar.test", context: context)) }
         cancelled.cancel()
         do { _ = try await cancelled.value; throw Failure.check("accepted cancelled operation") }

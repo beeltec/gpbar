@@ -24,7 +24,7 @@ pub trait Negotiator: Send + Sync {
 }
 
 fn failure() -> AuthError {
-    AuthError::Failed("Kerberos authentication failed".into())
+    AuthError::Kerberos
 }
 
 fn challenge(headers: &header::HeaderMap) -> Result<Option<Vec<u8>>, AuthError> {
@@ -62,10 +62,10 @@ impl GpBar {
         server: &str,
         negotiator: &dyn Negotiator,
         context: &str,
-        fallback: bool,
+        fallback_until: u64,
     ) -> Result<PreloginResponse, AuthError> {
         let result = self
-            .kerberos_exchange(server, negotiator, context, fallback)
+            .kerberos_exchange(server, negotiator, context, fallback_until)
             .await;
         negotiator.finish(context).await;
         result
@@ -76,7 +76,7 @@ impl GpBar {
         server: &str,
         negotiator: &dyn Negotiator,
         context: &str,
-        fallback: bool,
+        fallback_until: u64,
     ) -> Result<PreloginResponse, AuthError> {
         let url = format!(
             "{}?kerberos-support=yes",
@@ -94,6 +94,9 @@ impl GpBar {
             if matches!(parsed, PreloginResponse::Kerberos { .. }) {
                 return Err(failure());
             }
+            if PreloginResponse::kerberos_failed(&body)? {
+                return self.kerberos_fallback(server, fallback_until).await;
+            }
             return Ok(parsed);
         }
         let mut input = challenge(response.headers())?.ok_or_else(failure)?;
@@ -105,7 +108,10 @@ impl GpBar {
                 .step(context, server, (round != 0).then_some(input.as_slice()))
                 .await?;
             let Some(step) = step else {
-                return self.kerberos_fallback(server, fallback).await;
+                if round != 0 {
+                    return Err(failure());
+                }
+                return self.kerberos_fallback(server, fallback_until).await;
             };
             if step.token.is_empty() || step.token.len() > MAX_TOKEN {
                 return Err(failure());
@@ -124,7 +130,7 @@ impl GpBar {
             if response.status() == StatusCode::UNAUTHORIZED {
                 input = challenge(response.headers())?.ok_or_else(failure)?;
                 if step.complete || input.is_empty() {
-                    return self.kerberos_fallback(server, fallback).await;
+                    return self.kerberos_fallback(server, fallback_until).await;
                 }
                 continue;
             }
@@ -153,7 +159,7 @@ impl GpBar {
             if matches!(parsed, PreloginResponse::Kerberos { .. }) {
                 return Ok(parsed);
             }
-            return self.kerberos_fallback(server, fallback).await;
+            return self.kerberos_fallback(server, fallback_until).await;
         }
         Err(failure())
     }
@@ -161,9 +167,13 @@ impl GpBar {
     async fn kerberos_fallback(
         &self,
         server: &str,
-        allowed: bool,
+        allowed_until: u64,
     ) -> Result<PreloginResponse, AuthError> {
-        if !allowed {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| failure())?
+            .as_secs();
+        if allowed_until <= now {
             return Err(failure());
         }
         let mut params = self.gp_params.to_prelogin_params();

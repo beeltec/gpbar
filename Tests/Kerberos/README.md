@@ -15,14 +15,14 @@ The native checks use the production Apple GSS adapter and a real MIT GSS accept
 
 - Existing tickets for separate portal and gateway service principals.
 - SPNEGO with Kerberos credentials, mutual authentication, and hostname binding.
-- Missing tickets without password prompts.
+- Missing tickets without password prompts, with verification failures reported separately.
 - Cancelled operations, stale contexts, changed endpoints, and invalid requests.
 
 The Rust checks use production OpenProtect request and credential code:
 
 - HTTP Negotiate for portal and gateway prelogin, followed by endpoint-specific cookie submission.
 - Production rejection of the fixture certificate; test-only trust for successful HTTPS checks.
-- Missing credentials, ticket rejection, and policy-controlled fallback.
+- Missing credentials, ticket rejection, initial failure responses, and policy-controlled fallback with expiry checks.
 - Redirects, malformed challenges, unsolicited success, missing mutual authentication, and incomplete handoffs.
 - Strict success parsing, duplicate fields, bounds, cookie redaction, and fail-closed fallback policy parsing.
 - Engine challenge ownership, stale answers, unavailable tickets, cancellation, and separate endpoint handoffs.

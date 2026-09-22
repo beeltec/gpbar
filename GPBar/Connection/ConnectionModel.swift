@@ -164,7 +164,7 @@ import CryptoTokenKit
                                     certificateOnly: usesCertificate && preferences.certificateOnly,
                                     certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
-        command.kerberosFallback = preferences.kerberosFallback
+        command.kerberosFallbackUntil = preferences.kerberosFallbackUntil
         command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
             KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
@@ -365,13 +365,17 @@ import CryptoTokenKit
         self.kerberos = kerberos
         kerberosRequestID = request.requestID
         kerberosTask = Task {
-            let reply = try? await kerberos.step(request)
+            var reply: KerberosSession.Reply?
+            var failed = false
+            do { reply = try await kerberos.step(request) }
+            catch KerberosSession.Failure.unavailable {}
+            catch { failed = true }
             guard !Task.isCancelled, sessionID == session, kerberosRequestID == request.requestID,
                   phase != .disconnecting else { return }
             kerberosRequestID = nil
             kerberosTask = nil
             send(EngineCommand(type: .submitKerberos, requestID: request.requestID,
-                               token: reply?.token, complete: reply?.complete ?? false))
+                               token: reply?.token, complete: reply?.complete ?? false, kerberosFailed: failed))
         }
     }
 

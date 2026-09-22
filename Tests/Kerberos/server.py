@@ -40,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
         if path.endswith('/prelogin.esp'):
             fallback = params.get('kerberos-support') == ['no']
             if fallback:
-                if mode not in ('missing', 'reject', 'failed-status') or authorization:
+                if mode not in ('missing', 'reject', 'failed-status', 'initial-failure') or authorization:
                     self.reply(403)
                 else:
                     self.reply(200, '<prelogin-response><status>Success</status><password-label>Password</password-label></prelogin-response>')
@@ -49,7 +49,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(302, headers=[('Location', 'https://127.0.0.1:1/never')])
                 return
             if not authorization:
-                if mode == 'unsolicited':
+                if mode == 'initial-failure':
+                    self.reply(200, '<prelogin-response><status>Success</status><krb-auth-status>0</krb-auth-status></prelogin-response>')
+                elif mode == 'unsolicited':
                     self.reply(200, f'<prelogin-response><status>Success</status><krb-auth-status>1</krb-auth-status><krb-norm-username>alice</krb-norm-username><prelogin-cookie>{cookie}</prelogin-cookie></prelogin-response>')
                 else:
                     value = 'Negotiate ' + ('!' if mode == 'bad-header' else '')
@@ -57,6 +59,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if authorization != 'Negotiate ' + encoded(f'{side}-ticket'):
                 self.reply(403)
+                return
+            if mode == 'invalid-continuation':
+                self.reply(401, headers=[('WWW-Authenticate', 'Negotiate ' + encoded('invalid'))])
                 return
             if mode == 'reject':
                 self.reply(401, headers=[('WWW-Authenticate', 'Negotiate')])
