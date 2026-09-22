@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		10C60EA437D94C29A082CDBE /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
 		134B70452A3E01A83E50826F /* AuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */; };
+		1E117553B02A5EDAE6406DBB /* ResourceAuthenticationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */; };
 		1F2E415AA5642B68EFD6C5CE /* SavedAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */; };
 		204E178D1B3259B5BB75E762 /* SecureRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */; };
 		2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F4F75C9EE34C930F864DD2 /* SignInView.swift */; };
@@ -25,6 +26,7 @@
 		52F4DF260C755D2934A33AB6 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C5D01350B137A91D07109DCC /* Sparkle */; };
 		5B44496CFDBF0F253A0B43C3 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */; };
 		5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = A490690342F7B2351CA3B2F4 /* EngineMessages.swift */; };
+		5D0E91D93D7B9B234603B98D /* ResourceAuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */; };
 		6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */; };
 		687731C41C188A0955BAE941 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = 5ACB57778BC88D588B84B179 /* Licenses */; };
 		6F0514B9DF953974434AB07F /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4847C626753C794B558357B0 /* AboutView.swift */; };
@@ -38,12 +40,14 @@
 		B5333863007CD748BD5699F5 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB61916931634D0644C4377 /* UpdateController.swift */; };
 		B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */; };
 		BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
+		BE77525EF0492C271ACCF3CE /* ResourceAuthenticationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */; };
 		C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */; };
 		C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */; };
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
 		CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A116881E418FF3CF77CA5A4C /* UserKeychain.swift */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
+		F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +94,7 @@
 		4847C626753C794B558357B0 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		553D6B58F0381EA28CDF2DBB /* GPBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GPBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		554E85928561E10EA94E38BC /* GPBarHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = GPBarHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationRequest.swift; sourceTree = "<group>"; };
 		5ACB57778BC88D588B84B179 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Licenses; path = Packaging/Licenses; sourceTree = SOURCE_ROOT; };
 		5C4C3956223045607EF9CADC /* PortalAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortalAddress.swift; sourceTree = "<group>"; };
 		60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionModel.swift; sourceTree = "<group>"; };
@@ -105,6 +110,8 @@
 		A116881E418FF3CF77CA5A4C /* UserKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserKeychain.swift; sourceTree = "<group>"; };
 		A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A490690342F7B2351CA3B2F4 /* EngineMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineMessages.swift; sourceTree = "<group>"; };
+		A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationView.swift; sourceTree = "<group>"; };
+		C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		C8F2204076A5B786845CBF4D /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
 		C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperMain.swift; sourceTree = "<group>"; };
 		E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
@@ -134,6 +141,7 @@
 				A490690342F7B2351CA3B2F4 /* EngineMessages.swift */,
 				94131D702B90C08815A2340E /* HelperProtocol.swift */,
 				5C4C3956223045607EF9CADC /* PortalAddress.swift */,
+				5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */,
 				FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */,
 				C8F2204076A5B786845CBF4D /* SigningIdentity.swift */,
 			);
@@ -179,6 +187,7 @@
 				8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */,
 				E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */,
 				92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */,
+				A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */,
 				F3F4F75C9EE34C930F864DD2 /* SignInView.swift */,
 			);
 			path = Views;
@@ -202,6 +211,7 @@
 				7A45A7B43AB47061045E5CA7 /* HelperClient.swift */,
 				3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */,
 				0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */,
+				C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */,
 				9AB61916931634D0644C4377 /* UpdateController.swift */,
 				A116881E418FF3CF77CA5A4C /* UserKeychain.swift */,
 			);
@@ -355,6 +365,7 @@
 				BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */,
 				F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */,
 				50FCB88FA3AC70CC99F1E782 /* PortalAddress.swift in Sources */,
+				BE77525EF0492C271ACCF3CE /* ResourceAuthenticationRequest.swift in Sources */,
 				796E4CAD72F666A4677217BC /* SavedAuthentication.swift in Sources */,
 				204E178D1B3259B5BB75E762 /* SecureRuntime.swift in Sources */,
 				B29693496FCF7F7E8E236460 /* SessionController.swift in Sources */,
@@ -382,6 +393,9 @@
 				C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */,
 				6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */,
 				83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */,
+				F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */,
+				1E117553B02A5EDAE6406DBB /* ResourceAuthenticationRequest.swift in Sources */,
+				5D0E91D93D7B9B234603B98D /* ResourceAuthenticationView.swift in Sources */,
 				1F2E415AA5642B68EFD6C5CE /* SavedAuthentication.swift in Sources */,
 				2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */,
 				33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */,

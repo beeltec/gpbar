@@ -79,8 +79,12 @@ struct EngineEvent: Codable, Sendable {
         case credentialsRequired = "credentials_required"
         case signatureRequired = "signature_required"
         case authenticationCacheChanged = "authentication_cache_changed"
+        case resourceAuthenticationRequired = "resource_authentication_required"
+        case resourceAuthenticationCleared = "resource_authentication_cleared"
+        case resourceAuthenticationUnavailable = "resource_authentication_unavailable"
     }
     let type: Kind
+    var expiresAtUnix: UInt64?
     var openconnectVersion: String?
     var phase: ConnectionPhase?
     var attempt: Int?
@@ -102,6 +106,7 @@ struct EngineEvent: Codable, Sendable {
     var cacheRevision: UUID?
 
     enum CodingKeys: String, CodingKey {
+        case expiresAtUnix = "expires_at_unix"
         case type, openconnectVersion = "openconnect_version", phase, attempt, challengeID = "challenge_id"
         case launchURL = "launch_url", message, snapshot, code, retryable, cleanup
         case server, usernameLabel = "username_label", passwordLabel = "password_label"

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 pub const MAX_FRAME_BYTES: usize = 256 * 1024;
 
 #[derive(Deserialize)]
@@ -107,6 +107,14 @@ pub enum Event<'a> {
         challenge_id: &'a str,
         launch_url: &'a str,
     },
+    ResourceAuthenticationRequired {
+        challenge_id: &'a str,
+        launch_url: &'a str,
+        message: &'a str,
+        expires_at_unix: u64,
+    },
+    ResourceAuthenticationCleared,
+    ResourceAuthenticationUnavailable,
     AuthenticationCompleted {
         challenge_id: &'a str,
     },

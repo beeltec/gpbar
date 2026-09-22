@@ -310,6 +310,11 @@ actor SessionController {
             networkMayHaveChanged = true
         }
         switch event.event.type {
+        case .resourceAuthenticationRequired:
+            guard ResourceAuthenticationRequest(sessionID: event.sessionID, event: event.event) != nil,
+                  lastSnapshot?.event.phase == .connected || lastSnapshot?.event.snapshot?.phase == .connected else {
+                return
+            }
         case .authenticationCacheChanged:
             guard let owner, let portal = sessionPortal else { throw ControllerError.invalidFrame }
             let update = AuthenticationCacheUpdate(portal: portal, revision: UUID())

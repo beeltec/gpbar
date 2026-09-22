@@ -12,6 +12,7 @@ use tokio::net::unix::pipe::{Receiver, Sender};
 use tokio::sync::{mpsc, watch, Mutex};
 
 mod cookies;
+mod resource_mfa;
 mod signing;
 
 struct AuthenticationOptions {
@@ -104,6 +105,7 @@ struct Answer {
 struct Authentication {
     gateway: String,
     cookie: AuthCookie,
+    resource_mfa: Option<gp_proto::resource_mfa::ResourceMfaPolicy>,
 }
 
 pub async fn hip_input() -> Result<()> {
@@ -683,6 +685,7 @@ async fn authenticate_once(
         && (configuration.user_auth_cookie.is_empty() || configuration.user_auth_cookie == "empty")
         && (configuration.prelogon_user_auth_cookie.is_empty()
             || configuration.prelogon_user_auth_cookie == "empty");
+    let resource_mfa = configuration.resource_mfa.clone();
     drop(configuration);
     if needs_gateway_login {
         let gateway_client = options.client(params.clone())?;
@@ -728,7 +731,11 @@ async fn authenticate_once(
                         .send(Event::AuthenticationCompleted { challenge_id: &id })
                         .await?;
                 }
-                return Ok(Authentication { gateway, cookie });
+                return Ok(Authentication {
+                    gateway,
+                    cookie,
+                    resource_mfa,
+                });
             }
             Ok(GatewayLoginResult::MfaChallenge { input_str, message }) => {
                 fresh_portal_credential = None;
@@ -1123,9 +1130,23 @@ async fn run_session(
             });
             tokio::pin!(task);
             let mut interval = tokio::time::interval(Duration::from_millis(250));
+            let mut resource_tasks = tokio::task::JoinSet::new();
+            let (resource_sender, mut resource_events) = mpsc::channel::<resource_mfa::Notice>(2);
             let outcome = loop {
                 tokio::select! {
+                    biased;
                     outcome = &mut task => break outcome,
+                    Some(notice) = resource_events.recv() => {
+                        if !*stop.borrow() {
+                            let result = output.lock().await.send(notice.event()).await;
+                            if result.is_err() {
+                                let _ = stop_sender.send(true);
+                                let _ = (&mut task).await;
+                                resource_tasks.shutdown().await;
+                                bail!("event stream unavailable");
+                            }
+                        }
+                    },
                     _ = interval.tick() => {
                         let state = match base.read() {
                             Ok(state) => Some(state.clone()),
@@ -1134,6 +1155,7 @@ async fn run_session(
                         let Some(state) = state else {
                             let _ = stop_sender.send(true);
                             let _ = (&mut task).await;
+                            resource_tasks.shutdown().await;
                             bail!("snapshot unavailable");
                         };
                         let needs_verification = state.state == gp_ipc::SessionState::Connected
@@ -1156,8 +1178,8 @@ async fn run_session(
                             }
                             if *stop.borrow() { break (&mut task).await; }
                             let mut out = output.lock().await;
-                            out.snapshot.interface = state.tun_ifname;
-                            out.snapshot.ipv4 = state.local_ipv4;
+                            out.snapshot.interface = state.tun_ifname.clone();
+                            out.snapshot.ipv4 = state.local_ipv4.clone();
                             let result = async {
                                 out.failure_reported = false;
                                 out.phase("connected", attempt).await?;
@@ -1169,10 +1191,21 @@ async fn run_session(
                                 let _ = (&mut task).await;
                                 bail!("event stream unavailable");
                             }
+                            drop(out);
+                            if let (Some(policy), Some(interface), Some(address)) =
+                                (authentication.resource_mfa.clone(), state.tun_ifname, state.local_ipv4) {
+                                resource_tasks.spawn(resource_mfa::run(policy, interface, address, base.clone(), resource_sender.clone(), stop.clone()));
+                            }
                         }
                     }
                 }
             };
+            resource_tasks.shutdown().await;
+            output
+                .lock()
+                .await
+                .send(Event::ResourceAuthenticationCleared)
+                .await?;
             outcome
         };
         if *stop.borrow() {

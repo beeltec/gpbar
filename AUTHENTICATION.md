@@ -21,7 +21,7 @@ The available live provider uses SAML. Other methods below have no live compatib
 | Kerberos SSO | Not available. | Requires user-session ticket access and the GlobalProtect Kerberos exchange. Root cannot assume the user's credentials. |
 | OS-login SSO | Not available. | GPBar does not capture macOS login passwords or cache VPN passwords. |
 | Cloud Identity Engine OIDC | Not established. | Existing Prisma callback parsing does not prove the OIDC discovery and token exchange are compatible. |
-| MFA notifications for protected non-browser resources | Not available. | This is a separate post-connection notification and authentication protocol. |
+| MFA notifications for protected non-browser resources | Session-bound UDP notifications with trusted-origin and tunnel-ingress checks, followed by browser sign-in. | Synthetic protocol and native-window checks; no matching live firewall. See the restrictions below. |
 | Authentication cookie persistence | Opt-in user Keychain storage, with portal policy checks and origin-bound reuse through OpenProtect. | Startup and helper refresh checked live. Cookie persistence and reuse remain unverified against a live provider. |
 | Pre-logon and Windows Connect Before Logon | Outside this macOS on-demand client scope. | These are connection modes, not additional password form variants. |
 
@@ -48,6 +48,7 @@ Inspect the pinned source, not only upstream feature lists, before replacing a w
 | Portal configuration | One OpenProtect HTTP request path shared by CLI and app mode. | App mode also recognizes challenges and rejects replies without usable gateways. |
 | MFA | OpenProtect challenge representation and gateway request code. | Native prompts, portal challenge handling, bounded retries, and session ownership. |
 | Gateway selection | OpenProtect's existing selection function. | Origin validation before using returned gateways. |
+| Resource MFA | Existing portal XML tree, authenticated tunnel, and native browser APIs. | Bounded notification parsing, source checks, session expiry, and isolated browser presentation. |
 | HIP and tunnel | OpenProtect reporting and OpenConnect's HIP submission and tunnel APIs. | Observed macOS facts, private HIP inputs, and network recovery. |
 
 The password provider in the pinned OpenProtect source combines credential construction with optional terminal prompts.
@@ -91,6 +92,65 @@ MFA replaces the password value and retains the challenge state.
 It does not append another conflicting password field.
 The implementation follows the established OpenConnect exchange.
 [OpenConnect authentication source](https://gitlab.com/openconnect/openconnect/-/blob/master/auth-globalprotect.c)
+
+### Protected-resource MFA
+
+Resource MFA runs after tunnel setup. It does not reuse portal or gateway password challenges.
+The firewall supplies an authentication page. Users finish its web forms, then retry the protected resource.
+Opening or closing that page does not prove that authentication succeeded.
+[Vendor configuration guide](https://docs.paloaltonetworks.com/globalprotect/administration/globalprotect-user-authentication/configure-globalprotect-to-facilitate-multi-factor-authentication-notifications)
+
+The authenticated portal must enable `mfa-enabled` and supply `mfa-trusted-host-list` members in its `agent-config`.
+The listener uses `mfa-listening-port`, defaulting to 4501. Invalid, duplicate, missing, or excessive trust settings disable it.
+Only the current verified tunnel's IPv4 address and interface can receive notifications.
+The receiver checks kernel-supplied ingress metadata and the sender against addresses resolved from the matching trusted hostname.
+Resolution happens once per tunnel attempt. Hostname or address changes require reconnecting.
+A separate sending interface that does not resolve from the redirect hostname is unsupported.
+IPv6 notifications and internal gateways without tunnels are unsupported.
+
+The tunnel authenticates the VPN gateway. UDP notifications themselves contain no verified signature or session identifier.
+These checks rely on the gateway preventing spoofed source addresses inside its network.
+They do not prove the identity of an individual firewall behind the gateway or prevent every replay inside a new tunnel.
+GPBar never treats a notification as proof of authentication or resource authorization.
+
+Notifications must contain one bounded type-3 URL using HTTPS and an exact trusted host and port.
+Supported paths are `/php/uid.php` and `/php/browser_challenge.php`, with numeric `vsys` and `rule` parameters.
+HTTP, user information, fragments, duplicate parameters, alternate paths, and extra query parameters are rejected.
+These restrictions cover the observed vendor examples. Other page formats need protocol evidence before support is added.
+[Vendor packet example](https://knowledgebase.paloaltonetworks.com/KCSArticleDetail?id=kA1Ki000000fyHiKAI&lang=en_US),
+[Vendor URL example](https://knowledgebase.paloaltonetworks.com/KCSArticleDetail?id=kA14u000000wljdCAA&lang=en_US)
+
+A prompt displays the portal's plain-text message and the destination hostname before opening a browser.
+It needs an explicit Open sign-in action. The saved browser choice remains in use.
+In-app sign-in has a fresh, nonpersistent WebKit data store and normal TLS validation.
+HTTP authentication, client-certificate requests, custom URL schemes, and VPN callback handling are unavailable in this resource window.
+GPBar does not supply VPN passwords, authentication cookies, or selected certificate keys to the resource page.
+External browsers retain their own cookies and certificate behavior. Their tabs must be closed manually.
+
+Prompts expire after two minutes. Disconnect, session replacement, and lost helper contact close owned resource windows.
+Dismissal leaves the VPN connected. At most one prompt appears during each two-minute interval.
+Longer portal suppression settings, up to three minutes, are honored.
+Pending prompts are not replayed after UI reconnection. A later firewall notification can create another prompt.
+Listener failures leave the VPN connected and display a notification-unavailable message in the panel.
+
+#### Protocol evidence and validation
+
+The pinned OpenProtect snapshot and OpenConnect 9.21 have no resource-notification listener or acknowledgement implementation.
+Their existing MFA code handles login-time challenges only. Custom integration is required for this separate UDP exchange.
+
+Protocol inspection used the signed, notarized GlobalProtect 6.3.3-h8 macOS package from a public university distribution endpoint.
+The package was extracted for inspection, never installed or executed.
+Its receive path reads TLVs with a one-byte type and a two-byte big-endian value length.
+Type 3 carries the authentication URL. Unknown TLVs are skipped; GPBar additionally validates all framing and rejects duplicate URLs.
+The inspected receive path forwards the accepted notification to its UI, without sending a UDP reply.
+GPBar likewise adds no invented network acknowledgement or authentication-success callback.
+Package SHA-256: `648b07892553bf7b5733d5f3ba56398ace25cf73944335578678f2a42df6dc1f`.
+The package and extracted code are not distributed with GPBar.
+[Inspected package endpoint](https://vpn.upenn.edu/global-protect/getmsi.esp?platform=mac&version=none)
+
+The owner explicitly requested automated tests for issue #21 despite the repository's normal live-only policy.
+Run [the resource MFA suite](Tests/ResourceMFA/README.md) for synthetic protocol, socket, session, and native browser checks.
+These checks do not establish compatibility with a real MFA firewall, provider, hardware token, or IPv6 deployment.
 
 ### Saved sign-in
 
