@@ -22,6 +22,7 @@ import CryptoTokenKit
     private var kerberos: KerberosSession?
     private var kerberosTask: Task<Void, Never>?
     private var kerberosRequestID: String?
+    private var cancelledKerberosSessionID: String?
     private(set) var loginSSO: LoginSSOState?
     private(set) var configuringLoginSSO = false
     private(set) var loginSSOMessage: String?
@@ -285,6 +286,7 @@ import CryptoTokenKit
 
     func disconnect() {
         guard sessionID != nil, phase != .disconnecting else { return }
+        cancelledKerberosSessionID = sessionID
         phase = .disconnecting
         resourceAuthentication.finish()
         resourceAuthenticationMessage = nil
@@ -358,7 +360,8 @@ import CryptoTokenKit
     }
 
     private func negotiateKerberos(_ event: EngineEvent, session: String) {
-        guard let request = KerberosRequest(event: event), phase != .disconnecting,
+        guard helperVerified, cancelledKerberosSessionID != session,
+              let request = KerberosRequest(event: event), phase != .disconnecting,
               [.automatic, .kerberos].contains(preferences.authenticationMethod) else { disconnect(); return }
         if kerberosRequestID == request.requestID { return }
         kerberosTask?.cancel()
@@ -371,8 +374,9 @@ import CryptoTokenKit
             do { reply = try await kerberos.step(request) }
             catch KerberosSession.Failure.unavailable {}
             catch { failed = true }
-            guard !Task.isCancelled, sessionID == session, kerberosRequestID == request.requestID,
-                  phase != .disconnecting else { return }
+            guard !Task.isCancelled, sessionID == session, cancelledKerberosSessionID != session,
+                  kerberosRequestID == request.requestID, phase != .disconnecting else { return }
+            guard helperVerified else { disconnect(); return }
             kerberosRequestID = nil
             kerberosTask = nil
             send(EngineCommand(type: .submitKerberos, requestID: request.requestID,
@@ -647,7 +651,8 @@ import CryptoTokenKit
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
                 guard self.helperVerified else {
                     self.engineAvailable = false
-                    if self.sessionID != nil { self.phase = .unknown }
+                    if self.kerberosRequestID != nil { self.disconnect() }
+                    else if self.sessionID != nil { self.phase = .unknown }
                     self.helperMessage = "The helper could not confirm access for this user."
                     return
                 }
@@ -655,7 +660,7 @@ import CryptoTokenKit
                       reply.pendingKerberosPolicies.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }),
                       reply.pendingAuthenticationUpdates.count <= 128,
                       reply.pendingAuthenticationUpdates.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }) else {
-                    self.finishKerberos()
+                    if self.kerberosRequestID != nil { self.disconnect() }
                     self.helperVerified = false
                     self.engineAvailable = false
                     self.helperMessage = "The helper returned an invalid saved sign-in state."
@@ -705,6 +710,7 @@ import CryptoTokenKit
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
             case .failure:
+                if self.kerberosRequestID != nil { self.disconnect() }
                 self.helperVerified = false
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
             }
