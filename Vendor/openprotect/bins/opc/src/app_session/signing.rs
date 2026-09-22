@@ -115,3 +115,7 @@ async fn worker(
         let _ = reply.send(result);
     }
 }
+
+#[cfg(test)]
+#[path = "signing_tests.rs"]
+mod tests;

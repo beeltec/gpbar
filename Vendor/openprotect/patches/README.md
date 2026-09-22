@@ -74,3 +74,11 @@ Only the portal password path can set it; gateways and non-password labels canno
 The macOS helper reuses the existing credential command after checking login-session ownership and explicit portal consent.
 The engine receives no new credential source or wire protocol.
 The owner requested a server-free suite; see [the suite](../../../Tests/LoginSSO/README.md).
+
+## Shared authentication validation, issue #14
+
+The owner requested tests for authentication methods without matching live servers.
+The new test modules exercise existing cookie policy, retention, signing, credential prompts, and HTTPS requests.
+The certificate fixture delegates real TLS signatures to GPBar's native Keychain adapter.
+Production authentication behavior and dependency versions are unchanged.
+See [the suite](../../../Tests/Authentication/README.md) for cleanup and validation limits.
