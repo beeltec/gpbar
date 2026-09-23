@@ -79,6 +79,16 @@ Launching GPBar again registers the helper again.
 
 See the [authentication matrix](AUTHENTICATION.md) for method-specific support and validation limits.
 
+### Interrupted connections
+
+With **Reconnect an interrupted session** enabled, GPBar retries tunnel failures with bounded backoff.
+After a verified connection lasts at least one minute, the next interruption receives a fresh recovery budget.
+Scheduled tunnel renewals therefore do not consume a lifetime retry limit.
+Repeated short failures still stop after nine retries. Rejected sessions allow up to two automatic sign-in attempts per recovery period.
+An explicit gateway termination stops recovery and asks you to select **Connect**.
+Tunnel errors distinguish session rejection, gateway termination, and interruptions with a numeric failure code.
+Long-running renewal, sleep/wake, and gateway expiry still need live validation.
+
 ## Build from source
 
 Development requires an Apple Silicon Mac, Xcode, Homebrew, Rust through rustup, and an Apple code-signing identity.

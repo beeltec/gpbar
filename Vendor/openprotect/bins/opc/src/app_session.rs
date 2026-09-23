@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Context, Result};
 use gp_auth::{
@@ -1181,6 +1181,7 @@ async fn run_session(
             state: gp_ipc::SessionState::Connecting,
         }));
         let cookie = super::build_openconnect_cookie(&authentication.cookie);
+        let mut connected_at = None;
         let outcome = {
             let task = super::run_tunnel_attempt(super::TunnelAttemptArgs {
                 gateway_host: &authentication.gateway,
@@ -1258,6 +1259,7 @@ async fn run_session(
                                 bail!("network setup could not be verified");
                             }
                             if *stop.borrow() { break (&mut task).await; }
+                            connected_at = Some(Instant::now());
                             let mut out = output.lock().await;
                             out.snapshot.interface = state.tun_ifname.clone();
                             out.snapshot.ipv4 = state.local_ipv4.clone();
@@ -1292,28 +1294,42 @@ async fn run_session(
         if *stop.borrow() {
             return Ok(());
         }
-        if let super::AttemptOutcome::Err(ref error) = outcome {
-            let (code, message) = tunnel_failure(error);
+        // Renewals must not exhaust recovery across a healthy, long-lived session.
+        if connected_at.is_some_and(|time| time.elapsed() >= Duration::from_secs(60)) {
+            attempt = 0;
+            reauth_count = 0;
+        }
+        let retryable = match &outcome {
+            super::AttemptOutcome::Err(_) => reconnect && attempt < 9,
+            super::AttemptOutcome::AuthExpired(_) => reconnect && reauth_count < 2,
+            _ => false,
+        };
+        if let super::AttemptOutcome::Err(ref error)
+        | super::AttemptOutcome::AuthExpired(ref error)
+        | super::AttemptOutcome::TerminalErr(ref error) = outcome
+        {
+            let (code, message) = tunnel_failure(error, retryable);
             output
                 .lock()
                 .await
                 .send(Event::Failure {
                     code: &code,
                     message: &message,
-                    retryable: reconnect && attempt < 9,
+                    retryable,
                 })
                 .await?;
         }
         match outcome {
             super::AttemptOutcome::Ok | super::AttemptOutcome::UserCancel => return Ok(()),
-            super::AttemptOutcome::AuthExpired(_) if reconnect && reauth_count < 2 => {
+            super::AttemptOutcome::AuthExpired(_) if retryable => {
                 reauth_count += 1;
+                output.lock().await.failure_reported = false;
                 authentication = tokio::select! {
                     result = authenticate(portal, output, answers, options) => result?,
                     _ = stop.wait_for(|v| *v) => return Ok(()),
                 };
             }
-            super::AttemptOutcome::Err(_) if reconnect && attempt < 9 => {
+            super::AttemptOutcome::Err(_) if retryable => {
                 attempt += 1;
                 output.lock().await.phase("reconnecting", attempt).await?;
                 tokio::select! {
@@ -1326,15 +1342,47 @@ async fn run_session(
     }
 }
 
-fn tunnel_failure(error: &anyhow::Error) -> (String, String) {
+fn tunnel_failure(error: &anyhow::Error, retryable: bool) -> (String, String) {
     for cause in error.chain() {
-        if let Some(gp_tunnel::TunnelError::Ffi { operation, code }) =
-            cause.downcast_ref::<gp_tunnel::TunnelError>()
-        {
-            return (
-                format!("tunnel_{operation}_{code}"),
-                format!("VPN setup failed at {operation} (code {code})."),
-            );
+        let Some(error) = cause.downcast_ref::<gp_tunnel::TunnelError>() else {
+            continue;
+        };
+        match error {
+            gp_tunnel::TunnelError::MainloopAuthExpired => {
+                return (
+                    "tunnel_authentication_expired".into(),
+                    if retryable {
+                        "The gateway rejected the VPN session. Signing in again."
+                    } else {
+                        "The gateway rejected the VPN session. Select Connect to sign in again."
+                    }
+                    .into(),
+                )
+            }
+            gp_tunnel::TunnelError::MainloopTerminated => {
+                return (
+                    "tunnel_gateway_terminated".into(),
+                    "The gateway ended the VPN session. Select Connect to start a new session."
+                        .into(),
+                )
+            }
+            gp_tunnel::TunnelError::MainloopOther(code) => {
+                return (
+                    format!("tunnel_interrupted_{code}"),
+                    if retryable {
+                        format!("VPN connection interrupted (code {code}). Reconnecting.")
+                    } else {
+                        format!("VPN connection interrupted (code {code}). Automatic recovery is unavailable. Check your network and select Connect.")
+                    },
+                )
+            }
+            gp_tunnel::TunnelError::Ffi { operation, code } => {
+                return (
+                    format!("tunnel_{operation}_{code}"),
+                    format!("VPN setup failed at {operation} (code {code})."),
+                )
+            }
+            _ => {}
         }
     }
     let stage = error

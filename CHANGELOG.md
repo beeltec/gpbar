@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Reset tunnel recovery limits after a verified connection lasts one minute, so scheduled renewals cannot exhaust a lifetime retry budget.
+- Show specific tunnel interruption codes, session rejection, and gateway termination instead of a generic setup error.
+- Allow authentication failures during recovery to replace an earlier tunnel error.
+
 ## [0.2.1] - 2026-09-23
 
 ### Fixed
