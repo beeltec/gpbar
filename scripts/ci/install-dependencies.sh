@@ -9,18 +9,5 @@ if [ "$(xcodegen --version)" != 'Version: 2.46.0' ]; then
     echo 'The release job requires XcodeGen 2.46.0. Review the toolchain before changing this pin.' >&2
     exit 1
 fi
-python3 - <<'PY'
-import json
-from pathlib import Path
-import subprocess
-
-expected = json.loads(Path('Packaging/runtime-inputs.json').read_text())
-installed = json.loads(subprocess.check_output(['brew', 'info', '--json=v2', '--installed'], text=True))
-for package in expected['native_packages']:
-    prefix = subprocess.check_output(['brew', '--prefix', package['full_name']], text=True).strip()
-    if Path(prefix).resolve(strict=True).name != package['pkg_version']:
-        raise SystemExit(f"Review the native dependency pin before releasing: {package['full_name']} {package['pkg_version']}")
-Path('build').mkdir(exist_ok=True)
-Path('build/homebrew.json').write_text(json.dumps(installed, indent=2) + '\n')
-PY
+python3 scripts/check-native-inputs.py
 rustup toolchain install 1.95.0 --profile minimal --target aarch64-apple-darwin

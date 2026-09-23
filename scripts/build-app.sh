@@ -11,7 +11,7 @@ scripts/build-native.sh
 scripts/build-engine.sh
 xcodegen generate
 xcodebuild -project GPBar.xcodeproj -scheme GPBar -configuration Release \
-    -derivedDataPath build/app-derived MARKETING_VERSION="${GPBAR_VERSION:-0.1.0}" \
+    -derivedDataPath build/app-derived MARKETING_VERSION="${GPBAR_VERSION:-0.2.0}" \
     CURRENT_PROJECT_VERSION="${GPBAR_BUILD:-1}" GPBAR_UPDATE_FEED_URL="${GPBAR_UPDATE_FEED_URL:-https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml}" \
     CODE_SIGN_IDENTITY="$GPBAR_SIGN_IDENTITY" DEVELOPMENT_TEAM="$GPBAR_TEAM" build
 app_work=$(mktemp -d "$project_root/build/app-work.XXXXXX")

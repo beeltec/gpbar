@@ -20,5 +20,6 @@ if not re.fullmatch(r'[1-9][0-9]*', build):
     raise SystemExit('The workflow run number must be a positive integer.')
 with Path(os.environ['GITHUB_OUTPUT']).open('a') as output:
     output.write(f'version={match["core"]}\n')
+    output.write(f'release_version={tag.removeprefix("v").split("+", 1)[0]}\n')
     output.write(f'prerelease={str(match["prerelease"] is not None).lower()}\n')
     output.write(f'build={build}\n')

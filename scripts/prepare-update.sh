@@ -8,6 +8,7 @@ project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 sparkle_bin=${GPBAR_SPARKLE_BIN:-$project_root/build/app-derived/SourcePackages/artifacts/sparkle/Sparkle/bin}
 account=com.beeltec.GPBar.updates
 previous_feed=${GPBAR_UPDATE_PREVIOUS_FEED:-$project_root/updates/appcast.xml}
+case "$GPBAR_UPDATE_DMG" in *.dmg) ;; *) echo 'Choose a .dmg release file.' >&2; exit 1;; esac
 case "$GPBAR_UPDATE_OUTPUT" in /*) ;; *) echo 'Choose an absolute output directory.' >&2; exit 1;; esac
 if [ -e "$GPBAR_UPDATE_OUTPUT" ]; then echo 'Update output already exists.' >&2; exit 1; fi
 python3 - "$GPBAR_APP" "$GPBAR_UPDATE_DOWNLOAD_URL" <<'PY'
@@ -79,7 +80,7 @@ fi
 hdiutil detach "$update_work/mount"
 trap 'rm -rf -- "$update_work"' EXIT HUP INT TERM
 rmdir "$update_work/mount"
-cp "$GPBAR_UPDATE_DMG" "$update_work/GPBar-$build_number.dmg"
+cp "$GPBAR_UPDATE_DMG" "$update_work/$(basename -- "$GPBAR_UPDATE_DMG")"
 "$sparkle_bin/generate_appcast" "$@" --maximum-deltas 0 \
     --download-url-prefix "$GPBAR_UPDATE_DOWNLOAD_URL" -o "$update_work/appcast.xml" "$update_work"
 mv "$update_work" "$GPBAR_UPDATE_OUTPUT"

@@ -68,6 +68,61 @@ The pipeline calls the same build, runtime packaging, and notarization scripts u
 It signs nested code, verifies the full bundle, submits it to Apple, staples the ticket, and checks Gatekeeper.
 A failed signing, notarization, stapling, or verification step prevents publication.
 
+## Build and validate locally
+
+Local distribution builds use the same signing, notarization, and packaging scripts as GitHub Actions.
+They do not require a pushed tag or publish a release.
+
+Import your Developer ID Application and Developer ID Installer certificate backups into your login Keychain using Keychain Access.
+Both imports must include their private keys. Keep backup files and passwords outside the repository.
+Use `security find-identity -v -p codesigning` to check the Application identity.
+Use `security find-identity -v -p basic` to check the Installer identity.
+
+Save notarization credentials once, using the existing App Store Connect team key:
+
+```sh
+xcrun notarytool store-credentials gpbar-release \
+  --key /private/path/AuthKey_KEYID.p8 \
+  --key-id KEYID --issuer ISSUER_UUID
+```
+
+The command validates the credentials with Apple and stores them in Keychain.
+Do not put certificate passwords or private keys in shell configuration files.
+Save only these non-secret values in `~/.config/gpbar/release.env`:
+
+```sh
+export GPBAR_TEAM=TEAMID
+export GPBAR_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+export GPBAR_INSTALLER_SIGN_IDENTITY='Developer ID Installer: Your Name (TEAMID)'
+export GPBAR_NOTARY_PROFILE=gpbar-release
+```
+
+Load that configuration and choose a new output directory:
+
+```sh
+. "$HOME/.config/gpbar/release.env"
+GPBAR_VERSION=0.2.0 GPBAR_BUILD=3 \
+GPBAR_RELEASE_ROOT="$PWD/build/v0.2.0-distribution" \
+scripts/build-local-release.sh
+```
+
+Use a positive build number above the last published build. CI still assigns its own build number when publishing.
+The command checks signing identities, notarization access, and the same native dependency pins enforced by CI.
+Local builds support Xcode 27. Tagged CI releases use Xcode 26.6.
+It builds and signs the app, then notarizes and verifies the app, DMG, and PKG.
+Keychain may request permission for signing tools to use the imported keys.
+Existing output directories are refused. Failed output remains available for inspection; choose a new directory before retrying.
+
+The output contains `GPBar.app`, `packages/GPBar-<version>.dmg`, and `packages/GPBar-<version>.pkg`.
+The `notarized.zip` file is an internal app archive, not a release download.
+No tag, GitHub release, or Sparkle feed is created.
+
+Before running another build, disconnect and remove the current helper, then quit GPBar.
+Disable macOS login SSO for every enrolled user first, if enabled.
+Install the notarized app and verify helper startup, browser sign-in, connection, and disconnect on a controlled Mac.
+Check saved preferences, cancellation, update behavior, and route/DNS restoration.
+Record actual results separately from build and notarization checks. Unavailable providers and hardware remain validation limits.
+
 ## Publish
 
 Merge the release changes to `main`, configure the credentials, then push one release tag:
@@ -75,8 +130,8 @@ Merge the release changes to `main`, configure the credentials, then push one re
 ```sh
 git switch main
 git pull --ff-only
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The Actions page shows the `Release` workflow. Push tags individually and wait for each release to finish.
@@ -84,9 +139,18 @@ GitHub serializes release runs. Multiple queued pushes can replace an older pend
 
 A stable release contains:
 
-- `GPBar-<build>.dmg`: the signed, notarized disk image containing the stapled application and an Applications shortcut.
-- `GPBar-<build>.pkg`: the signed, notarized installer for `/Applications/GPBar.app`.
+- `GPBar-<version>.dmg`: the signed, notarized disk image containing the stapled application and an Applications shortcut.
+- `GPBar-<version>.pkg`: the signed, notarized installer for `/Applications/GPBar.app`.
 - `appcast.xml`: signed archive metadata for Sparkle, including earlier stable entries.
+
+Download names use the release version, such as `GPBar-0.2.0.pkg`, rather than the workflow build number.
+Prerelease names retain their suffix, such as `GPBar-0.2.0-rc.1.pkg`.
+Names omit the tag's leading `v` and optional `+` build metadata. The full tag remains on the GitHub release.
+This follows the [name-and-version convention](https://www.gnu.org/prep/standards/html_node/Releases.html) and avoids characters GitHub may rename during upload.
+See [GitHub asset naming](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset).
+Local packaging defaults to the app version. Set `GPBAR_RELEASE_VERSION` to include a matching prerelease suffix.
+The application and Sparkle still use increasing internal build numbers. The PKG receipt version still includes both version and build.
+The update script preserves the DMG filename when generating its download URL.
 
 The pipeline downloads the previous stable release's appcast before generating the next one.
 Archive signatures use the existing Sparkle key. The script rejects public-key mismatches and non-increasing build numbers.
@@ -114,6 +178,31 @@ Existing installations discover the replacement through its higher Sparkle build
 ## Validation limits
 
 A complete hosted notarization run requires the credentials above and a real release tag.
+
+### Local v0.2.0 candidate, 2026-09-23
+
+Version 0.2.0, build 3 was built on Apple Silicon with macOS 26.6.2 and Xcode 27.0.
+The candidate remains unpublished.
+
+- The app, DMG, and PKG passed Developer ID signing, notarization, stapling, and Gatekeeper checks.
+- The native dependency pins passed. Bundled binaries had no external build dependencies or development debugging entitlements.
+- The PKG upgraded the local installation successfully. The installed app, helper, and engine matched the signed build.
+- Helper startup, removal, and setup passed. Saved settings survived installation and relaunch.
+- Invalid portal input, authentication selection, sign-in cancellation, and the update feed check passed.
+- Embedded SAML login completed, opened a tunnel, and closed its sign-in window automatically.
+- The configured VPN DNS server answered through the tunnel. Public HTTPS worked during and after connection.
+- Disconnect stopped the engine, removed the tunnel, and restored non-neighbor-cache routes and DNS configuration.
+
+macOS regenerated numeric DNS order values after disconnect. Resolver contents and relative priority matched the original configuration.
+No internal application endpoint was supplied. New authentication providers, smart-card hardware, and real macOS login capture remain unverified.
+Clean-machine installation, macOS 26.0, sleep/wake, crash recovery, and a Sparkle installation still need live checks.
+
+### Versioned filenames, 2026-09-23
+
+The same local candidate produced `GPBar-0.2.0.dmg` and `GPBar-0.2.0.pkg` through the updated packaging script.
+Both passed signing, notarization, stapling, and Gatekeeper checks.
+Sparkle generated the versioned DMG URL with internal build 3 and preserved the previous release's build-based URL.
+The copied update DMG matched the packaged file byte for byte. These checks did not publish a GitHub release or install an update.
 
 ## Primary references
 

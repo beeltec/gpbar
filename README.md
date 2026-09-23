@@ -5,7 +5,8 @@ Enter the portal address supplied by your organization, sign in, and manage your
 No company portal is built in.
 
 **Development status:** GPBar is under active development.
-A development build established a real SAML connection, and normal disconnect restored the observed routes and DNS settings.
+A locally signed and notarized v0.2.0 build established a real SAML connection.
+Normal disconnect restored the observed routes and DNS configuration.
 Failure recovery, wider portal compatibility, and release validation remain incomplete.
 
 ## Requirements
@@ -39,6 +40,7 @@ External browser callback handling and automatic tab closure also need further v
 
 Download a DMG or PKG from [Releases](https://github.com/beeltec/gpbar/releases).
 Both contain the app and its runtime dependencies.
+See [the changelog](CHANGELOG.md) for changes and release-specific limits.
 Open the DMG and drag GPBar to Applications, or run the PKG installer.
 Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
 
@@ -101,6 +103,7 @@ The script builds patched OpenConnect and the Rust engine, generates the Xcode p
 Development signing does not produce a notarized distribution build.
 
 See [release publishing](RELEASE.md) for dependency pins, signing, and notarization.
+Use [local distribution builds](RELEASE.md#build-and-validate-locally) to test a signed, notarized app before publishing.
 Release builds enforce the exact native dependency versions in [runtime-inputs.json](Packaging/runtime-inputs.json).
 
 ## How it works
