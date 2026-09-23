@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.1] - 2026-09-23
+
+### Fixed
+
+- Bring in-app sign-in windows and provider popups to the front, and close the menu bar panel when showing or reopening sign-in.
+- Restore minimized sign-in windows and bring the latest open provider popup forward when choosing **Open sign-in window**.
+
+### Upgrade notes and limits
+
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
+
+Window focus, reopening, popup handling, and cancellation were checked live on macOS 26.6.2.
+These checks did not complete SAML authentication. The [existing authentication limits](AUTHENTICATION.md) still apply.
+
 ## [0.2.0] - 2026-09-23
 
 ### Added
@@ -44,5 +59,6 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
+[0.2.1]: https://github.com/beeltec/gpbar/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/beeltec/gpbar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beeltec/gpbar/releases/tag/v0.1.0
