@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-09-23
 
 ### Added
 
@@ -10,6 +10,11 @@
 - Protected-resource MFA notifications, with trusted-host checks and separate browser sign-in windows.
 - Shared authentication validation covering Keychain signing, saved cookies, certificate authentication, credential prompts, and method-specific checks.
 - A local distribution build command that signs, notarizes, and verifies the app, DMG, and PKG before publication.
+
+### Fixed
+
+- Dismiss the menu bar panel when opening separate windows.
+- Use release versions in DMG and PKG filenames, including prerelease suffixes.
 
 ### Security and lifecycle
 
@@ -39,5 +44,5 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
-[0.2.0]: https://github.com/beeltec/gpbar/compare/v0.1.0...release/v0.2.0
+[0.2.0]: https://github.com/beeltec/gpbar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beeltec/gpbar/releases/tag/v0.1.0
