@@ -90,14 +90,15 @@ GPBAR_RELEASE_OUTPUT="$PWD/build/packages-2" \
 scripts/package-release.sh
 
 GPBAR_APP="$PWD/build/release-2/GPBar.app" \
-GPBAR_UPDATE_DMG="$PWD/build/packages-2/GPBar-2.dmg" \
+GPBAR_UPDATE_DMG="$PWD/build/packages-2/GPBar-0.1.1.dmg" \
 GPBAR_UPDATE_OUTPUT="$PWD/build/update-2" \
 GPBAR_UPDATE_DOWNLOAD_URL='https://github.com/beeltec/gpbar/releases/download/v0.1.1/' \
 scripts/prepare-update.sh
 ```
 
 The update script validates signing, notarization, public-key agreement, HTTPS configuration, and increasing build numbers.
-It copies the verified `GPBar-2.dmg` and an updated `appcast.xml` in a new output directory.
+It copies the verified `GPBar-0.1.1.dmg` and an updated `appcast.xml` in a new output directory.
+The DMG keeps its versioned filename. Sparkle still uses the internal build number to order updates.
 It uses the pinned Sparkle tools from `build/app-derived` by default.
 `GPBAR_SPARKLE_BIN` can select another resolved copy of the same pinned tools.
 Existing feed entries are preserved by Sparkle, subject to its retention policy. Delta generation is disabled initially.

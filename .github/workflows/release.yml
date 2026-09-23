@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
+      release_version: ${{ steps.version.outputs.release_version }}
       prerelease: ${{ steps.version.outputs.prerelease }}
       build: ${{ steps.version.outputs.build }}
     steps:
@@ -44,6 +45,7 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       GPBAR_VERSION: ${{ needs.version.outputs.version }}
+      GPBAR_RELEASE_VERSION: ${{ needs.version.outputs.release_version }}
       GPBAR_BUILD: ${{ needs.version.outputs.build }}
       GPBAR_PRERELEASE: ${{ needs.version.outputs.prerelease }}
       GPBAR_TEAM: ${{ vars.APPLE_TEAM_ID }}
@@ -93,7 +95,7 @@ jobs:
       - name: Notarize and staple
         env:
           GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
-          GPBAR_RELEASE_ZIP: ${{ github.workspace }}/build/notarized/GPBar-${{ needs.version.outputs.build }}.zip
+          GPBAR_RELEASE_ZIP: ${{ github.workspace }}/build/notarized/GPBar-${{ needs.version.outputs.release_version }}.zip
         run: scripts/notarize-app.sh
       - name: Package DMG and PKG
         env:
@@ -105,7 +107,7 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           GPBAR_APP: ${{ github.workspace }}/build/release/GPBar.app
-          GPBAR_UPDATE_DMG: ${{ github.workspace }}/build/packages/GPBar-${{ needs.version.outputs.build }}.dmg
+          GPBAR_UPDATE_DMG: ${{ github.workspace }}/build/packages/GPBar-${{ needs.version.outputs.release_version }}.dmg
           GPBAR_UPDATE_OUTPUT: ${{ github.workspace }}/build/update
         run: |
           umask 077
@@ -123,11 +125,11 @@ jobs:
         run: |
           printf 'GPBar %s for Apple Silicon and macOS 26 or newer.\n\nDownload the DMG and drag GPBar to Applications, or open the PKG installer. Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.\n' "$GITHUB_REF_NAME" > build/release-notes.md
           if [ "$GPBAR_PRERELEASE" = true ]; then
-            gh release create "$GITHUB_REF_NAME" "build/packages/GPBar-$GPBAR_BUILD.dmg" "build/packages/GPBar-$GPBAR_BUILD.pkg" \
+            gh release create "$GITHUB_REF_NAME" "build/packages/GPBar-$GPBAR_RELEASE_VERSION.dmg" "build/packages/GPBar-$GPBAR_RELEASE_VERSION.pkg" \
               --verify-tag --draft --prerelease --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
             gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
           else
-            gh release create "$GITHUB_REF_NAME" "build/update/GPBar-$GPBAR_BUILD.dmg" "build/packages/GPBar-$GPBAR_BUILD.pkg" build/update/appcast.xml \
+            gh release create "$GITHUB_REF_NAME" "build/update/GPBar-$GPBAR_RELEASE_VERSION.dmg" "build/packages/GPBar-$GPBAR_RELEASE_VERSION.pkg" build/update/appcast.xml \
               --verify-tag --draft --title "GPBar $GITHUB_REF_NAME" --notes-file build/release-notes.md
             gh release edit "$GITHUB_REF_NAME" --draft=false --latest
           fi

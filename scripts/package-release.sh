@@ -16,14 +16,26 @@ spctl --assess --type execute --verbose=2 "$GPBAR_APP"
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$GPBAR_APP/Contents/Info.plist")
 build=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$GPBAR_APP/Contents/Info.plist")
 case "$build" in ''|*[!0-9]*) echo 'Invalid build number.' >&2; exit 1;; esac
+release_version=${GPBAR_RELEASE_VERSION:-$version}
+python3 - "$version" "$release_version" <<'PY'
+import re
+import sys
+
+number = r'(?:0|[1-9][0-9]*)'
+identifier = rf'(?:{number}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+if not re.fullmatch(rf'{number}\.{number}\.{number}', sys.argv[1]):
+    raise SystemExit('Use a numeric application version, such as 0.2.0.')
+if not re.fullmatch(rf'{re.escape(sys.argv[1])}(?:-{identifier}(?:\.{identifier})*)?', sys.argv[2]):
+    raise SystemExit('The release filename version must match the app version, with an optional SemVer prerelease suffix.')
+PY
 mkdir -p "$(dirname -- "$GPBAR_RELEASE_OUTPUT")"
 package_work=$(mktemp -d "$(dirname -- "$GPBAR_RELEASE_OUTPUT")/.gpbar-package.XXXXXX")
 trap 'rm -rf -- "$package_work"' EXIT HUP INT TERM
 mkdir "$package_work/image" "$package_work/output"
 ditto "$GPBAR_APP" "$package_work/image/GPBar.app"
 ln -s /Applications "$package_work/image/Applications"
-dmg="$package_work/output/GPBar-$build.dmg"
-pkg="$package_work/output/GPBar-$build.pkg"
+dmg="$package_work/output/GPBar-$release_version.dmg"
+pkg="$package_work/output/GPBar-$release_version.pkg"
 hdiutil create -volname GPBar -srcfolder "$package_work/image" -fs APFS -format ULFO "$dmg"
 codesign --sign "$GPBAR_SIGN_IDENTITY" --timestamp "$dmg"
 rm "$package_work/image/Applications"

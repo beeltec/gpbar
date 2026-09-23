@@ -113,7 +113,7 @@ It builds and signs the app, then notarizes and verifies the app, DMG, and PKG.
 Keychain may request permission for signing tools to use the imported keys.
 Existing output directories are refused. Failed output remains available for inspection; choose a new directory before retrying.
 
-The output contains `GPBar.app`, `packages/GPBar-<build>.dmg`, and `packages/GPBar-<build>.pkg`.
+The output contains `GPBar.app`, `packages/GPBar-<version>.dmg`, and `packages/GPBar-<version>.pkg`.
 The `notarized.zip` file is an internal app archive, not a release download.
 No tag, GitHub release, or Sparkle feed is created.
 
@@ -139,9 +139,18 @@ GitHub serializes release runs. Multiple queued pushes can replace an older pend
 
 A stable release contains:
 
-- `GPBar-<build>.dmg`: the signed, notarized disk image containing the stapled application and an Applications shortcut.
-- `GPBar-<build>.pkg`: the signed, notarized installer for `/Applications/GPBar.app`.
+- `GPBar-<version>.dmg`: the signed, notarized disk image containing the stapled application and an Applications shortcut.
+- `GPBar-<version>.pkg`: the signed, notarized installer for `/Applications/GPBar.app`.
 - `appcast.xml`: signed archive metadata for Sparkle, including earlier stable entries.
+
+Download names use the release version, such as `GPBar-0.2.0.pkg`, rather than the workflow build number.
+Prerelease names retain their suffix, such as `GPBar-0.2.0-rc.1.pkg`.
+Names omit the tag's leading `v` and optional `+` build metadata. The full tag remains on the GitHub release.
+This follows the [name-and-version convention](https://www.gnu.org/prep/standards/html_node/Releases.html) and avoids characters GitHub may rename during upload.
+See [GitHub asset naming](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset).
+Local packaging defaults to the app version. Set `GPBAR_RELEASE_VERSION` to include a matching prerelease suffix.
+The application and Sparkle still use increasing internal build numbers. The PKG receipt version still includes both version and build.
+The update script preserves the DMG filename when generating its download URL.
 
 The pipeline downloads the previous stable release's appcast before generating the next one.
 Archive signatures use the existing Sparkle key. The script rejects public-key mismatches and non-increasing build numbers.
@@ -187,6 +196,13 @@ The candidate remains unpublished.
 macOS regenerated numeric DNS order values after disconnect. Resolver contents and relative priority matched the original configuration.
 No internal application endpoint was supplied. New authentication providers, smart-card hardware, and real macOS login capture remain unverified.
 Clean-machine installation, macOS 26.0, sleep/wake, crash recovery, and a Sparkle installation still need live checks.
+
+### Versioned filenames, 2026-09-23
+
+The same local candidate produced `GPBar-0.2.0.dmg` and `GPBar-0.2.0.pkg` through the updated packaging script.
+Both passed signing, notarization, stapling, and Gatekeeper checks.
+Sparkle generated the versioned DMG URL with internal build 3 and preserved the previous release's build-based URL.
+The copied update DMG matched the packaged file byte for byte. These checks did not publish a GitHub release or install an update.
 
 ## Primary references
 
