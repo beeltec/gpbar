@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConnectionPanel: View {
     @Bindable var model: ConnectionModel
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.openWindow) private var openWindow
 
     private var status: String {
@@ -83,10 +84,10 @@ struct ConnectionPanel: View {
                 }
                 Divider()
                 HStack {
-                    Button("About GPBar…") { openWindow(id: "about"); NSApp.activate() }
+                    Button("About GPBar…") { showWindow("about") }
                     Spacer()
                     #if DEBUG
-                    Button("Diagnostics…") { openWindow(id: "diagnostics"); NSApp.activate() }
+                    Button("Diagnostics…") { showWindow("diagnostics") }
                     #endif
                     Button("Quit") { NSApp.terminate(nil) }
                 }
@@ -122,5 +123,11 @@ struct ConnectionPanel: View {
         }
     }
 
-    private func settings() { openWindow(id: "connection"); NSApp.activate() }
+    private func settings() { showWindow("connection") }
+
+    private func showWindow(_ id: String) {
+        dismiss()
+        openWindow(id: id)
+        NSApp.activate()
+    }
 }

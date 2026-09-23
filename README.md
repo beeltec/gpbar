@@ -53,6 +53,8 @@ The in-app browser is the default for browser sign-in.
 Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** in **Edit Connection**.
 That choice remains saved when you return to **Automatic**.
 
+Opening **Edit Connection** or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
+
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
 Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
 
