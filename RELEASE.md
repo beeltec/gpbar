@@ -68,6 +68,61 @@ The pipeline calls the same build, runtime packaging, and notarization scripts u
 It signs nested code, verifies the full bundle, submits it to Apple, staples the ticket, and checks Gatekeeper.
 A failed signing, notarization, stapling, or verification step prevents publication.
 
+## Build and validate locally
+
+Local distribution builds use the same signing, notarization, and packaging scripts as GitHub Actions.
+They do not require a pushed tag or publish a release.
+
+Import your Developer ID Application and Developer ID Installer certificate backups into your login Keychain using Keychain Access.
+Both imports must include their private keys. Keep backup files and passwords outside the repository.
+Use `security find-identity -v -p codesigning` to check the Application identity.
+Use `security find-identity -v -p basic` to check the Installer identity.
+
+Save notarization credentials once, using the existing App Store Connect team key:
+
+```sh
+xcrun notarytool store-credentials gpbar-release \
+  --key /private/path/AuthKey_KEYID.p8 \
+  --key-id KEYID --issuer ISSUER_UUID
+```
+
+The command validates the credentials with Apple and stores them in Keychain.
+Do not put certificate passwords or private keys in shell configuration files.
+Save only these non-secret values in `~/.config/gpbar/release.env`:
+
+```sh
+export GPBAR_TEAM=TEAMID
+export GPBAR_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+export GPBAR_INSTALLER_SIGN_IDENTITY='Developer ID Installer: Your Name (TEAMID)'
+export GPBAR_NOTARY_PROFILE=gpbar-release
+```
+
+Load that configuration and choose a new output directory:
+
+```sh
+. "$HOME/.config/gpbar/release.env"
+GPBAR_VERSION=0.2.0 GPBAR_BUILD=3 \
+GPBAR_RELEASE_ROOT="$PWD/build/v0.2.0-distribution" \
+scripts/build-local-release.sh
+```
+
+Use a positive build number above the last published build. CI still assigns its own build number when publishing.
+The command checks signing identities, notarization access, and the same native dependency pins enforced by CI.
+Local builds support Xcode 27. Tagged CI releases use Xcode 26.6.
+It builds and signs the app, then notarizes and verifies the app, DMG, and PKG.
+Keychain may request permission for signing tools to use the imported keys.
+Existing output directories are refused. Failed output remains available for inspection; choose a new directory before retrying.
+
+The output contains `GPBar.app`, `packages/GPBar-<build>.dmg`, and `packages/GPBar-<build>.pkg`.
+The `notarized.zip` file is an internal app archive, not a release download.
+No tag, GitHub release, or Sparkle feed is created.
+
+Before running another build, disconnect and remove the current helper, then quit GPBar.
+Disable macOS login SSO for every enrolled user first, if enabled.
+Install the notarized app and verify helper startup, browser sign-in, connection, and disconnect on a controlled Mac.
+Check saved preferences, cancellation, update behavior, and route/DNS restoration.
+Record actual results separately from build and notarization checks. Unavailable providers and hardware remain validation limits.
+
 ## Publish
 
 Merge the release changes to `main`, configure the credentials, then push one release tag:
@@ -75,8 +130,8 @@ Merge the release changes to `main`, configure the credentials, then push one re
 ```sh
 git switch main
 git pull --ff-only
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The Actions page shows the `Release` workflow. Push tags individually and wait for each release to finish.

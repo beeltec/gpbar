@@ -62,6 +62,9 @@ Never commit or print the private key. Do not generate a replacement key for eac
 
 ## Prepare a release
 
+For a complete local app, DMG, and PKG build, follow [local distribution builds](RELEASE.md#build-and-validate-locally).
+The steps below also prepare a Sparkle feed when publication is intended.
+
 Use the existing native build and notarization prerequisites.
 Choose the distribution signing team before shipping; this repository does not prescribe a team.
 Increase `GPBAR_BUILD` for every release. Use a positive integer greater than all published build numbers.
