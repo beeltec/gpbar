@@ -97,7 +97,11 @@ struct ConnectionPanel: View {
         }
         .frame(width: 360).frame(maxHeight: 560)
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear { model.refresh() }
+        .onAppear {
+            model.authentication.onPresentWindow = { [dismiss] in dismiss() }
+            model.refresh()
+        }
+        .onDisappear { model.authentication.onPresentWindow = nil }
     }
 
     @ViewBuilder private var primaryAction: some View {

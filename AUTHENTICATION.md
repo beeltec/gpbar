@@ -145,6 +145,8 @@ See [installation, removal, recovery, library evidence, and validation limits](L
 ### Native application flow
 
 Connect starts portal prelogin and shows the method requested by the server.
+Showing or reopening a sign-in window closes the menu bar panel and gives the sign-in window focus.
+In-app browser popups receive focus too. **Open sign-in window** brings the latest open popup forward when one exists.
 The native credential form displays the target hostname and server-provided field labels.
 Credentials remain in session memory and travel through authenticated XPC and private inherited pipes.
 Passwords are cleared from the UI after submission, cancellation, or challenge replacement.
