@@ -170,6 +170,24 @@ Existing installations discover the replacement through its higher Sparkle build
 
 A complete hosted notarization run requires the credentials above and a real release tag.
 
+### Local v0.2.0 candidate, 2026-09-23
+
+Version 0.2.0, build 3 was built on Apple Silicon with macOS 26.6.2 and Xcode 27.0.
+The candidate remains unpublished.
+
+- The app, DMG, and PKG passed Developer ID signing, notarization, stapling, and Gatekeeper checks.
+- The native dependency pins passed. Bundled binaries had no external build dependencies or development debugging entitlements.
+- The PKG upgraded the local installation successfully. The installed app, helper, and engine matched the signed build.
+- Helper startup, removal, and setup passed. Saved settings survived installation and relaunch.
+- Invalid portal input, authentication selection, sign-in cancellation, and the update feed check passed.
+- Embedded SAML login completed, opened a tunnel, and closed its sign-in window automatically.
+- The configured VPN DNS server answered through the tunnel. Public HTTPS worked during and after connection.
+- Disconnect stopped the engine, removed the tunnel, and restored non-neighbor-cache routes and DNS configuration.
+
+macOS regenerated numeric DNS order values after disconnect. Resolver contents and relative priority matched the original configuration.
+No internal application endpoint was supplied. New authentication providers, smart-card hardware, and real macOS login capture remain unverified.
+Clean-machine installation, macOS 26.0, sleep/wake, crash recovery, and a Sparkle installation still need live checks.
+
 ## Primary references
 
 - [GitHub certificate installation](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)

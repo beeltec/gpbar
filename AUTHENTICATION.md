@@ -398,8 +398,10 @@ Existing certificate configurations migrate to Client certificate. Other configu
 ## Validation limits
 
 Live checks on macOS 26.6.2 covered authentication selection, saved preferences, certificate selection controls, SAML startup, and cancellation.
-A development build completed embedded SAML login and established a tunnel.
-Later authentication changes have not all repeated the full connection flow.
+A locally signed and notarized v0.2.0 build completed embedded SAML login and established a tunnel on macOS 26.6.2.
+The VPN DNS server answered through that tunnel, and public HTTPS remained reachable.
+Normal disconnect stopped the engine and restored the observed routes and DNS configuration.
+No internal application endpoint was supplied for this check.
 
 Successful password login, client-certificate login, smart-card hardware, and separate gateway authentication remain unverified against a live provider.
 Saved-cookie persistence, reuse, expiry, and policy changes also need live validation.

@@ -5,7 +5,8 @@ Enter the portal address supplied by your organization, sign in, and manage your
 No company portal is built in.
 
 **Development status:** GPBar is under active development.
-A development build established a real SAML connection, and normal disconnect restored the observed routes and DNS settings.
+A locally signed and notarized v0.2.0 build established a real SAML connection.
+Normal disconnect restored the observed routes and DNS configuration.
 Failure recovery, wider portal compatibility, and release validation remain incomplete.
 
 ## Requirements
