@@ -41,6 +41,20 @@ Prefer existing OpenProtect and OpenConnect functionality before adding authenti
 This rule also applies to features already implemented in GPBar.
 Inspect the pinned source, not only upstream feature lists, before replacing a working path.
 
+OpenConnect 9.21 sends GlobalProtect logout when its main loop exits with a quit reason.
+The earlier application reconnect patch returned `-EIO`, which set that reason and could invalidate the cookie before retry.
+The `gpbar3` patch uses OpenConnect's existing `OC_CMD_DETACH` path for application reconnect handoff.
+This preserves the gateway session while the existing network script removes the old tunnel configuration.
+GPBar remains the retry owner and verifies each new tunnel. Normal cancellation retains OpenConnect's logout behavior.
+Cancellation or failure between tunnel attempts also needs logout, after the detached OpenConnect instance has been freed.
+Pinned OpenProtect has no logout method. Its bounded HTTPS client now sends the existing encoded cookie to the verified gateway logout endpoint.
+The request follows OpenConnect's `gpst_bye` fields and success response, with certificate verification and a five-second limit.
+An unconfirmed logout is reported separately from local network cleanup.
+Disconnect cancels certificate signing. Logout can remain unconfirmed if the gateway requires a fresh client-certificate handshake.
+Real gateway rejection still requires the existing authentication flow. Browser, password, and OTP timeouts report a specific sign-in timeout.
+[OpenConnect main loop](https://gitlab.com/openconnect/openconnect/-/blob/v9.21/mainloop.c),
+[GlobalProtect logout](https://gitlab.com/openconnect/openconnect/-/blob/v9.21/auth-globalprotect.c)
+
 | Existing feature | Reused implementation | GPBar-specific code that remains |
 | --- | --- | --- |
 | Password login | OpenProtect credential serialization, prelogin parser, and HTTP client. | Native credential entry and private IPC replace terminal prompts. |

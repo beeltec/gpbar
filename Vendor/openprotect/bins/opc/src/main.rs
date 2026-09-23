@@ -3259,13 +3259,11 @@ async fn run_tunnel_attempt<'a>(args: TunnelAttemptArgs<'a>) -> AttemptOutcome {
         }
         sig = shutdown_signal() => {
             tracing::info!("{sig} received before cancel handle arrived, draining tunnel thread");
-            await_handle_then_cancel_and_join(recv_task, done_rx, tunnel_thread, &instance).await;
-            return AttemptOutcome::UserCancel;
+            return await_handle_then_cancel_and_join(recv_task, done_rx, tunnel_thread, &instance).await;
         }
         _ = dr_setup.wait_for(|v| *v) => {
             tracing::info!("disconnect received before cancel handle arrived, draining tunnel thread");
-            await_handle_then_cancel_and_join(recv_task, done_rx, tunnel_thread, &instance).await;
-            return AttemptOutcome::UserCancel;
+            return await_handle_then_cancel_and_join(recv_task, done_rx, tunnel_thread, &instance).await;
         }
     };
 
@@ -3294,6 +3292,12 @@ async fn run_tunnel_attempt<'a>(args: TunnelAttemptArgs<'a>) -> AttemptOutcome {
                     tracing::warn!("cancel failed: {e}");
                 }
                 match drain_done_with_timeout(&mut done_rx, TUNNEL_CANCEL_WEDGE_TIMEOUT).await {
+                    DrainOutcome::Detached => {
+                        let _ = tunnel_thread.join();
+                        return AttemptOutcome::Err(
+                            gp_tunnel::TunnelError::MainloopOther(-libc::ECONNABORTED).into(),
+                        );
+                    }
                     DrainOutcome::Resolved => {
                         let _ = tunnel_thread.join();
                     }
@@ -3307,6 +3311,12 @@ async fn run_tunnel_attempt<'a>(args: TunnelAttemptArgs<'a>) -> AttemptOutcome {
                     tracing::warn!("cancel failed: {e}");
                 }
                 match drain_done_with_timeout(&mut done_rx, TUNNEL_CANCEL_WEDGE_TIMEOUT).await {
+                    DrainOutcome::Detached => {
+                        let _ = tunnel_thread.join();
+                        return AttemptOutcome::Err(
+                            gp_tunnel::TunnelError::MainloopOther(-libc::ECONNABORTED).into(),
+                        );
+                    }
                     DrainOutcome::Resolved => {
                         let _ = tunnel_thread.join();
                     }
@@ -3402,6 +3412,12 @@ async fn run_tunnel_attempt<'a>(args: TunnelAttemptArgs<'a>) -> AttemptOutcome {
                 tracing::warn!("cancel failed: {e}");
             }
             match drain_done_with_timeout(&mut done_rx, TUNNEL_CANCEL_WEDGE_TIMEOUT).await {
+                DrainOutcome::Detached => {
+                    let _ = tunnel_thread.join();
+                    return AttemptOutcome::Err(
+                        gp_tunnel::TunnelError::MainloopOther(-libc::ECONNABORTED).into(),
+                    );
+                }
                 DrainOutcome::Resolved => {
                     let _ = tunnel_thread.join();
                 }
@@ -3415,6 +3431,12 @@ async fn run_tunnel_attempt<'a>(args: TunnelAttemptArgs<'a>) -> AttemptOutcome {
                 tracing::warn!("cancel failed: {e}");
             }
             match drain_done_with_timeout(&mut done_rx, TUNNEL_CANCEL_WEDGE_TIMEOUT).await {
+                DrainOutcome::Detached => {
+                    let _ = tunnel_thread.join();
+                    return AttemptOutcome::Err(
+                        gp_tunnel::TunnelError::MainloopOther(-libc::ECONNABORTED).into(),
+                    );
+                }
                 DrainOutcome::Resolved => {
                     let _ = tunnel_thread.join();
                 }
@@ -3529,6 +3551,8 @@ enum DrainOutcome {
     /// The thread reported a result (clean or error) or its sender was
     /// dropped — either way it's done and safe to `join()`.
     Resolved,
+    // The tunnel detached without logging out. The caller still owns the session.
+    Detached,
     /// The thread never acknowledged the cancel within the timeout: it
     /// is wedged in an uninterruptible kernel-mode wait and `join()`
     /// would block forever.
@@ -3537,7 +3561,7 @@ enum DrainOutcome {
 
 /// Await the tunnel thread's `done` signal, giving up after `timeout`.
 ///
-/// A `Resolved` outcome means the thread is exiting and the caller can
+/// A `Resolved` or `Detached` outcome means the thread is exiting. The caller can
 /// `join()` it without risk of blocking. `Wedged` means the cancel was
 /// never serviced (the Wintun/PnP kernel hang); the caller must NOT
 /// `join()` — it should clean up what it can and force-exit instead.
@@ -3546,9 +3570,10 @@ async fn drain_done_with_timeout(
     timeout: Duration,
 ) -> DrainOutcome {
     match tokio::time::timeout(timeout, done_rx).await {
-        // Inner value (Ok result, Err result, or RecvError from a
-        // dropped sender) doesn't matter here — any of them means the
-        // thread is no longer blocking and can be joined.
+        Ok(Ok(Err(error))) if error.chain().any(|cause| matches!(
+            cause.downcast_ref::<gp_tunnel::TunnelError>(),
+            Some(gp_tunnel::TunnelError::MainloopOther(code)) if *code == -libc::ECONNABORTED
+        )) => DrainOutcome::Detached,
         Ok(_) => DrainOutcome::Resolved,
         Err(_) => DrainOutcome::Wedged,
     }
@@ -3607,7 +3632,7 @@ async fn await_handle_then_cancel_and_join(
     mut done_rx: tokio::sync::oneshot::Receiver<Result<()>>,
     tunnel_thread: std::thread::JoinHandle<()>,
     instance: &str,
-) {
+) -> AttemptOutcome {
     if let Ok(Ok(handle)) = recv_task.await {
         if let Err(e) = handle.cancel() {
             tracing::warn!("cancel after pre-handle shutdown failed: {e}");
@@ -3618,11 +3643,18 @@ async fn await_handle_then_cancel_and_join(
     // Bounded: if the thread is wedged in a kernel-mode Wintun/PnP wait
     // the cancel never lands and `join()` would hang opc forever.
     match drain_done_with_timeout(&mut done_rx, TUNNEL_CANCEL_WEDGE_TIMEOUT).await {
+        DrainOutcome::Detached => {
+            let _ = tunnel_thread.join();
+            return AttemptOutcome::Err(
+                gp_tunnel::TunnelError::MainloopOther(-libc::ECONNABORTED).into(),
+            );
+        }
         DrainOutcome::Resolved => {
             let _ = tunnel_thread.join();
         }
         DrainOutcome::Wedged => exit_wedged(instance),
     }
+    AttemptOutcome::UserCancel
 }
 
 /// Parse a string-form auth mode (from a TOML profile's
@@ -4900,7 +4932,13 @@ fn run_tunnel(
     // runtime fallback to HTTPS are visible only through
     // libopenconnect's progress callback stream. Do NOT treat
     // rc=0 as proof the gateway is ESP-reachable.
-    let reconnect_timeout = if reconnect_enabled { 600 } else { 60 };
+    let reconnect_timeout = if reconnect_enabled {
+        600
+    } else if cfg!(target_os = "macos") && std::env::var_os("GPBAR_APP_SESSION").is_some() {
+        0
+    } else {
+        60
+    };
     tracing::info!(
         gateway = %gateway_host,
         os = %os,

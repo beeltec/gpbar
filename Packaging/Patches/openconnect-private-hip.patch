@@ -118,6 +118,22 @@
  		hip_argv[i++] = NULL;
  
  		/* XX: Sending the above parameters as --long-options was a mistake that was
+@@ -1326,6 +1386,15 @@
+ 		vpn_progress(vpninfo, PRG_ERR,
+ 			     _("GPST Dead Peer Detection detected dead peer!\n"));
+ 	do_reconnect:
++		if (getenv("GPBAR_APP_SESSION") && vpninfo->reconnect_timeout > 0) {
++			/* Detach for application recovery without invalidating the session cookie. */
++			poll_cmd_fd(vpninfo, 0);
++			if (!vpninfo->got_cancel_cmd) {
++				vpninfo->cancel_type = OC_CMD_DETACH;
++				vpninfo->got_cancel_cmd = 1;
++			}
++			return 0;
++		}
+ 		ret = ssl_reconnect(vpninfo);
+ 		if (ret) {
+ 			vpn_progress(vpninfo, PRG_ERR,
 --- a/gnutls.c
 +++ b/gnutls.c
 @@ -2597,7 +2597,7 @@
@@ -135,7 +151,7 @@
  	v="$v"-unknown
  fi
  
-+v="v9.21-gpbar2"
++v="v9.21-gpbar3"
 +
  echo "const char openconnect_version_str[] = \"$v\";" > $1
  echo "New version: $v"

@@ -18,12 +18,13 @@ GPBar uses a vendored OpenProtect snapshot with local changes.
 
 OpenConnect provides the VPN tunnel library.
 
-- Version: 9.21 with a GPBar patch
+- Version: 9.21 with GPBar patches; runtime revision `v9.21-gpbar3`
 - Source: <https://www.infradead.org/openconnect/download/>
 - License: GNU Lesser General Public License 2.1
 - Local license text: [`Packaging/Licenses/OpenConnect-LGPL-2.1.txt`](Packaging/Licenses/OpenConnect-LGPL-2.1.txt)
 
 The applied patch is stored in [`Packaging/Patches/openconnect-private-hip.patch`](Packaging/Patches/openconnect-private-hip.patch).
+It uses OpenConnect's detach path when handing tunnel recovery to GPBar, preserving the session cookie during renewal.
 
 ## vpnc-script
 

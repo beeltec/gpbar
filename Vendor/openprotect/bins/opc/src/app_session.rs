@@ -320,7 +320,7 @@ pub async fn run() -> Result<()> {
     {
         bail!("invalid certificate settings");
     }
-    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar2") {
+    if gp_tunnel::openconnect_version().as_deref() != Some("v9.21-gpbar3") {
         bail!("patched tunnel support required");
     }
     super::ensure_macos_connect_privileges()?;
@@ -464,7 +464,17 @@ pub async fn run() -> Result<()> {
     reader.abort();
     let _ = reader.await;
     let mut out = output.lock().await;
-    if result.is_err() && !out.failure_reported {
+    if result
+        .as_ref()
+        .is_err_and(|error| error.is::<SignInTimedOut>())
+    {
+        out.send(Event::Failure {
+            code: "authentication_timed_out",
+            message: "VPN sign-in timed out after five minutes. Select Connect to sign in again.",
+            retryable: true,
+        })
+        .await?;
+    } else if result.is_err() && !out.failure_reported {
         out.send(Event::Failure {
             code: "session_failed", message: "The VPN session could not finish. Check your address, sign-in, and network access.", retryable: true,
         }).await?;
@@ -536,9 +546,21 @@ fn challenge_id() -> Result<String> {
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
+#[derive(Debug)]
+struct SignInTimedOut;
+
+impl std::fmt::Display for SignInTimedOut {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("sign-in timed out")
+    }
+}
+
+impl std::error::Error for SignInTimedOut {}
+
 async fn answer(answers: &mut mpsc::Receiver<Answer>, id: &str, otp: bool) -> Result<String> {
     let response = tokio::time::timeout(Duration::from_secs(300), answers.recv())
-        .await?
+        .await
+        .map_err(|_| SignInTimedOut)?
         .context("answer channel closed")?;
     if response.challenge_id != id
         || response.otp != otp
@@ -958,7 +980,8 @@ async fn request_credential(
                 })
                 .await?;
             let response = tokio::time::timeout(Duration::from_secs(300), answers.recv())
-                .await?
+                .await
+                .map_err(|_| SignInTimedOut)?
                 .context("answer channel closed")?;
             let username = response.username.context("username required")?;
             if response.challenge_id != id
@@ -1155,190 +1178,240 @@ async fn run_session(
     let counters = super::metrics::MetricsCounters::new();
     let mut attempt = 0;
     let mut reauth_count = 0;
-    loop {
-        if *stop.borrow() {
-            return Ok(());
-        }
-        {
-            let mut out = output.lock().await;
-            out.snapshot.gateway = Some(authentication.gateway.clone());
-            out.snapshot.account = Some(authentication.cookie.username.clone());
-            out.snapshot.started_at_unix = Some(started);
-            out.snapshot.interface = None;
-            out.snapshot.ipv4 = None;
-            out.phase("connecting", attempt).await?;
-        }
-        let base = Arc::new(RwLock::new(gp_ipc::StateSnapshotBase {
-            instance: session_id.clone(),
-            portal: portal.into(),
-            gateway: authentication.gateway.clone(),
-            user: authentication.cookie.username.clone(),
-            reported_os: "mac".into(),
-            routes: Vec::new(),
-            started_at_unix: started,
-            tun_ifname: None,
-            local_ipv4: None,
-            state: gp_ipc::SessionState::Connecting,
-        }));
-        let cookie = super::build_openconnect_cookie(&authentication.cookie);
-        let mut connected_at = None;
-        let outcome = {
-            let task = super::run_tunnel_attempt(super::TunnelAttemptArgs {
-                gateway_host: &authentication.gateway,
-                cookie: &cookie,
-                os: "mac-intel",
-                script: Some(&script),
-                routes: Vec::new(),
-                reconnect_enabled: reconnect,
-                enable_esp: true,
-                base: &base,
-                disconnect_rx: stop.clone(),
-                counters: &counters,
-                attempt_num: attempt,
-                route_conflict: gp_route::RouteConflictPolicy::Fail,
-                hip_mode: super::HipMode::Auto,
-                hip_script: None,
-                split_dns_zones: Vec::new(),
-                client_cert: options
-                    .identity
-                    .as_ref()
-                    .map(|_| "gpbar-keychain:session".into()),
-                client_key: options
-                    .identity
-                    .as_ref()
-                    .map(|_| "gpbar-keychain:session".into()),
-                gateway_ip_pin: None,
+    let mut logout_pending = false;
+    let result = async {
+        loop {
+            if *stop.borrow() {
+                return Ok(());
+            }
+            {
+                let mut out = output.lock().await;
+                out.snapshot.gateway = Some(authentication.gateway.clone());
+                out.snapshot.account = Some(authentication.cookie.username.clone());
+                out.snapshot.started_at_unix = Some(started);
+                out.snapshot.interface = None;
+                out.snapshot.ipv4 = None;
+                out.phase("connecting", attempt).await?;
+            }
+            let base = Arc::new(RwLock::new(gp_ipc::StateSnapshotBase {
                 instance: session_id.clone(),
-            });
-            tokio::pin!(task);
-            let mut interval = tokio::time::interval(Duration::from_millis(250));
-            let mut resource_tasks = tokio::task::JoinSet::new();
-            let (resource_sender, mut resource_events) = mpsc::channel::<resource_mfa::Notice>(2);
-            let outcome = loop {
-                tokio::select! {
-                    biased;
-                    outcome = &mut task => break outcome,
-                    Some(notice) = resource_events.recv() => {
-                        if !*stop.borrow() {
-                            let result = output.lock().await.send(notice.event()).await;
-                            if result.is_err() {
+                portal: portal.into(),
+                gateway: authentication.gateway.clone(),
+                user: authentication.cookie.username.clone(),
+                reported_os: "mac".into(),
+                routes: Vec::new(),
+                started_at_unix: started,
+                tun_ifname: None,
+                local_ipv4: None,
+                state: gp_ipc::SessionState::Connecting,
+            }));
+            let cookie = super::build_openconnect_cookie(&authentication.cookie);
+            let mut connected_at = None;
+            let outcome = {
+                let task = super::run_tunnel_attempt(super::TunnelAttemptArgs {
+                    gateway_host: &authentication.gateway,
+                    cookie: &cookie,
+                    os: "mac-intel",
+                    script: Some(&script),
+                    routes: Vec::new(),
+                    reconnect_enabled: reconnect,
+                    enable_esp: true,
+                    base: &base,
+                    disconnect_rx: stop.clone(),
+                    counters: &counters,
+                    attempt_num: attempt,
+                    route_conflict: gp_route::RouteConflictPolicy::Fail,
+                    hip_mode: super::HipMode::Auto,
+                    hip_script: None,
+                    split_dns_zones: Vec::new(),
+                    client_cert: options
+                        .identity
+                        .as_ref()
+                        .map(|_| "gpbar-keychain:session".into()),
+                    client_key: options
+                        .identity
+                        .as_ref()
+                        .map(|_| "gpbar-keychain:session".into()),
+                    gateway_ip_pin: None,
+                    instance: session_id.clone(),
+                });
+                tokio::pin!(task);
+                let mut interval = tokio::time::interval(Duration::from_millis(250));
+                let mut resource_tasks = tokio::task::JoinSet::new();
+                let (resource_sender, mut resource_events) = mpsc::channel::<resource_mfa::Notice>(2);
+                let outcome = loop {
+                    tokio::select! {
+                        biased;
+                        outcome = &mut task => break outcome,
+                        Some(notice) = resource_events.recv() => {
+                            if !*stop.borrow() {
+                                let result = output.lock().await.send(notice.event()).await;
+                                if result.is_err() {
+                                    let _ = stop_sender.send(true);
+                                    let outcome = (&mut task).await;
+                                    logout_pending = pending_gateway_logout(&outcome, logout_pending);
+                                    resource_tasks.shutdown().await;
+                                    bail!("event stream unavailable");
+                                }
+                            }
+                        },
+                        _ = interval.tick() => {
+                            let state = match base.read() {
+                                Ok(state) => Some(state.clone()),
+                                Err(_) => None,
+                            };
+                            let Some(state) = state else {
                                 let _ = stop_sender.send(true);
-                                let _ = (&mut task).await;
+                                let outcome = (&mut task).await;
+                                logout_pending = pending_gateway_logout(&outcome, logout_pending);
                                 resource_tasks.shutdown().await;
-                                bail!("event stream unavailable");
-                            }
-                        }
-                    },
-                    _ = interval.tick() => {
-                        let state = match base.read() {
-                            Ok(state) => Some(state.clone()),
-                            Err(_) => None,
-                        };
-                        let Some(state) = state else {
-                            let _ = stop_sender.send(true);
-                            let _ = (&mut task).await;
-                            resource_tasks.shutdown().await;
-                            bail!("snapshot unavailable");
-                        };
-                        let needs_verification = state.state == gp_ipc::SessionState::Connected
-                            && output.lock().await.snapshot.phase != "connected";
-                        if needs_verification {
-                            let verification = tokio::select! {
-                                biased;
-                                outcome = &mut task => break outcome,
-                                _ = stop.wait_for(|value| *value) => None,
-                                result = network_worker("--network-verify") => Some(result),
+                                bail!("snapshot unavailable");
                             };
-                            let Some(verification) = verification else {
-                                break (&mut task).await;
-                            };
-                            if let Err(error) = verification {
-                                let _ = stop_sender.send(true);
-                                let _ = (&mut task).await;
-                                output.lock().await.send(Event::Failure { code: "network_configuration", message: &error.to_string(), retryable: false }).await?;
-                                bail!("network setup could not be verified");
-                            }
-                            if *stop.borrow() { break (&mut task).await; }
-                            connected_at = Some(Instant::now());
-                            let mut out = output.lock().await;
-                            out.snapshot.interface = state.tun_ifname.clone();
-                            out.snapshot.ipv4 = state.local_ipv4.clone();
-                            let result = async {
-                                out.failure_reported = false;
-                                out.phase("connected", attempt).await?;
-                                out.snapshot().await
-                            }.await;
-                            if result.is_err() {
+                            let needs_verification = state.state == gp_ipc::SessionState::Connected
+                                && output.lock().await.snapshot.phase != "connected";
+                            if needs_verification {
+                                let verification = tokio::select! {
+                                    biased;
+                                    outcome = &mut task => break outcome,
+                                    _ = stop.wait_for(|value| *value) => None,
+                                    result = network_worker("--network-verify") => Some(result),
+                                };
+                                let Some(verification) = verification else {
+                                    break (&mut task).await;
+                                };
+                                if let Err(error) = verification {
+                                    let _ = stop_sender.send(true);
+                                    let outcome = (&mut task).await;
+                                    logout_pending = pending_gateway_logout(&outcome, logout_pending);
+                                    output.lock().await.send(Event::Failure { code: "network_configuration", message: &error.to_string(), retryable: false }).await?;
+                                    bail!("network setup could not be verified");
+                                }
+                                if *stop.borrow() { break (&mut task).await; }
+                                logout_pending = false;
+                                connected_at = Some(Instant::now());
+                                let mut out = output.lock().await;
+                                out.snapshot.interface = state.tun_ifname.clone();
+                                out.snapshot.ipv4 = state.local_ipv4.clone();
+                                let result = async {
+                                    out.failure_reported = false;
+                                    out.phase("connected", attempt).await?;
+                                    out.snapshot().await
+                                }.await;
+                                if result.is_err() {
+                                    drop(out);
+                                    let _ = stop_sender.send(true);
+                                    let outcome = (&mut task).await;
+                                    logout_pending = pending_gateway_logout(&outcome, logout_pending);
+                                    bail!("event stream unavailable");
+                                }
                                 drop(out);
-                                let _ = stop_sender.send(true);
-                                let _ = (&mut task).await;
-                                bail!("event stream unavailable");
-                            }
-                            drop(out);
-                            if let (Some(policy), Some(interface), Some(address)) =
-                                (authentication.resource_mfa.clone(), state.tun_ifname, state.local_ipv4) {
-                                resource_tasks.spawn(resource_mfa::run(policy, interface, address, base.clone(), resource_sender.clone(), stop.clone()));
+                                if let (Some(policy), Some(interface), Some(address)) =
+                                    (authentication.resource_mfa.clone(), state.tun_ifname, state.local_ipv4) {
+                                    resource_tasks.spawn(resource_mfa::run(policy, interface, address, base.clone(), resource_sender.clone(), stop.clone()));
+                                }
                             }
                         }
                     }
-                }
+                };
+                resource_tasks.shutdown().await;
+                logout_pending = pending_gateway_logout(&outcome, logout_pending);
+                output
+                    .lock()
+                    .await
+                    .send(Event::ResourceAuthenticationCleared)
+                    .await?;
+                outcome
             };
-            resource_tasks.shutdown().await;
-            output
-                .lock()
-                .await
-                .send(Event::ResourceAuthenticationCleared)
+            if *stop.borrow() {
+                return Ok(());
+            }
+            // Renewals must not exhaust recovery across a healthy, long-lived session.
+            if connected_at.is_some_and(|time| time.elapsed() >= Duration::from_secs(60)) {
+                attempt = 0;
+                reauth_count = 0;
+            }
+            let retryable = match &outcome {
+                super::AttemptOutcome::Err(_) => reconnect && attempt < 9,
+                super::AttemptOutcome::AuthExpired(_) => reconnect && reauth_count < 2,
+                _ => false,
+            };
+            if let super::AttemptOutcome::Err(ref error)
+            | super::AttemptOutcome::AuthExpired(ref error)
+            | super::AttemptOutcome::TerminalErr(ref error) = outcome
+            {
+                let (code, message) = tunnel_failure(error, retryable);
+                output
+                    .lock()
+                    .await
+                    .send(Event::Failure {
+                        code: &code,
+                        message: &message,
+                        retryable,
+                    })
+                    .await?;
+            }
+            match outcome {
+                super::AttemptOutcome::Ok | super::AttemptOutcome::UserCancel => return Ok(()),
+                super::AttemptOutcome::AuthExpired(_) if retryable => {
+                    reauth_count += 1;
+                    output.lock().await.failure_reported = false;
+                    authentication = tokio::select! {
+                        result = authenticate(portal, output, answers, options) => result?,
+                        _ = stop.wait_for(|v| *v) => return Ok(()),
+                    };
+                }
+                super::AttemptOutcome::Err(_) if retryable => {
+                    attempt += 1;
+                    output.lock().await.phase("reconnecting", attempt).await?;
+                    tokio::select! {
+                        _ = tokio::time::sleep(super::reconnect_backoff(attempt)) => {},
+                        _ = stop.wait_for(|v| *v) => return Ok(()),
+                    }
+                }
+                _ => bail!("tunnel failed"),
+            }
+        }
+    }.await;
+    if logout_pending {
+        let logout = async {
+            let client = options.client(GpParams::new(ClientOs::Mac))?;
+            client
+                .gateway_logout(
+                    &authentication.gateway,
+                    &super::build_openconnect_cookie(&authentication.cookie),
+                )
                 .await?;
-            outcome
+            Ok::<(), anyhow::Error>(())
         };
-        if *stop.borrow() {
-            return Ok(());
-        }
-        // Renewals must not exhaust recovery across a healthy, long-lived session.
-        if connected_at.is_some_and(|time| time.elapsed() >= Duration::from_secs(60)) {
-            attempt = 0;
-            reauth_count = 0;
-        }
-        let retryable = match &outcome {
-            super::AttemptOutcome::Err(_) => reconnect && attempt < 9,
-            super::AttemptOutcome::AuthExpired(_) => reconnect && reauth_count < 2,
-            _ => false,
-        };
-        if let super::AttemptOutcome::Err(ref error)
-        | super::AttemptOutcome::AuthExpired(ref error)
-        | super::AttemptOutcome::TerminalErr(ref error) = outcome
-        {
-            let (code, message) = tunnel_failure(error, retryable);
+        if !matches!(
+            tokio::time::timeout(Duration::from_secs(5), logout).await,
+            Ok(Ok(()))
+        ) {
             output
                 .lock()
                 .await
                 .send(Event::Failure {
-                    code: &code,
-                    message: &message,
-                    retryable,
+                    code: "gateway_logout_unconfirmed",
+                    message: "VPN stopped locally. Gateway sign-out could not be confirmed.",
+                    retryable: false,
                 })
                 .await?;
         }
-        match outcome {
-            super::AttemptOutcome::Ok | super::AttemptOutcome::UserCancel => return Ok(()),
-            super::AttemptOutcome::AuthExpired(_) if retryable => {
-                reauth_count += 1;
-                output.lock().await.failure_reported = false;
-                authentication = tokio::select! {
-                    result = authenticate(portal, output, answers, options) => result?,
-                    _ = stop.wait_for(|v| *v) => return Ok(()),
-                };
-            }
-            super::AttemptOutcome::Err(_) if retryable => {
-                attempt += 1;
-                output.lock().await.phase("reconnecting", attempt).await?;
-                tokio::select! {
-                    _ = tokio::time::sleep(super::reconnect_backoff(attempt)) => {},
-                    _ = stop.wait_for(|v| *v) => return Ok(()),
-                }
-            }
-            _ => bail!("tunnel failed"),
+    }
+    result
+}
+
+fn pending_gateway_logout(outcome: &super::AttemptOutcome, pending: bool) -> bool {
+    match outcome {
+        super::AttemptOutcome::AuthExpired(_) | super::AttemptOutcome::TerminalErr(_) => false,
+        super::AttemptOutcome::Err(error) => {
+            pending
+                || error.chain().any(|cause| {
+                    matches!(cause.downcast_ref::<gp_tunnel::TunnelError>(),
+                Some(gp_tunnel::TunnelError::MainloopOther(code)) if *code == -libc::ECONNABORTED)
+                })
         }
+        _ => pending,
     }
 }
 
@@ -1364,6 +1437,17 @@ fn tunnel_failure(error: &anyhow::Error, retryable: bool) -> (String, String) {
                     "tunnel_gateway_terminated".into(),
                     "The gateway ended the VPN session. Select Connect to start a new session."
                         .into(),
+                )
+            }
+            gp_tunnel::TunnelError::MainloopOther(code) if *code == -libc::ECONNABORTED => {
+                return (
+                    "tunnel_reconnect_requested".into(),
+                    if retryable {
+                        "Reconnecting the VPN tunnel."
+                    } else {
+                        "The VPN tunnel stopped. Select Connect to start a new session."
+                    }
+                    .into(),
                 )
             }
             gp_tunnel::TunnelError::MainloopOther(code) => {

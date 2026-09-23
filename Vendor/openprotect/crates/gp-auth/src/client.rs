@@ -145,6 +145,31 @@ impl GpBar {
         Ok(parsed)
     }
 
+    pub async fn gateway_logout(&self, server: &str, cookie: &str) -> Result<(), AuthError> {
+        let url = format!(
+            "https://{}/ssl-vpn/logout.esp",
+            gp_proto::params::normalize_server(server)
+        );
+        let response = self
+            .http
+            .post(url)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                "application/x-www-form-urlencoded",
+            )
+            .body(cookie.to_owned())
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await?
+            .error_for_status()?;
+        let body = self.read_body(response).await?;
+        let response = gp_proto::xml::XmlNode::parse(&body)?;
+        if response.name != "response" || response.attr("status") != Some("success") {
+            return Err(AuthError::Failed("gateway logout was not confirmed".into()));
+        }
+        Ok(())
+    }
+
     /// Retrieve the portal configuration (gateway list + auth cookies).
     ///
     /// This doubles as the "portal login" step — the credential is verified
