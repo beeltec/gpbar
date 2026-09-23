@@ -10,6 +10,7 @@ import WebKit
     var onCredentials: ((String, String, String, String) -> Void)?
     var onCancel: (() -> Void)?
     var onRetryExternally: (() -> Void)?
+    var onPresentWindow: (() -> Void)?
     private(set) var hostname = ""
     private(set) var message = "Finish signing in with your organization."
     private(set) var error: String?
@@ -87,8 +88,8 @@ import WebKit
     }
 
     func reopen() {
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        guard let window = popupWindows.last ?? window else { return }
+        present(window)
     }
 
     func submitCallback(_ callback: String? = nil) {
@@ -219,6 +220,12 @@ import WebKit
         reopen()
     }
 
+    private func present(_ window: NSWindow) {
+        onPresentWindow?()
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+    }
+
     private func configure(_ webView: WKWebView) {
         webView.navigationDelegate = self
         webView.uiDelegate = self
@@ -341,7 +348,7 @@ import WebKit
         window.contentView = popup
         window.center()
         popupWindows.append(window)
-        window.makeKeyAndOrderFront(nil)
+        present(window)
         return popup
     }
 

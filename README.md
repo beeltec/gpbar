@@ -56,6 +56,7 @@ Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** i
 That choice remains saved when you return to **Automatic**.
 
 Opening **Edit Connection** or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
+In-app sign-in windows and their popups also receive focus. Showing or reopening sign-in closes the menu bar panel.
 
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
 Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
