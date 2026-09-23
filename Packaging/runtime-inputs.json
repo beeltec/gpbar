@@ -115,6 +115,6 @@
       "declared_directly": true
     }
   ],
-  "openconnect_runtime": "v9.21-gpbar2",
+  "openconnect_runtime": "v9.21-gpbar3",
   "openconnect_source_sha256": "5b32369467db6e5f317aa1ed12cfcbb81ed00bdbc765450b6bfcbdc300944a58"
 }
