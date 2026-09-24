@@ -2,13 +2,27 @@
 
 ## Unreleased
 
+## [0.2.2] - 2026-09-24
+
 ### Fixed
 
+- Show GPBar in the Dock and app switcher while windows are open, including minimized windows.
+- Return to menu-bar mode after the last window closes, and restore existing windows when reopening GPBar.
 - Preserve the gateway session during tunnel renewal instead of sending logout before reconnecting.
 - Report sign-in timeouts with instructions to connect again, including during recovery.
 - Reset tunnel recovery limits after a verified connection lasts one minute, so scheduled renewals cannot exhaust a lifetime retry budget.
 - Show specific tunnel interruption codes, session rejection, and gateway termination instead of a generic setup error.
 - Allow authentication failures during recovery to replace an earlier tunnel error.
+
+### Upgrade notes and limits
+
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
+
+Window handling and accelerated tunnel renewals were checked live on macOS 26.6.2.
+Two accelerated renewals recovered without another sign-in request. Disconnect restored the observed DNS configuration.
+Full-duration renewal, sleep/wake, and genuine gateway expiry still need live validation.
+The [existing authentication limits](AUTHENTICATION.md) still apply.
 
 ## [0.2.1] - 2026-09-23
 
@@ -69,6 +83,7 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
+[0.2.2]: https://github.com/beeltec/gpbar/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/beeltec/gpbar/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/beeltec/gpbar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/beeltec/gpbar/releases/tag/v0.1.0
