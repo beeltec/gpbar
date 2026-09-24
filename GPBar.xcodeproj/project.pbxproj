@@ -631,7 +631,7 @@
 				GPBAR_UPDATE_FEED_URL = "https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml";
 				GPBAR_UPDATE_PUBLIC_KEY = "vJXVcUnnQyP180ceJkipBbIc3z9CNmk2R6tELWdohlQ=";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.2.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -705,7 +705,7 @@
 				GPBAR_UPDATE_FEED_URL = "https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml";
 				GPBAR_UPDATE_PUBLIC_KEY = "vJXVcUnnQyP180ceJkipBbIc3z9CNmk2R6tELWdohlQ=";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.2.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
