@@ -86,6 +86,17 @@ private struct ConnectionCommands: Commands {
     var openConnection: (() -> Void)?
     let model = ConnectionModel()
     lazy var updates = UpdateController(model: model)
+    private var hasOpenWindows: Bool {
+        NSApp.windows.contains { window in
+            window.styleMask.contains(.titled) && (window.isVisible || window.isMiniaturized)
+        }
+    }
+
+    func applicationDidUpdate(_ notification: Notification) {
+        let policy: NSApplication.ActivationPolicy = hasOpenWindows ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.startHelper()
@@ -114,6 +125,7 @@ private struct ConnectionCommands: Commands {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if hasOpenWindows { return true }
         openConnection?()
         return true
     }
