@@ -57,6 +57,8 @@ That choice remains saved when you return to **Automatic**.
 
 Opening **Edit Connection** or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
 In-app sign-in windows and their popups also receive focus. Showing or reopening sign-in closes the menu bar panel.
+GPBar appears in the Dock and app switcher while a window is open, including minimized windows.
+Closing the last window returns GPBar to the menu bar. Opening only the menu bar panel does not show a Dock icon.
 
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
 Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
