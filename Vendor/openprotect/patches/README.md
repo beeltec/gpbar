@@ -82,3 +82,9 @@ The new test modules exercise existing cookie policy, retention, signing, creden
 The certificate fixture delegates real TLS signatures to GPBar's native Keychain adapter.
 Production authentication behavior and dependency versions are unchanged.
 See [the suite](../../../Tests/Authentication/README.md) for cleanup and validation limits.
+
+## Split DNS, issue #71
+
+Application protocol version 11 prevents incompatible helpers from ignoring per-profile split DNS.
+The helper consumes the policy before forwarding Start; the engine retains its existing authentication and network-script paths.
+See [split DNS](../../../DNS.md) for pinned OpenConnect behavior and native integration.

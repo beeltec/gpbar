@@ -42,6 +42,7 @@ struct EngineCommand: Codable, Sendable {
     let type: Kind
     var portal: String?
     var reconnect: Bool?
+    var splitDNSDomains: [String]?
     var authenticationMethod: AuthenticationMethod?
     var challengeID: String?
     var callback: String?
@@ -64,6 +65,7 @@ struct EngineCommand: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case type, portal, reconnect, challengeID = "challenge_id", callback, otp, username, password
+        case splitDNSDomains = "split_dns_domains"
         case authenticationMethod = "authentication_method"
         case identity, certificateOnly = "certificate_only", certificateUsername = "certificate_username"
         case requestID = "request_id", signature

@@ -40,6 +40,15 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     var reconnect: Bool {
         didSet { save(reconnect, "reconnect") }
     }
+    var splitDNSEnabled: Bool {
+        didSet { save(splitDNSEnabled, "splitDNSEnabled") }
+    }
+    var splitDNSDomainsDraft: String {
+        didSet { save(splitDNSDomainsDraft, "splitDNSDomains") }
+    }
+    var splitDNSError: String? {
+        splitDNSEnabled && SplitDNS.domains(from: splitDNSDomainsDraft) == nil ? SplitDNS.validationMessage : nil
+    }
     var rememberAuthentication: Bool {
         didSet { save(rememberAuthentication, "rememberAuthentication") }
     }
@@ -79,6 +88,8 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
         browser = BrowserChoice(rawValue: defaults.string(forKey: prefix + "browser") ?? "") ?? .inApp
         browserID = defaults.string(forKey: prefix + "browserID") ?? ""
         reconnect = defaults.bool(forKey: prefix + "reconnect")
+        splitDNSEnabled = defaults.bool(forKey: prefix + "splitDNSEnabled")
+        splitDNSDomainsDraft = defaults.string(forKey: prefix + "splitDNSDomains") ?? ""
         rememberAuthentication = defaults.bool(forKey: prefix + "rememberAuthentication")
         pendingAuthenticationRemovals = defaults.stringArray(forKey: prefix + "pendingAuthenticationRemovals") ?? []
         let savedCertificate = defaults.data(forKey: prefix + "certificateReference")

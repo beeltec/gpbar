@@ -151,6 +151,8 @@ struct ConnectionPanel: View {
             Button("Set up VPN helper") { showWindow("settings") }.buttonStyle(.borderedProminent)
         } else if model.phase == .unknown {
             Button("Retry status") { model.refresh() }
+        } else if model.preferences.splitDNSError != nil {
+            Button("Edit split DNS…") { settings() }.buttonStyle(.borderedProminent)
         } else {
             Button("Connect") { model.connect() }.buttonStyle(.borderedProminent)
                 .disabled(model.profileControlsLocked)

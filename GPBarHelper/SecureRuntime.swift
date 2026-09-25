@@ -20,7 +20,8 @@ enum SecureRuntime {
         try recoverPreviousSessions(in: sessions)
     }
 
-    static func prepare(sessionID: String) throws -> URL {
+    static func prepare(sessionID: String, splitDNSDomains: [String]) throws -> URL {
+        guard SplitDNS.validPolicy(splitDNSDomains) else { throw RuntimeError.invalidBundle }
         try ensurePrivateDirectory(directory)
         let staging = directory.appendingPathComponent("Staging", isDirectory: true)
         try ensurePrivateDirectory(staging)
@@ -36,6 +37,9 @@ enum SecureRuntime {
         try FileManager.default.createDirectory(at: session, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         let destination = session.appendingPathComponent("GPBar.app", isDirectory: true)
         do {
+            let policy = session.appendingPathComponent("split-dns.json")
+            try JSONEncoder().encode(splitDNSDomains).write(to: policy, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: policy.path)
             guard let executable = Bundle.main.executableURL else { throw RuntimeError.invalidBundle }
             let source = executable.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             guard source.pathExtension == "app" else { throw RuntimeError.invalidBundle }

@@ -105,6 +105,21 @@ final class NetworkSession {
         configuring = true
         operation = "configuration"
         defer { configuring = false }
+        let policyURL = directory.appendingPathComponent("split-dns.json")
+        let policySize = try policyURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard policySize > 0, policySize <= 65536 else { throw Failure.invalidConfiguration }
+        let splitDomains = try JSONDecoder().decode([String].self, from: Data(contentsOf: policyURL))
+        guard SplitDNS.validPolicy(splitDomains) else { throw Failure.invalidConfiguration }
+        let servers = ((environment["INTERNAL_IP4_DNS"] ?? "") + " " + (environment["INTERNAL_IP6_DNS"] ?? ""))
+            .split(whereSeparator: \.isWhitespace).map(String.init)
+        guard servers.count <= 16, servers.allSatisfy({ Self.ip($0, ipv6: $0.contains(":")) }) else { throw Failure.invalidConfiguration }
+        let existingDNSServers = splitDomains.isEmpty ? Set<Data>() : try currentDNSServers()
+        if !splitDomains.isEmpty {
+            guard !servers.isEmpty, servers.allSatisfy(Self.unicastDNS),
+                  !servers.contains(where: { $0.contains(":") }) || environment["INTERNAL_IP6_ADDRESS"].map({ Self.ip($0, ipv6: true) }) == true else {
+                throw Failure.invalidConfiguration
+            }
+        }
         guard let device = environment["TUNDEV"], device.hasPrefix("utun"),
               !device.dropFirst(4).isEmpty, device.dropFirst(4).allSatisfy(\.isNumber), device.count < 16,
               if_nametoindex(device) != 0,
@@ -177,22 +192,38 @@ final class NetworkSession {
                 }
             }
         }
-        let servers = ((environment["INTERNAL_IP4_DNS"] ?? "") + " " + (environment["INTERNAL_IP6_DNS"] ?? ""))
-            .split(whereSeparator: \.isWhitespace).map(String.init)
-        guard servers.count <= 16, servers.allSatisfy({ Self.ip($0, ipv6: $0.contains(":")) }) else { throw Failure.invalidConfiguration }
+        if !splitDomains.isEmpty {
+            for server in Set(servers) {
+                let ipv6 = server.contains(":")
+                let network = server + (ipv6 ? "/128" : "/32")
+                guard Self.addressBytes(server) != Self.addressBytes(gateway) else { throw Failure.conflict }
+                if try lookup(network, ipv6: ipv6)["interface"] != device {
+                    guard let bytes = Self.addressBytes(server), !existingDNSServers.contains(bytes) else { throw Failure.conflict }
+                    try add(Route(network: network, ipv6: ipv6, interface: device, gateway: nil))
+                }
+                guard try lookup(network, ipv6: ipv6)["interface"] == device else { throw Failure.verification }
+            }
+        }
         if !servers.isEmpty {
-            let domains = (environment["CISCO_SPLIT_DNS"] ?? "").split(whereSeparator: { $0.isWhitespace || $0 == "," }).map(String.init)
+            let domains = splitDomains.isEmpty
+                ? (environment["CISCO_SPLIT_DNS"] ?? "").split(whereSeparator: { $0.isWhitespace || $0 == "," }).map(String.init)
+                : splitDomains
             guard domains.count <= 128, domains.allSatisfy(Self.domain) else { throw Failure.invalidConfiguration }
             let key = "State:/Network/Service/GPBar-\(directory.lastPathComponent)"
             var dns: [String: Any] = ["ServerAddresses": servers, "SupplementalMatchDomains": domains.isEmpty ? [""] : domains,
                                      "SupplementalMatchOrders": Array(repeating: 100000, count: max(1, domains.count)), "InterfaceName": device]
-            if let domain = environment["CISCO_DEF_DOMAIN"], !domain.isEmpty {
+            if !splitDomains.isEmpty {
+                dns["SupplementalMatchDomainsNoSearch"] = 1
+            } else if let domain = environment["CISCO_DEF_DOMAIN"], !domain.isEmpty {
                 let suffixes = domain.split(whereSeparator: { $0.isWhitespace }).map(String.init)
                 guard !suffixes.isEmpty, suffixes.count <= 128, suffixes.allSatisfy(Self.domain) else { throw Failure.invalidConfiguration }
                 dns["DomainName"] = suffixes[0]
                 dns["SearchDomains"] = suffixes
             }
             try install(key + "/IPv4", ["Addresses": [address], "SubnetMasks": ["255.255.255.255"], "InterfaceName": device])
+            if let address6 = journal.address6 {
+                try install(key + "/IPv6", ["Addresses": [address6], "PrefixLength": [128], "InterfaceName": device])
+            }
             try install(key + "/DNS", dns)
         }
         journal.ready = true
@@ -347,6 +378,41 @@ final class NetworkSession {
             !$0.isEmpty && $0.count <= 63 && $0.first != "-" && $0.last != "-"
                 && $0.utf8.allSatisfy { (48...57).contains($0) || (65...90).contains($0) || (97...122).contains($0) || $0 == 45 }
         }
+    }
+
+    private func currentDNSServers() throws -> Set<Data> {
+        let configuration = try command("/usr/sbin/scutil", ["--dns"])
+        guard configuration.hasPrefix("DNS configuration") || configuration.trimmingCharacters(in: .whitespacesAndNewlines) == "No DNS configuration available" else {
+            throw Failure.verification
+        }
+        var servers = Set<Data>()
+        for line in configuration.split(separator: "\n") {
+            let record = line.trimmingCharacters(in: .whitespaces)
+            guard record.hasPrefix("nameserver[") else { continue }
+            let fields = record.split(separator: ":", maxSplits: 1)
+            guard fields.count == 2 else { throw Failure.verification }
+            guard let address = fields[1].trimmingCharacters(in: .whitespaces).split(separator: "%", maxSplits: 1).first,
+                  let bytes = Self.addressBytes(String(address)) else { throw Failure.verification }
+            servers.insert(bytes)
+        }
+        return servers
+    }
+
+    private static func addressBytes(_ value: String) -> Data? {
+        let ipv6 = value.contains(":")
+        var bytes = [UInt8](repeating: 0, count: ipv6 ? 16 : 4)
+        guard inet_pton(ipv6 ? AF_INET6 : AF_INET, value, &bytes) == 1 else { return nil }
+        return Data(bytes)
+    }
+
+    private static func unicastDNS(_ value: String) -> Bool {
+        guard let bytes = addressBytes(value) else { return false }
+        if bytes.count == 4 {
+            return bytes[0] != 0 && bytes[0] != 127 && bytes[0] < 224 && !(bytes[0] == 169 && bytes[1] == 254)
+        }
+        return bytes.contains(where: { $0 != 0 }) && bytes != Data(repeating: 0, count: 15) + Data([1])
+            && bytes[0] != 0xff && !(bytes[0] == 0xfe && bytes[1] & 0xc0 == 0x80)
+            && !(bytes.prefix(10).allSatisfy({ $0 == 0 }) && bytes[10] == 0xff && bytes[11] == 0xff)
     }
 
     private static func bootID() throws -> String {

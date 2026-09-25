@@ -127,6 +127,27 @@ struct ConnectionSettings: View {
                     .disabled(model.profileControlsLocked)
                 }
 
+                Section {
+                    Toggle("Use split DNS", isOn: $preferences.splitDNSEnabled)
+                    if preferences.splitDNSEnabled {
+                        TextField("VPN DNS domains", text: $preferences.splitDNSDomainsDraft,
+                                  prompt: Text("corp.example.com, internal.example.com"), axis: .vertical)
+                            .lineLimit(2...5)
+                        if let error = preferences.splitDNSError {
+                            Label(error, systemImage: "exclamationmark.circle")
+                                .font(.caption).foregroundStyle(Color("Failure"))
+                        }
+                        Text("These domains and their subdomains use VPN DNS. Other names keep your Mac’s normal DNS selection.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Use full names, such as server.corp.example.com. This setting does not split application traffic or add search suffixes.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("Use the VPN’s DNS settings. Enable split DNS to choose domains for this profile.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } header: { Text("Split DNS") }
+                .disabled(model.profileControlsLocked)
+
                 LoginSSOSettings(state: model.loginSSO, isBusy: model.configuringLoginSSO,
                                  message: model.loginSSOMessage, configure: model.configureLoginSSO)
                     .disabled(model.profileControlsLocked || !model.helperVerified)
@@ -172,7 +193,7 @@ struct ConnectionSettings: View {
                 } else {
                     Button("Connect") { model.connect() }
                         .buttonStyle(.borderedProminent)
-                        .disabled(model.updating || !model.helperVerified || !model.engineAvailable || model.cleanupRequired || PortalAddress.normalize(preferences.addressDraft) == nil)
+                        .disabled(model.updating || !model.helperVerified || !model.engineAvailable || model.cleanupRequired || PortalAddress.normalize(preferences.addressDraft) == nil || preferences.splitDNSError != nil)
                 }
             }
             .font(.caption)

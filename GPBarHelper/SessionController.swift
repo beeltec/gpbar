@@ -180,6 +180,9 @@ actor SessionController {
             guard updateConnectionID == nil, process == nil, sessionID == nil, !finishing, currentConsoleUser() == userID, observerUser == userID,
                   let portal = message.command.portal, let normalized = PortalAddress.normalize(portal), normalized == portal,
                   message.command.reconnect != nil, let method = message.command.authenticationMethod else { return CommandReply(accepted: false, code: "start_rejected") }
+            guard message.command.splitDNSDomains.map({ !$0.isEmpty && SplitDNS.validPolicy($0) }) != false else {
+                return CommandReply(accepted: false, code: "invalid_split_dns")
+            }
             guard (method == .certificate) == (message.command.identity != nil),
                   message.command.identity?.isValid != false,
                   message.command.certificateOnly != true || message.command.identity != nil,
@@ -210,12 +213,13 @@ actor SessionController {
             do {
                 var forwarded = message.command
                 forwarded.useLoginCredentials = nil
+                forwarded.splitDNSDomains = nil
                 if let policy = pendingKerberosPolicies[userID]?[portal] {
                     forwarded.kerberosFallbackUntil = policy.fallbackUntil
                 }
                 let envelope = EngineCommandEnvelope(protocolVersion: message.protocolVersion, sessionID: message.sessionID,
                     commandID: message.commandID, command: forwarded)
-                try start(JSONEncoder().encode(envelope))
+                try start(JSONEncoder().encode(envelope), splitDNSDomains: message.command.splitDNSDomains ?? [])
                 return CommandReply(accepted: true, code: nil)
             } catch {
                 loginCredentials.clear()
@@ -277,9 +281,9 @@ actor SessionController {
         catch { await stop(); return CommandReply(accepted: false, code: "engine_unavailable") }
     }
 
-    private func start(_ start: Data) throws {
+    private func start(_ start: Data, splitDNSDomains: [String]) throws {
         guard let sessionID else { throw ControllerError.invalidState }
-        let engine = try SecureRuntime.prepare(sessionID: sessionID)
+        let engine = try SecureRuntime.prepare(sessionID: sessionID, splitDNSDomains: splitDNSDomains)
         guard currentConsoleUser() == owner else {
             try? SecureRuntime.removeUnusedSession(engine: engine)
             throw ControllerError.invalidState
