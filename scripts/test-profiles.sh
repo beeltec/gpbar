@@ -3,6 +3,7 @@ set -eu
 project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$project_root"
 export MACOSX_DEPLOYMENT_TARGET=26.0
+mkdir -p build
 fixture=$(mktemp -d "$project_root/build/profile-tests.XXXXXX")
 cleanup() {
     result=$?

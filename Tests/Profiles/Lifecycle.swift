@@ -105,6 +105,9 @@ import AppKit
         await settle()
         try expect(first.pendingAuthenticationRemovals.isEmpty && !second.pendingAuthenticationRemovals.isEmpty, "failure remains isolated and blocks reuse")
         model.selectProfile(first.id)
+        model.selectProfile(second.id)
+        try expect(model.authenticationStorageMessage != nil, "pending cleanup warning survives profile switching")
+        model.selectProfile(first.id)
         writes[1].completion(true)
         await settle()
         try expect(model.authenticationStorageMessage == nil, "late callback does not change another profile's message")
@@ -140,6 +143,56 @@ import AppKit
         relaunched.refresh()
         restoredHelper.reply(active: UUID().uuidString)
         try expect(relaunched.connectionTitle == "Unidentified connection" && relaunched.profileControlsLocked, "unmapped helper session cannot adopt current profile")
+        let retryDomain = domain + ".retry"
+        guard let retryDefaults = UserDefaults(suiteName: retryDomain) else { throw Failure.check("retry defaults") }
+        defer { retryDefaults.removePersistentDomain(forName: retryDomain) }
+        let retryModel = ConnectionModel(defaults: retryDefaults)
+        guard let retryHelper = HelperClient.latest else { throw Failure.check("retry helper") }
+        retryModel.refresh()
+        retryHelper.reply()
+        retryModel.preferences.addressDraft = "retry.example"
+        retryModel.connect()
+        guard let retrySession = retryModel.profiles.session?.id else { throw Failure.check("retry session") }
+        retryModel.refresh()
+        retryModel.authentication.onRetryExternally?()
+        retryHelper.event(.stopped, session: retrySession, sequence: 1, cleanup: "restored")
+        try expect(retryHelper.commands.filter { $0.command.type == .start }.count == 1, "browser retry waits for pending inspection")
+        retryHelper.reply()
+        if retryHelper.inspection != nil { retryHelper.reply() }
+        try expect(retryHelper.commands.filter { $0.command.type == .start }.count == 2, "browser retry resumes after helper inspection")
+        try expect(retryModel.preferences.browser == .inApp, "external retry preserves saved browser")
+        if let active = retryModel.profiles.session?.id { retryHelper.event(.stopped, session: active, sequence: 1, cleanup: "restored") }
+
+        let identityDomain = domain + ".identity"
+        guard let identityDefaults = UserDefaults(suiteName: identityDomain) else { throw Failure.check("identity defaults") }
+        defer { identityDefaults.removePersistentDomain(forName: identityDomain) }
+        identityDefaults.set(Data([7]), forKey: "connection.certificateReference")
+        identityDefaults.set("https://identity.example", forKey: "connection.portal")
+        let identityModel = ConnectionModel(defaults: identityDefaults)
+        guard let identityHelper = HelperClient.latest else { throw Failure.check("identity helper") }
+        await settle()
+        identityModel.refresh()
+        let unrelatedSession = UUID().uuidString
+        identityHelper.reply(active: unrelatedSession)
+        try expect(KeychainIdentity.metadata.count == 1, "unidentified session has pending selected-profile metadata")
+        KeychainIdentity.metadata.removeFirst().resume(throwing: KeychainIdentity.Failure.unavailable)
+        await settle()
+        try expect(!identityHelper.commands.contains { $0.command.type == .disconnect }, "unrelated certificate failure cannot disconnect unidentified session")
+        try expect(identityModel.connectionTitle == "Unidentified connection", "certificate failure preserves unidentified session warning")
+        identityHelper.event(.stopped, session: unrelatedSession, sequence: 1, cleanup: "restored")
+
+        let corruptDomain = domain + ".corrupt"
+        guard let corruptDefaults = UserDefaults(suiteName: corruptDomain) else { throw Failure.check("corrupt defaults") }
+        defer { corruptDefaults.removePersistentDomain(forName: corruptDomain) }
+        corruptDefaults.set(Data("unknown manifest".utf8), forKey: "profiles.manifest")
+        let corruptModel = ConnectionModel(defaults: corruptDefaults)
+        guard let corruptHelper = HelperClient.latest else { throw Failure.check("corrupt helper") }
+        KeychainAuthentication.writes = []
+        corruptModel.refresh()
+        corruptHelper.reply(policies: [KerberosPolicyUpdate(portal: "https://missing.example", revision: UUID(), fallbackUntil: 0)],
+                            updates: [AuthenticationCacheUpdate(portal: "https://missing.example", revision: UUID())])
+        try expect(corruptHelper.commands.isEmpty && KeychainAuthentication.writes.isEmpty, "unreadable storage retains helper cookie and policy revisions")
+        try expect(corruptModel.profileControlsLocked, "unreadable storage blocks connection commands")
         print("PASS: \(checks) production model lifecycle, callback, cache, SSO, recovery, and ownership checks")
     }
 }

@@ -19,7 +19,13 @@ import CryptoTokenKit
     private var engineStartSent = false
     private var certificateContext: KeychainContext?
     private var signatureRequestID: String?
-    private(set) var authenticationStorageMessage: String?
+    private var authenticationStorageStatus: String?
+    var authenticationStorageMessage: String? {
+        if !preferences.pendingAuthenticationRemovals.isEmpty {
+            return "Saved sign-in cleanup is pending. Unlock Keychain, then choose Forget saved sign-in to try again."
+        }
+        return authenticationStorageStatus
+    }
     private var kerberos: KerberosSession?
     private var kerberosTask: Task<Void, Never>?
     private var kerberosRequestID: String?
@@ -167,7 +173,7 @@ import CryptoTokenKit
         if !phase.isActive { phase = .disconnected }
         snapshot = nil
         error = nil
-        authenticationStorageMessage = nil
+        authenticationStorageStatus = nil
         loginSSOMessage = nil
         certificateChoices = []
         certificateError = nil
@@ -197,7 +203,7 @@ import CryptoTokenKit
                     profile.certificateTokenID = tokenID
                     certificateMetadataReady = true
                     availableTokenIDs = Set(tokenWatcher.tokenIDs)
-                    if selectedTokenMissing, sessionID != nil {
+                    if sessionProfileKnown, selectedTokenMissing, sessionID != nil {
                         disconnect()
                         error = "The selected token is unavailable. Reinsert it and connect again."
                     }
@@ -205,7 +211,7 @@ import CryptoTokenKit
                     guard preferences.id == profile.id, certificateMetadataRevision == revision,
                           profile.certificateReference == reference, !certificateMetadataReady else { return }
                     certificateMetadataFailed = true
-                    guard preferences.authenticationMethod == .certificate else { return }
+                    guard sessionProfileKnown, preferences.authenticationMethod == .certificate else { return }
                     if sessionID != nil { disconnect() }
                     self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
                 }
@@ -258,7 +264,7 @@ import CryptoTokenKit
                     var command = command
                     switch result {
                     case .success(let saved): command.savedAuthentication = saved
-                    case .failure: self.authenticationStorageMessage = "Saved sign-in is unavailable. Unlock Keychain to use it. This attempt uses fresh sign-in."
+                    case .failure: self.authenticationStorageStatus = "Saved sign-in is unavailable. Unlock Keychain to use it. This attempt uses fresh sign-in."
                     }
                     self.start(command, session: newSession)
                 }
@@ -266,6 +272,12 @@ import CryptoTokenKit
         } else {
             start(command, session: newSession)
         }
+    }
+
+    private func resumeExternalRetry() {
+        guard retryExternally, !profileControlsLocked else { return }
+        retryExternally = false
+        connect(browserOverride: .systemDefault)
     }
 
     private func start(_ initialCommand: EngineCommand, session newSession: String) {
@@ -321,6 +333,7 @@ import CryptoTokenKit
     }
 
     private func reconcileAuthentication(_ update: AuthenticationCacheUpdate) {
+        guard profiles.storageError == nil else { return }
         let targets = (profiles.profiles + profiles.retired).filter {
             $0.portal == update.portal || $0.pendingAuthenticationRemovals.contains(update.portal)
         }
@@ -339,6 +352,7 @@ import CryptoTokenKit
     }
 
     private func retryRetiredAuthenticationRemovals() {
+        guard profiles.storageError == nil else { return }
         for profile in profiles.retired {
             for portal in profile.pendingAuthenticationRemovals where authenticationStorageOperations["\(profile.id)|\(portal)"] == nil {
                 storeAuthentication(nil, portal: portal, profile: profile)
@@ -360,7 +374,7 @@ import CryptoTokenKit
     }
 
     private func storeAuthentication(_ saved: SavedAuthentication?, portal: String, profile: ConnectionPreferences, cacheRevision: UUID? = nil) {
-        guard !portal.isEmpty else { return }
+        guard profiles.storageError == nil, !portal.isEmpty else { return }
         let preferences = profile
         let operation = "\(profile.id)|\(portal)"
         if !preferences.pendingAuthenticationRemovals.contains(portal) {
@@ -396,14 +410,14 @@ import CryptoTokenKit
         profiles.finishRemoval(profile)
         guard self.preferences.id == profile.id else { return }
         if !preferences.pendingAuthenticationRemovals.isEmpty {
-            authenticationStorageMessage = "Some saved sign-ins could not be confirmed. Refresh helper status, unlock Keychain, then try Forget saved sign-in again."
+            authenticationStorageStatus = "Some saved sign-ins could not be confirmed. Refresh helper status, unlock Keychain, then try Forget saved sign-in again."
             return
         }
         guard authenticationStorageRevision == revision else {
-            authenticationStorageMessage = nil
+            authenticationStorageStatus = nil
             return
         }
-        authenticationStorageMessage = success
+        authenticationStorageStatus = success
             ? (saved == nil ? "GPBar’s saved sign-in was removed. Browser accounts are unchanged." : "Sign-in saved in Keychain under your VPN’s policy.")
             : "Keychain could not be updated. Unlock it and try Forget saved sign-in again."
     }
@@ -480,7 +494,7 @@ import CryptoTokenKit
     private func tokenRemoved(_ tokenID: String) {
         availableTokenIDs = Set(tokenWatcher.tokenIDs)
         certificateChoices.removeAll { $0.tokenID == tokenID }
-        guard preferences.authenticationMethod == .certificate, preferences.certificateTokenID == tokenID else { return }
+        guard sessionProfileKnown, preferences.authenticationMethod == .certificate, preferences.certificateTokenID == tokenID else { return }
         if sessionID != nil { disconnect() }
         error = "The selected smart card or hardware token was removed. Reinsert it and connect again."
     }
@@ -511,6 +525,7 @@ import CryptoTokenKit
     }
 
     private func storeKerberosPolicy(_ update: KerberosPolicyUpdate) {
+        guard profiles.storageError == nil else { return }
         profiles.saveKerberosPolicy(update)
         let command = EngineCommand(type: .acknowledgeKerberosPolicy, portal: update.portal, cacheRevision: update.revision)
         let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
@@ -717,10 +732,7 @@ import CryptoTokenKit
                 quitTimeout = nil
                 quitAfterDisconnect = false
                 NSApp.reply(toApplicationShouldTerminate: !cleanupRequired)
-            } else if retryExternally {
-                retryExternally = false
-                if !cleanupRequired { connect(browserOverride: .systemDefault) }
-            }
+            } else { resumeExternalRetry() }
         case .ready: break
         }
         if sessionProfileKnown, preferences.authenticationMethod == .certificate, selectedTokenMissing || certificateMetadataFailed,
@@ -771,6 +783,7 @@ import CryptoTokenKit
         helper.inspect { [weak self] result in
             guard let self else { return }
             self.checkingHelper = false
+            defer { self.resumeExternalRetry() }
             guard self.service.status == .enabled else {
                 self.refresh()
                 return

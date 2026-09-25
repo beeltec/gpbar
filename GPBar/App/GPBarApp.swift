@@ -17,7 +17,7 @@ import SwiftUI
         }
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 760, height: 660)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
             ConnectionCommands(updates: appDelegate.updates)
@@ -52,7 +52,7 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
-            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.preferences.title)")
+            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
             .task {
                 appDelegate.openConnection = {
                     openWindow(id: "connection")

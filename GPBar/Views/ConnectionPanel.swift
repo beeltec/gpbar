@@ -49,6 +49,7 @@ struct ConnectionPanel: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Connection profile")
+                    .accessibilityValue("\(model.connectionTitle), \(model.connectionPortal)")
                     Spacer()
                     Button { showWindow("settings") } label: { Image(systemName: "gearshape") }
                         .buttonStyle(.plain).help("Settings").accessibilityLabel("Settings")

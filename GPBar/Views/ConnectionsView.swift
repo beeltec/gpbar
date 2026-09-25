@@ -10,7 +10,13 @@ struct ConnectionsView: View {
             if let message = model.profiles.storageError {
                 Label(message, systemImage: "exclamationmark.triangle")
                     .padding().frame(maxWidth: .infinity, alignment: .leading)
-            } else if model.profileControlsLocked {
+            }
+            if let error = model.error {
+                Label(error, systemImage: "exclamationmark.circle")
+                    .foregroundStyle(Color("Failure")).textSelection(.enabled)
+                    .padding().frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if model.profileControlsLocked && model.profiles.storageError == nil {
                 Label("Stop the connection and resolve any helper or recovery work before changing profiles.", systemImage: "lock")
                     .font(.callout).foregroundStyle(.secondary)
                     .padding().frame(maxWidth: .infinity, alignment: .leading)
@@ -23,8 +29,14 @@ struct ConnectionsView: View {
                     )) {
                         ForEach(model.profiles.profiles) { profile in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(model.profiles.label(for: profile)).fontWeight(.medium)
-                                    .lineLimit(2)
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(model.profiles.label(for: profile)).fontWeight(.medium).lineLimit(2)
+                                    Spacer(minLength: 4)
+                                    if model.preferences.id == profile.id {
+                                        Image(systemName: "checkmark").font(.caption).foregroundStyle(.secondary)
+                                            .accessibilityHidden(true)
+                                    }
+                                }
                                 Text(profile.portal.isEmpty ? "Add a portal address" : profile.portal)
                                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                             }
@@ -48,7 +60,7 @@ struct ConnectionsView: View {
                     .padding(12)
                     .disabled(model.profileControlsLocked)
                 }
-                .frame(minWidth: 190, idealWidth: 220, maxWidth: 280)
+                .frame(minWidth: 190, idealWidth: 220, maxWidth: 240)
                 ConnectionSettings(model: model)
                     .id(model.preferences.id)
             }

@@ -90,6 +90,16 @@ import Foundation
         broken.selected.displayName = "Do not persist"
         try expect(defaults.string(forKey: "connection.displayName") == "Work", "corrupt storage does not overwrite legacy settings")
         try expect(defaults.data(forKey: "profiles.manifest") == Data("unsupported profiles".utf8), "corrupt manifest preserved")
+        if let manifest,
+           var invalidManifest = try JSONSerialization.jsonObject(with: manifest) as? [String: Any] {
+            invalidManifest["version"] = 99
+            defaults.set(try JSONSerialization.data(withJSONObject: invalidManifest), forKey: "profiles.manifest")
+            try expect(ConnectionProfiles(defaults: defaults).storageError != nil, "future manifest version rejected without migration")
+            invalidManifest["version"] = 1
+            invalidManifest["ids"] = [store.selected.id.uuidString, store.selected.id.uuidString]
+            defaults.set(try JSONSerialization.data(withJSONObject: invalidManifest), forKey: "profiles.manifest")
+            try expect(ConnectionProfiles(defaults: defaults).storageError != nil, "duplicate manifest identities rejected")
+        }
         defaults.set(manifest, forKey: "profiles.manifest")
         let emptyDomain = domain + ".empty"
         guard let empty = UserDefaults(suiteName: emptyDomain) else { throw Failure.check("empty defaults") }
