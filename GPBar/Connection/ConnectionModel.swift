@@ -52,8 +52,8 @@ import CryptoTokenKit
     }
     private var lastSequence: UInt64 = 0
     private var completedSessions: [String] = []
-    private var quitAfterDisconnect = false
-    private var quitTimeout: Task<Void, Never>?
+    private(set) var quitting = false
+    private var quitTimeout: Timer?
     private var retryExternally = false
     private var browserOverride: BrowserChoice?
     private let pathMonitor = NWPathMonitor()
@@ -64,7 +64,7 @@ import CryptoTokenKit
     var updating: Bool { updatePreparation != .idle }
     var readyForUpdate: Bool { updatePreparation == .ready }
     private var restoreHelperAfterUpdate = false
-    var settingsLocked: Bool { configuringLoginSSO || sessionID != nil || phase.isActive }
+    var settingsLocked: Bool { quitting || configuringLoginSSO || sessionID != nil || phase.isActive }
 
     var profileControlsLocked: Bool {
         settingsLocked || updating || cleanupRequired || recovering || checkingHelper || loadingCertificates
@@ -94,7 +94,7 @@ import CryptoTokenKit
         helper.onEvent = { [weak self] event in self?.receive(event) }
         helper.onInterruption = { [weak self] in
             guard let self else { return }
-            self.cancelPendingQuit()
+            self.finishPendingQuit()
             self.finishKerberos()
             self.helperVerified = false
             self.loginSSO = nil
@@ -282,6 +282,7 @@ import CryptoTokenKit
     }
 
     private func start(_ initialCommand: EngineCommand, session newSession: String) {
+        guard !quitting else { return }
         var command = initialCommand
         if command.authenticationMethod == .certificate, let reference = preferences.certificateReference {
             let context = KeychainContext()
@@ -289,7 +290,7 @@ import CryptoTokenKit
             Task {
                 do {
                     let identity = try await KeychainIdentity.load(reference: reference, context: context)
-                    guard sessionID == newSession, phase != .disconnecting else { return }
+                    guard !quitting, sessionID == newSession, phase != .disconnecting else { return }
                     guard phase == .preparing else {
                         disconnect()
                         self.error = "Certificate loading was interrupted. Check the helper and try again."
@@ -449,7 +450,7 @@ import CryptoTokenKit
                     self.helperVerified = false
                     self.error = "Login credential removal could not be confirmed. Check the helper before connecting again."
                 }
-                if self.quitAfterDisconnect { self.quitAfterDisconnect = false; NSApp.reply(toApplicationShouldTerminate: true) }
+                self.finishPendingQuit()
             }
             return
         }
@@ -574,27 +575,30 @@ import CryptoTokenKit
     }
 
     func disconnectAndQuit() {
-        guard sessionID != nil else {
-            Task { NSApp.reply(toApplicationShouldTerminate: false) }
-            refresh()
-            return
+        guard !quitting else { return }
+        quitting = true
+        retryExternally = false
+        let timeout = Timer(timeInterval: 20, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.finishPendingQuit() }
         }
-        quitAfterDisconnect = true
-        quitTimeout?.cancel()
-        quitTimeout = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(45)) } catch { return }
-            self?.cancelPendingQuit()
+        quitTimeout = timeout
+        // Deferred termination can run AppKit's modal loop instead of Swift tasks.
+        RunLoop.main.add(timeout, forMode: .common)
+        RunLoop.main.add(timeout, forMode: .modalPanel)
+        RunLoop.main.perform(inModes: [.default, .modalPanel]) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.quitTimeout != nil else { return }
+                if self.sessionID == nil { self.finishPendingQuit() }
+                else { self.disconnect() }
+            }
         }
-        disconnect()
     }
 
-    private func cancelPendingQuit() {
-        quitTimeout?.cancel()
-        quitTimeout = nil
-        if quitAfterDisconnect {
-            quitAfterDisconnect = false
-            NSApp.reply(toApplicationShouldTerminate: false)
-        }
+    private func finishPendingQuit() {
+        guard quitting, let quitTimeout else { return }
+        quitTimeout.invalidate()
+        self.quitTimeout = nil
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     private func send(_ command: EngineCommand) {
@@ -606,7 +610,7 @@ import CryptoTokenKit
             guard let self, self.sessionID == sessionID else { return }
             if kind == .start { self.startPending = false }
             guard !reply.accepted else { return }
-            self.cancelPendingQuit()
+            self.finishPendingQuit()
             if reply.code == "command_timeout" || reply.code == "helper_unavailable" {
                 self.phase = .unknown
                 self.error = "Connection status is unavailable. Check the helper before starting another session."
@@ -728,11 +732,8 @@ import CryptoTokenKit
             sessionProfileKnown = true
             phase = error == nil && !cleanupRequired ? .disconnected : .failed
             if cleanupRequired { error = "Connection stopped. Network cleanup needs attention." }
-            if quitAfterDisconnect {
-                quitTimeout?.cancel()
-                quitTimeout = nil
-                quitAfterDisconnect = false
-                NSApp.reply(toApplicationShouldTerminate: !cleanupRequired)
+            if quitting {
+                finishPendingQuit()
             } else { resumeExternalRetry() }
         case .ready: break
         }
@@ -760,13 +761,13 @@ import CryptoTokenKit
     }
 
     func refresh() {
-        guard !updating else { return }
+        guard !updating, !quitting else { return }
         helperStatus = service.status
         retryRetiredAuthenticationRemovals()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         guard helperStatus == .enabled else {
             if sessionID != nil { phase = .unknown }
-            cancelPendingQuit()
+            finishPendingQuit()
             helper.cancel()
             checkingHelper = false
             if sessionID == nil && profiles.session == nil && phase == .unknown { phase = .disconnected }
@@ -845,7 +846,7 @@ import CryptoTokenKit
                     self.lastSequence = 0
                     self.snapshot = nil
                     self.authentication.finish()
-                    self.cancelPendingQuit()
+                    self.finishPendingQuit()
                     self.phase = self.cleanupRequired || self.error != nil ? .failed : .disconnected
                 }
                 if self.sessionID == nil {
@@ -859,17 +860,25 @@ import CryptoTokenKit
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Settings and set it up again."
-            case .failure:
+            case .failure(let failure):
                 if self.kerberosRequestID != nil { self.disconnect() }
                 self.helperVerified = false
+                self.engineAvailable = false
                 self.phase = .unknown
-                self.helperMessage = "The helper could not be reached. Check approval, then try again."
+                switch failure {
+                case .unavailable:
+                    self.helperMessage = "The helper could not be reached. Check GPBar in Login Items & Extensions, then choose Check again. You can still quit GPBar."
+                case .invalidReply:
+                    self.helperMessage = "The helper returned an incompatible or invalid reply. Quit GPBar and reopen the installed version in Applications."
+                case .signingIdentity:
+                    self.helperMessage = "GPBar could not verify its signing identity. Reinstall an official signed release in Applications."
+                }
             }
         }
     }
 
     func registerHelper() {
-        guard !updating else { return }
+        guard !updating, !quitting else { return }
         do {
             try service.register()
             error = nil
@@ -966,7 +975,7 @@ import CryptoTokenKit
     }
 
     func recoverNetwork() {
-        guard !updating, helperVerified, !recovering, sessionID == nil || phase == .unknown else { return }
+        guard !updating, !quitting, helperVerified, !recovering, sessionID == nil || phase == .unknown else { return }
         recovering = true
         let request = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
             commandID: UUID().uuidString, command: EngineCommand(type: .recoverNetwork))

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Allow quitting when the VPN helper cannot be reached, including when no session ID is known.
+- Bound disconnect-on-quit to 20 seconds and avoid quit confirmations during macOS logout, restart, and shutdown.
+- Retry failed helper checks with a fresh authenticated connection and show guidance for signing and protocol failures.
+- Require completed helper preparation at Sparkle's final install and relaunch check.
+
 ## [0.2.2] - 2026-09-24
 
 ### Fixed

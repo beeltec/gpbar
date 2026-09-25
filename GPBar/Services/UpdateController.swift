@@ -49,6 +49,8 @@ import Sparkle
 
     func allowedSystemProfileKeys(for updater: SPUUpdater) -> [String]? { [] }
 
+    func updaterShouldRelaunchApplication(_ updater: SPUUpdater) -> Bool { model.readyForUpdate }
+
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: (any Error)?) {
         if !driver.installationPending {
             model.finishUpdateAttempt()

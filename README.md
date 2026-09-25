@@ -100,6 +100,19 @@ Launching GPBar again registers the helper again.
 - GPBar has no kill switch. Traffic routing depends on the gateway's configuration.
 - Clean installation and notarized updates still need release validation.
 
+### If the VPN helper cannot be reached
+
+Check GPBar's approval in macOS **System Settings → General → Login Items & Extensions**.
+Then choose **Check again** in GPBar Settings. Each failed check releases its connection so the next check starts fresh.
+An incompatible reply can mean that the app and helper differ. Quit GPBar and reopen the installed copy in Applications.
+If the error remains, include the exact message, GPBar build, macOS version, and installation method in a bug report.
+
+Helper failure does not prevent quitting GPBar. If connection status is unknown, GPBar explains that cleanup remains unconfirmed.
+For a known session, quitting requests disconnect and waits at most 20 seconds before exiting.
+Quitting does not prove that the VPN stopped or that network settings were restored.
+Reopen GPBar to check status and use **Recover network** in Settings when needed.
+Recovery records remain available. macOS logout, restart, and shutdown do not require GPBar's quit confirmation.
+
 See the [authentication matrix](AUTHENTICATION.md) for method-specific support and validation limits.
 
 ### Interrupted connections

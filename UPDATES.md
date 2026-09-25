@@ -18,6 +18,9 @@ The app blocks Connect, helper setup, and recovery while updating.
 Helper setup and confirmed cleanup are required even when no service is currently registered.
 Cancelling before extraction restores the helper. Once extraction starts, the helper stays stopped until GPBar exits.
 An installer error does not prove cancellation. Finish the update or restart GPBar before connecting again.
+A final Sparkle install check requires completed helper preparation before Sparkle requests application relaunch.
+Quitting after helper failure remains possible. An already pending update may finish during exit; exit does not confirm cancellation.
+Active sessions and network recovery use private runtime copies outside the application bundle. Quitting preserves those copies until cleanup succeeds.
 A lost reservation connection leaves the helper blocked. Remove it in Settings and set it up again if preparation fails.
 Relaunch registers the bundled helper through the normal launch flow. macOS may require approval again.
 Updating never starts a VPN connection. Existing preferences and Keychain entries remain in place.

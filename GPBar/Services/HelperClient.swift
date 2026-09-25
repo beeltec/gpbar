@@ -162,6 +162,7 @@ import Foundation
         completion = nil
         timeout?.cancel()
         timeout = nil
+        if case .failure = result { cancel() }
         callback?(result)
     }
 }

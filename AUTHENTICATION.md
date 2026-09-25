@@ -2,6 +2,8 @@
 
 The app, helper, and engine must use matching protocol versions. Update them together.
 For development builds in different folders, disconnect and remove the old helper through the old app before launching the new build.
+Failed helper checks release the current XPC connection. **Check again** opens a new connection with the same signature and protocol checks.
+An unavailable helper leaves connection status unknown. It does not prevent quitting; see [helper recovery guidance](README.md#if-the-vpn-helper-cannot-be-reached).
 
 GPBar does not have full authentication parity with the official GlobalProtect app.
 The available live provider uses SAML. Other methods below have no live compatibility evidence.

@@ -118,16 +118,27 @@ private struct ConnectionCommands: Commands {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if model.quitting { return .terminateLater }
         if !model.preferences.addressDraft.isEmpty { model.preferences.saveAddress() }
-        guard model.settingsLocked else { return .terminateNow }
-        let alert = NSAlert()
-        alert.messageText = "Disconnect and quit GPBar?"
-        alert.informativeText = "Your VPN session will stop before GPBar quits."
-        alert.addButton(withTitle: "Disconnect and Quit")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        let uncertain = model.phase == .unknown || model.cleanupRequired
+        if (model.hasSession || uncertain) && !systemIsTerminating {
+            let alert = NSAlert()
+            alert.messageText = uncertain ? "Quit with VPN status unconfirmed?" : "Disconnect and quit GPBar?"
+            alert.informativeText = "GPBar will try to stop any known VPN session. It will quit within 20 seconds even if the helper cannot confirm cleanup. Reopen GPBar to check the connection and recover the network."
+            alert.addButton(withTitle: uncertain ? "Quit" : "Disconnect and Quit")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return .terminateCancel }
+        }
+        guard model.hasSession else { return .terminateNow }
         model.disconnectAndQuit()
         return .terminateLater
+    }
+
+    private var systemIsTerminating: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventClass == AEEventClass(kCoreEventClass), event.eventID == AEEventID(kAEQuitApplication),
+              let reason = event.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?.enumCodeValue else { return false }
+        return [kAEQuitAll, kAELogOut, kAEReallyLogOut, kAEShutDown, kAERestart].contains(reason)
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
