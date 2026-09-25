@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+## [0.3.0] - 2026-09-25
+
 ### Added
 
+- Save multiple named connection profiles, with separate authentication choices, browser preferences, and saved sign-ins.
+- Manage profiles in Connections and select a profile from the menu bar before connecting.
+- Use separate general Settings for launch at login, updates, helper management, and network recovery.
 - Save split DNS domains per connection profile, with native macOS resolver selection and session-owned cleanup.
 
 ### Fixed
@@ -12,6 +17,20 @@
 - Bound disconnect-on-quit to 20 seconds and avoid quit confirmations during macOS logout, restart, and shutdown.
 - Retry failed helper checks with a fresh authenticated connection and show guidance for signing and protocol failures.
 - Require completed helper preparation at Sparkle's final install and relaunch check.
+
+### Upgrade notes and limits
+
+Existing connection settings and saved sign-in migrate to the first profile. GPBar still runs one tunnel at a time.
+Split DNS is disabled by default. It controls DNS selection, while traffic routes still follow the gateway configuration.
+Update the app, helper, and bundled engine together. Protocol version 11 requires matching components.
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
+
+Profile management, helper failure handling, and split DNS were checked live on macOS 26.6.2.
+A real SAML connection resolved matching and unrelated public names. Disconnect restored the observed DNS state.
+Cross-server profiles, internal-only split DNS names, IPv6, forced recovery, and split DNS during tunnel renewal remain unverified.
+Actual macOS restart, stuck-helper timeout, and interrupted Sparkle installation still need live checks.
+The [existing authentication limits](AUTHENTICATION.md) and [split DNS limits](DNS.md) still apply.
 
 ## [0.2.2] - 2026-09-24
 
@@ -94,6 +113,7 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
+[0.3.0]: https://github.com/beeltec/gpbar/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/beeltec/gpbar/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/beeltec/gpbar/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/beeltec/gpbar/compare/v0.1.0...v0.2.0

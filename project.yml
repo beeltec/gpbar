@@ -12,7 +12,7 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
-    MARKETING_VERSION: '0.2.2'
+    MARKETING_VERSION: '0.3.0'
     GPBAR_UPDATE_FEED_URL: https://github.com/beeltec/gpbar/releases/latest/download/appcast.xml
     GPBAR_UPDATE_PUBLIC_KEY: vJXVcUnnQyP180ceJkipBbIc3z9CNmk2R6tELWdohlQ=
     CURRENT_PROJECT_VERSION: '1'
