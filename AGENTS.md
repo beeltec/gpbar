@@ -11,6 +11,7 @@ Read the public guide relevant to your change:
 | macOS login SSO, login plug-in, installation, and recovery | [macOS login SSO](LOGIN-SSO.md) |
 | Update behavior, signing, and local publishing | [Automatic updates](UPDATES.md) |
 | Build inputs, distribution, and CI releases | [Tagged releases](RELEASE.md) |
+| DNS selection, split DNS, and resolver recovery | [Split DNS](DNS.md) |
 | Dependencies and licensing | [Third-party notices](THIRD-PARTY-NOTICES.md) |
 
 Some local checkouts contain an ignored `docs/` folder with planning notes and detailed coding guidelines.

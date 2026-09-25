@@ -223,6 +223,7 @@ import CryptoTokenKit
     func connect(browserOverride: BrowserChoice? = nil) {
         guard !profileControlsLocked else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
+        if let message = preferences.splitDNSError { error = message; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
         let usesCertificate = preferences.authenticationMethod == .certificate
         guard !usesCertificate || preferences.certificateReference != nil else {
@@ -250,6 +251,7 @@ import CryptoTokenKit
                                     certificateOnly: usesCertificate && preferences.certificateOnly,
                                     certificateUsername: usesCertificate ? preferences.certificateUsername : nil)
         command.rememberAuthentication = preferences.rememberAuthentication
+        command.splitDNSDomains = preferences.splitDNSEnabled ? SplitDNS.domains(from: preferences.splitDNSDomainsDraft) : nil
         command.kerberosFallbackUntil = preferences.kerberosFallbackUntil
         command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {

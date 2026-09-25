@@ -59,6 +59,8 @@
 		CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A116881E418FF3CF77CA5A4C /* UserKeychain.swift */; };
 		DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */; };
 		DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */; };
+		E330E0D1DA4C705371FDDCC9 /* SplitDNS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */; };
+		E71892B749028094D81DB009 /* SplitDNS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
 		F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */; };
@@ -125,6 +127,7 @@
 		118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPanel.swift; sourceTree = "<group>"; };
 		281E34216A7777A6715C611D /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
+		2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitDNS.swift; sourceTree = "<group>"; };
 		3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAuthentication.swift; sourceTree = "<group>"; };
 		43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureRuntime.swift; sourceTree = "<group>"; };
 		4847C626753C794B558357B0 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
@@ -206,6 +209,7 @@
 				5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */,
 				FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */,
 				C8F2204076A5B786845CBF4D /* SigningIdentity.swift */,
+				2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -491,6 +495,7 @@
 				204E178D1B3259B5BB75E762 /* SecureRuntime.swift in Sources */,
 				B29693496FCF7F7E8E236460 /* SessionController.swift in Sources */,
 				239FD415686AC2A772F822F5 /* SigningIdentity.swift in Sources */,
+				E330E0D1DA4C705371FDDCC9 /* SplitDNS.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,6 +533,7 @@
 				1F2E415AA5642B68EFD6C5CE /* SavedAuthentication.swift in Sources */,
 				2279EEE130332762A40EDFF2 /* SignInView.swift in Sources */,
 				33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */,
+				E71892B749028094D81DB009 /* SplitDNS.swift in Sources */,
 				B5333863007CD748BD5699F5 /* UpdateController.swift in Sources */,
 				CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */,
 			);

@@ -23,6 +23,7 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 
 - Connect, cancel sign-in, disconnect, and view connection details from the menu bar.
 - Save multiple named connection profiles and switch between them from the menu bar.
+- Choose [split DNS domains](DNS.md) per profile, using VPN DNS for matching names.
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
 - Choose automatic authentication, SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
@@ -71,7 +72,10 @@ Disconnect and finish network cleanup before switching profiles.
 Profiles with matching names show a short identifier so you can tell them apart.
 Removing the last profile creates an empty connection ready for setup.
 
-Each profile keeps its portal, authentication method, browser choice, certificate selection, reconnect option, and saved-sign-in preference.
+Each profile keeps its portal, authentication method, browser choice, certificate selection, reconnect option, saved-sign-in preference, and split DNS settings.
+Split DNS is disabled by default. Enable it in **Connections** and enter domains such as `corp.example.com`.
+Matching domains and subdomains use VPN DNS. Other names keep normal macOS DNS selection; gateway traffic routes still apply.
+See [split DNS](DNS.md) for configuration, routing limits, and recovery.
 Profiles can use the same server with different choices. Their saved VPN sign-ins have separate Keychain storage.
 Existing settings and saved sign-in remain with your first profile after migration.
 Valid addresses save automatically. Invalid drafts stay visible while switching profiles but do not replace the saved address.

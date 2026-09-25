@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Save split DNS domains per connection profile, with native macOS resolver selection and session-owned cleanup.
+
 ### Fixed
 
 - Allow quitting when the VPN helper cannot be reached, including when no session ID is known.
