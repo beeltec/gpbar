@@ -45,3 +45,24 @@ The general settings separation follows [Viscosity's app settings](https://www.s
 
 Fixtures do not establish real helper reconnection, server authentication, browser cleanup, smart-card behavior, or working tunnel traffic.
 Only one live GlobalProtect server is available. Cross-server switching still needs validation against another approved server.
+
+## Recorded validation
+
+On September 25, 2026, the suites passed on Apple Silicon macOS 26.6.2 with Xcode 27.
+They completed 38 storage checks, 47 lifecycle checks, and 10 real Keychain checks.
+The standalone command also passed from an exported checkout without an existing build directory.
+The existing core authentication suite passed, including native password/MFA controls and synthetic engine checks.
+Signed Debug and Release builds passed. Strict nested signature verification passed.
+
+Native checks used a separate application identifier, synthetic portal addresses, and a disabled helper descriptor.
+They covered adding profiles, matching names and portals, independent authentication and browser choices, invalid drafts, keyboard selection, removal confirmation, and restart persistence.
+Command-comma opened general Settings. Launch, update, and helper controls were separate from connection choices.
+A native fixture hosted the production panel with a synthetic helper to verify menu selection, accessibility values, and visible connection errors.
+The fixture panel appears in a normal window for inspection; the shipped application retains its menu-bar panel.
+No live VPN session was started or interrupted during these checks.
+
+Screenshots:
+
+- [Connections](Screenshots/connections.png)
+- [General Settings](Screenshots/settings.png)
+- [Profile selector in the native fixture](Screenshots/profile-selector.png)
