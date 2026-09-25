@@ -5,7 +5,7 @@ The app blocks helper removal and Sparkle preparation while its login mechanism 
 The PKG installer also checks this rule. Re-enable the integration after updating.
 
 GPBar uses Sparkle 2.10.0, pinned through Swift Package Manager.
-It checks daily by default. Users can disable checks in Edit Connection → Updates.
+It checks daily by default. Users can disable checks in Settings → Updates.
 The same section and application menu provide Check for Updates.
 Sparkle stores the preference; GPBar does not keep a second copy.
 
@@ -18,7 +18,7 @@ The app blocks Connect, helper setup, and recovery while updating.
 Helper setup and confirmed cleanup are required even when no service is currently registered.
 Cancelling before extraction restores the helper. Once extraction starts, the helper stays stopped until GPBar exits.
 An installer error does not prove cancellation. Finish the update or restart GPBar before connecting again.
-A lost reservation connection leaves the helper blocked. Remove it in Edit Connection and set it up again if preparation fails.
+A lost reservation connection leaves the helper blocked. Remove it in Settings and set it up again if preparation fails.
 Relaunch registers the bundled helper through the normal launch flow. macOS may require approval again.
 Updating never starts a VPN connection. Existing preferences and Keychain entries remain in place.
 

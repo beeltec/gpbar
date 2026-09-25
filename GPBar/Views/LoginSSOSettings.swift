@@ -15,6 +15,8 @@ struct LoginSSOSettings: View {
             Text("Only Automatic and Username and password use this option. It does not provide Kerberos or browser SSO.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Text("One portal per macOS user. Profiles using that portal share this setting.")
+                .font(.caption).foregroundStyle(.secondary)
             if let portal = state?.portal {
                 Text("Enabled for \(portal)").font(.caption).textSelection(.enabled)
                 Button("Disable macOS login SSO") { configure(false) }

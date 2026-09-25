@@ -12,16 +12,22 @@ import SwiftUI
         }
         .menuBarExtraStyle(.window)
 
-        Window("Edit Connection", id: "connection") {
-            ConnectionSettings(model: model, updates: appDelegate.updates)
+        Window("Connections", id: "connection") {
+            ConnectionsView(model: model)
         }
         .defaultLaunchBehavior(.suppressed)
-        .defaultSize(width: 480, height: 610)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 760, height: 660)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {}
             ConnectionCommands(updates: appDelegate.updates)
         }
+
+        Window("Settings", id: "settings") {
+            GeneralSettings(model: model, updates: appDelegate.updates)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .defaultSize(width: 520, height: 640)
 
         Window("About GPBar", id: "about") {
             AboutView()
@@ -46,7 +52,7 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
-            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.preferences.title)")
+            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
             .task {
                 appDelegate.openConnection = {
                     openWindow(id: "connection")
@@ -72,12 +78,16 @@ private struct ConnectionCommands: Commands {
             Button("Check for Updates…") { updates.checkForUpdates() }
                 .disabled(!updates.canCheckForUpdates)
         }
-        CommandGroup(after: .appSettings) {
-            Button("Edit Connection…") {
-                openWindow(id: "connection")
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") {
+                openWindow(id: "settings")
                 NSApp.activate()
             }
             .keyboardShortcut(",")
+            Button("Connections…") {
+                openWindow(id: "connection")
+                NSApp.activate()
+            }
         }
     }
 }

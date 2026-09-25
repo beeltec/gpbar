@@ -180,7 +180,7 @@ The implementation follows the established OpenConnect exchange.
 
 ### Cloud Identity Engine, including OIDC
 
-Choose Automatic or Cloud Identity Engine in Edit Connection. Browser settings are available under either choice and under SAML.
+Choose Automatic or Cloud Identity Engine in Connections. Browser settings are available under either choice and under SAML.
 The same saved browser choice applies to portal and independent gateway sign-in.
 Explicit Cloud Identity Engine requires `cas-auth=yes` from the portal. It does not fall back to password entry.
 Explicit SAML and password choices reject a CAS portal before sending credentials or saved cookies.
@@ -327,7 +327,7 @@ Tracking survives session completion while the helper remains running. It is not
 Legacy Keychain access-control and interaction APIs produce SDK deprecation warnings. The data-protection alternative needs separately provisioned entitlements.
 [Apple Keychain implementations](https://developer.apple.com/documentation/technotes/tn3137-on-mac-keychains)
 
-Forget saved sign-in removes GPBar's cookie record for the configured portal. It does not sign out external browser accounts.
+Forget saved sign-in removes GPBar's cookie record for the selected profile and portal. It does not sign out external browser accounts.
 Turning off Remember sign-in or changing the portal also requests removal. Removal failures remain visible so the user can retry.
 Disconnect does not mean sign out. It preserves allowed cookies for a later user-started connection.
 Expired records are not used, and fully expired records are removed when accessed.
@@ -343,7 +343,7 @@ HIP submission remains on OpenConnect's authenticated TLS session.
 No private key is exported or passed to the root helper.
 [macOS certificate guide](https://docs.paloaltonetworks.com/globalprotect/user-guide/6-3/globalprotect-app-for-mac/enable-the-globalprotect-app-to-use-the-valid-client-certificate)
 
-Select an identity under Client certificate in Edit Connection. The selection is bound to the saved portal and cleared when that address changes.
+Select an identity under Client certificate in Connections. The selection is bound to the saved portal and cleared when that address changes.
 Keychain filters identities using Apple's TLS client policy. Code-signing-only certificates are not offered.
 Certificate-only login sends an empty password and uses the server's certificate username, or the optional configured username.
 Server-required SAML and MFA still run. Combined certificate and password login keeps the standard credential prompt.
@@ -428,3 +428,20 @@ Issue #14 explicitly authorizes [the shared authentication suite](Tests/Authenti
 It adds native Keychain signing and cookie checks, synthetic mutual TLS, engine ownership checks, and native password/MFA window checks.
 Its full command also runs the Resource MFA, CIE, macOS login SSO, and Kerberos suites.
 These checks supplement live validation. They do not prove full official-client parity.
+
+## Profile ownership
+
+Each profile owns its authentication choices, browser, certificate selection, and saved-sign-in opt-in.
+New profiles use separate Keychain namespaces, including profiles with identical portal addresses.
+The migrated profile retains its earlier Keychain namespace. No cookie moves between profiles.
+Deleting a profile requests removal of its cookies. Failed removals remain recorded and retry through Settings.
+Certificate removal only clears the profile selection; it never deletes the Keychain identity.
+
+The active session records its profile ID before connection setup starts. Profile switching stays locked until the session stops.
+Reattachment uses that recorded ID. An unidentified session cannot request credentials or use the selected profile's certificate.
+Disconnect an unidentified session before choosing another profile.
+
+Kerberos fallback remains an authenticated portal policy. New policy and revocation updates reach every profile using that portal.
+Missed helper cookie updates invalidate every affected profile namespace before their records can be reused.
+The helper protocol and OpenProtect authentication flow remain unchanged. These changes concern native storage and session ownership.
+See [profile validation](Tests/Profiles/README.md) for the server-free suites and remaining live limits.

@@ -22,12 +22,12 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 ## Features
 
 - Connect, cancel sign-in, disconnect, and view connection details from the menu bar.
-- Save one portal address and an optional connection name across launches.
+- Save multiple named connection profiles and switch between them from the menu bar.
 - Sign in through an in-app browser, the default browser, or a selected browser.
 - Continue connection setup automatically after the browser returns the authentication callback.
 - Choose automatic authentication, SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
 - Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
-- Recover recorded network changes and remove the VPN helper from connection settings.
+- Recover recorded network changes and remove the VPN helper from general settings.
 - Debug builds include local diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
 - Optionally reuse your next macOS login password through a separately approved system plug-in.
@@ -42,7 +42,7 @@ Download a DMG or PKG from [Releases](https://github.com/beeltec/gpbar/releases)
 Both contain the app and its runtime dependencies.
 See [the changelog](CHANGELOG.md) for changes and release-specific limits.
 Open the DMG and drag GPBar to Applications, or run the PKG installer.
-Before reinstalling, disconnect, remove the helper in Edit Connection, and quit GPBar.
+Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
 
 1. Place the built or downloaded `GPBar.app` in Applications and open it.
 2. Follow the app's guidance to approve the VPN helper if macOS requests it.
@@ -52,10 +52,10 @@ Before reinstalling, disconnect, remove the helper in Edit Connection, and quit 
 6. Use **Disconnect** in the menu bar panel when finished.
 
 The in-app browser is the default for browser sign-in.
-Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** in **Edit Connection**.
+Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** in **Connections**.
 That choice remains saved when you return to **Automatic**.
 
-Opening **Edit Connection** or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
+Opening **Connections**, **Settings**, or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
 In-app sign-in windows and their popups also receive focus. Showing or reopening sign-in closes the menu bar panel.
 GPBar appears in the Dock and app switcher while a window is open, including minimized windows.
 Closing the last window returns GPBar to the menu bar. Opening only the menu bar panel does not show a Dock icon.
@@ -63,16 +63,37 @@ Closing the last window returns GPBar to the menu bar. Opening only the menu bar
 GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
 Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
 
+### Connection profiles and settings
+
+Open **Connections…** to add, name, edit, or remove a profile. The sidebar shows each profile and its portal.
+Choose a profile from the menu bar, then click **Connect**. Selecting a profile never starts a connection.
+Disconnect and finish network cleanup before switching profiles.
+Profiles with matching names show a short identifier so you can tell them apart.
+Removing the last profile creates an empty connection ready for setup.
+
+Each profile keeps its portal, authentication method, browser choice, certificate selection, reconnect option, and saved-sign-in preference.
+Profiles can use the same server with different choices. Their saved VPN sign-ins have separate Keychain storage.
+Existing settings and saved sign-in remain with your first profile after migration.
+Valid addresses save automatically. Invalid drafts stay visible while switching profiles but do not replace the saved address.
+App restart restores each saved address and the last selected profile.
+
+Open **Settings…**, or press **Command-comma**, for launch at login, updates, helper management, and network recovery.
+Launch and update choices apply to the whole app. Sparkle and macOS retain ownership of their existing preferences.
+macOS login SSO remains limited to one portal per user. Profiles using that portal share its enrollment.
+Disable that enrollment before changing or removing an enrolled portal.
+
+The explicitly requested [profile suites](Tests/Profiles/README.md) cover migration, isolation, cleanup, and session ownership without another VPN server.
+
 ### Remove GPBar
 
 Disable macOS login SSO for every enrolled user first, if enabled. See [removal and recovery](LOGIN-SSO.md).
 Disconnect and wait for network cleanup to finish.
-Open **Edit Connection**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
+Open **Settings**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
 Launching GPBar again registers the helper again.
 
 ## Known limits
 
-- GPBar stores one connection and runs one tunnel at a time.
+- GPBar runs one tunnel at a time. Disconnect before switching connection profiles.
 - Kerberos SSO has local KDC and synthetic HTTPS checks, but no matching GlobalProtect provider validation.
 - Optional [macOS login SSO](LOGIN-SSO.md) has synthetic checks. Real login capture and provider compatibility remain unverified.
 - Crash recovery, sleep/wake, reconnect, and IPv6 behavior still need live validation.

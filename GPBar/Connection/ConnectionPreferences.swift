@@ -14,92 +14,102 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
     }
 }
 
-@MainActor @Observable final class ConnectionPreferences {
+@MainActor @Observable final class ConnectionPreferences: Identifiable {
+    let id: UUID
+    let authenticationNamespace: UUID?
+    private let prefix: String
+    private let readOnly: Bool
+    @ObservationIgnored var canChangeAddress: (() -> Bool)?
     @ObservationIgnored var onAddressChange: ((String) -> Void)?
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private(set) var portal: String
     var addressDraft: String
     var addressError: String?
     var displayName: String {
-        didSet { defaults.set(displayName, forKey: "connection.displayName") }
+        didSet { save(displayName, "displayName") }
     }
     var authenticationMethod: AuthenticationMethod {
-        didSet { defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod") }
+        didSet { save(authenticationMethod.rawValue, "authenticationMethod") }
     }
     var browser: BrowserChoice {
-        didSet { defaults.set(browser.rawValue, forKey: "connection.browser") }
+        didSet { save(browser.rawValue, "browser") }
     }
     var browserID: String {
-        didSet { defaults.set(browserID, forKey: "connection.browserID") }
+        didSet { save(browserID, "browserID") }
     }
     var reconnect: Bool {
-        didSet { defaults.set(reconnect, forKey: "connection.reconnect") }
+        didSet { save(reconnect, "reconnect") }
     }
     var rememberAuthentication: Bool {
-        didSet { defaults.set(rememberAuthentication, forKey: "connection.rememberAuthentication") }
+        didSet { save(rememberAuthentication, "rememberAuthentication") }
     }
     var pendingAuthenticationRemovals: [String] {
-        didSet { defaults.set(pendingAuthenticationRemovals, forKey: "connection.pendingAuthenticationRemovals") }
+        didSet { save(pendingAuthenticationRemovals, "pendingAuthenticationRemovals") }
     }
     var certificateReference: Data? {
-        didSet { defaults.set(certificateReference, forKey: "connection.certificateReference") }
+        didSet { save(certificateReference, "certificateReference") }
     }
     var certificateName: String {
-        didSet { defaults.set(certificateName, forKey: "connection.certificateName") }
+        didSet { save(certificateName, "certificateName") }
     }
     var certificateID: String {
-        didSet { defaults.set(certificateID, forKey: "connection.certificateID") }
+        didSet { save(certificateID, "certificateID") }
     }
     var certificateTokenID: String? {
-        didSet { defaults.set(certificateTokenID, forKey: "connection.certificateTokenID") }
+        didSet { save(certificateTokenID, "certificateTokenID") }
     }
     var certificateOnly: Bool {
-        didSet { defaults.set(certificateOnly, forKey: "connection.certificateOnly") }
+        didSet { save(certificateOnly, "certificateOnly") }
     }
     var certificateUsername: String {
-        didSet { defaults.set(certificateUsername, forKey: "connection.certificateUsername") }
+        didSet { save(certificateUsername, "certificateUsername") }
     }
 
-    init() {
-        defaults.register(defaults: ["connection.reconnect": true])
-        let savedPortal = defaults.string(forKey: "connection.portal").flatMap(PortalAddress.normalize) ?? ""
+    init(defaults: UserDefaults = .standard, id: UUID = UUID(), legacy: Bool = true, readOnly: Bool = false) {
+        self.defaults = defaults
+        self.id = id
+        self.readOnly = readOnly
+        authenticationNamespace = legacy ? nil : id
+        prefix = legacy ? "connection." : "profile.\(id.uuidString)."
+        defaults.register(defaults: [prefix + "reconnect": true])
+        let savedPortal = defaults.string(forKey: prefix + "portal").flatMap(PortalAddress.normalize) ?? ""
         portal = savedPortal
         addressDraft = savedPortal
-        displayName = defaults.string(forKey: "connection.displayName") ?? ""
-        browser = BrowserChoice(rawValue: defaults.string(forKey: "connection.browser") ?? "") ?? .inApp
-        browserID = defaults.string(forKey: "connection.browserID") ?? ""
-        reconnect = defaults.bool(forKey: "connection.reconnect")
-        rememberAuthentication = defaults.bool(forKey: "connection.rememberAuthentication")
-        pendingAuthenticationRemovals = defaults.stringArray(forKey: "connection.pendingAuthenticationRemovals") ?? []
-        let savedCertificate = defaults.data(forKey: "connection.certificateReference")
+        displayName = defaults.string(forKey: prefix + "displayName") ?? ""
+        browser = BrowserChoice(rawValue: defaults.string(forKey: prefix + "browser") ?? "") ?? .inApp
+        browserID = defaults.string(forKey: prefix + "browserID") ?? ""
+        reconnect = defaults.bool(forKey: prefix + "reconnect")
+        rememberAuthentication = defaults.bool(forKey: prefix + "rememberAuthentication")
+        pendingAuthenticationRemovals = defaults.stringArray(forKey: prefix + "pendingAuthenticationRemovals") ?? []
+        let savedCertificate = defaults.data(forKey: prefix + "certificateReference")
         certificateReference = savedCertificate
-        certificateName = defaults.string(forKey: "connection.certificateName") ?? ""
-        certificateID = defaults.string(forKey: "connection.certificateID") ?? ""
-        certificateTokenID = defaults.string(forKey: "connection.certificateTokenID")
-        certificateOnly = defaults.bool(forKey: "connection.certificateOnly")
-        certificateUsername = defaults.string(forKey: "connection.certificateUsername") ?? ""
-        authenticationMethod = AuthenticationMethod(rawValue: defaults.string(forKey: "connection.authenticationMethod") ?? "")
+        certificateName = defaults.string(forKey: prefix + "certificateName") ?? ""
+        certificateID = defaults.string(forKey: prefix + "certificateID") ?? ""
+        certificateTokenID = defaults.string(forKey: prefix + "certificateTokenID")
+        certificateOnly = defaults.bool(forKey: prefix + "certificateOnly")
+        certificateUsername = defaults.string(forKey: prefix + "certificateUsername") ?? ""
+        authenticationMethod = AuthenticationMethod(rawValue: defaults.string(forKey: prefix + "authenticationMethod") ?? "")
             ?? (savedCertificate == nil ? .automatic : .certificate)
-        defaults.set(authenticationMethod.rawValue, forKey: "connection.authenticationMethod")
+        save(authenticationMethod.rawValue, "authenticationMethod")
     }
 
     var kerberosFallbackUntil: UInt64 {
-        let until = defaults.double(forKey: "connection.kerberosFallbackUntil")
+        let until = defaults.double(forKey: prefix + "kerberosFallbackUntil")
         let now = Date().timeIntervalSince1970
         guard until > now, until <= now + 86400,
-              defaults.string(forKey: "connection.kerberosPolicyPortal") == portal else { return 0 }
+              defaults.string(forKey: prefix + "kerberosPolicyPortal") == portal else { return 0 }
         return UInt64(until)
     }
 
     func saveKerberosPolicy(_ update: KerberosPolicyUpdate) {
         guard update.portal == portal else { return }
-        defaults.set(portal, forKey: "connection.kerberosPolicyPortal")
-        defaults.set(Double(update.fallbackUntil), forKey: "connection.kerberosFallbackUntil")
+        save(portal, "kerberosPolicyPortal")
+        save(Double(update.fallbackUntil), "kerberosFallbackUntil")
     }
 
     var title: String {
         let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return name.isEmpty ? (URL(string: portal)?.host ?? "GPBar") : name
+        return name.isEmpty ? (URL(string: portal)?.host ?? "New connection") : name
     }
 
     @discardableResult func saveAddress() -> Bool {
@@ -107,18 +117,38 @@ enum BrowserChoice: String, CaseIterable, Identifiable {
             addressError = "Enter a hostname or HTTPS address without a path, password, or query."
             return false
         }
+        guard !readOnly else { return false }
         let changed = portal != normalized
+        guard !changed || canChangeAddress?() != false else {
+            addressError = "Disconnect and disable macOS login SSO for this portal before changing its address."
+            return false
+        }
         let previousPortal = portal
+        if changed && !previousPortal.isEmpty && !pendingAuthenticationRemovals.contains(previousPortal) {
+            pendingAuthenticationRemovals.append(previousPortal)
+        }
         portal = normalized
         addressDraft = normalized
         addressError = nil
-        defaults.set(normalized, forKey: "connection.portal")
+        save(normalized, "portal")
         if changed {
-            defaults.removeObject(forKey: "connection.kerberosFallbackUntil")
+            defaults.removeObject(forKey: prefix + "kerberosFallbackUntil")
             clearCertificate()
             onAddressChange?(previousPortal)
         }
         return true
+    }
+
+    private func save(_ value: Any?, _ key: String) {
+        guard !readOnly else { return }
+        defaults.set(value, forKey: prefix + key)
+    }
+
+    func removeStoredValues() {
+        guard !readOnly else { return }
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     func clearCertificate() {

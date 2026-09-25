@@ -12,13 +12,14 @@ Synthetic checks and a signed build do not establish login, FileVault, or provid
 ## Enable
 
 1. Install GPBar and approve its VPN helper.
-2. Save the portal address under Edit Connection.
+2. Save the portal address under Connections.
 3. Choose Automatic or Username and password.
 4. Choose Enable macOS login SSO, read the confirmation, and approve the administrator prompt.
 5. Sign out, then sign in with your password. Click Connect within five minutes.
 
 Enabling applies only to your user and the exact saved HTTPS portal, including its port.
-Other users must enable it separately. Changing the portal requires disabling and enabling SSO for the new address.
+Profiles using that portal share its enrollment. Only one portal can be enrolled for each macOS user.
+Other users must enable it separately. Changing or removing an enrolled portal requires disabling SSO first. Enable it again for a new address when needed.
 No VPN connection starts at macOS login. Launch GPBar at login remains a separate setting.
 No credentials are captured when the feature is disabled.
 

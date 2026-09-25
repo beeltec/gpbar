@@ -2,11 +2,9 @@ import SwiftUI
 
 struct ConnectionSettings: View {
     @Bindable var model: ConnectionModel
-    @ObservedObject var updates: UpdateController
     @Environment(\.openWindow) private var openWindow
     @FocusState private var addressFocused: Bool
     @State private var choosingCertificate = false
-    @State private var removalPending = false
 
     var body: some View {
         @Bindable var preferences = model.preferences
@@ -18,6 +16,11 @@ struct ConnectionSettings: View {
                             .textContentType(.URL)
                             .focused($addressFocused)
                             .onSubmit { preferences.saveAddress() }
+                            .disabled(model.portalEnrolledForLoginSSO)
+                        if model.portalEnrolledForLoginSSO {
+                            Text("Disable macOS login SSO below before changing this portal.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         if let error = preferences.addressError {
                             Label(error, systemImage: "exclamationmark.circle")
                                 .font(.caption).foregroundStyle(Color("Failure"))
@@ -34,7 +37,7 @@ struct ConnectionSettings: View {
                     }
                     TextField("Display name", text: $preferences.displayName, prompt: Text("Optional"))
                 } header: { Text("Connection") }
-                .disabled(model.settingsLocked)
+                .disabled(model.profileControlsLocked)
 
                 Section {
                     Picker("Authentication method", selection: $preferences.authenticationMethod) {
@@ -58,7 +61,7 @@ struct ConnectionSettings: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 } header: { Text("Authentication") }
-                .disabled(model.settingsLocked)
+                .disabled(model.profileControlsLocked)
 
                 if [.automatic, .saml, .cloudIdentity].contains(preferences.authenticationMethod) {
                     Section {
@@ -81,7 +84,7 @@ struct ConnectionSettings: View {
                             .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } header: { Text("Browser login") }
-                    .disabled(model.settingsLocked)
+                    .disabled(model.profileControlsLocked)
                 }
 
                 if preferences.authenticationMethod == .certificate {
@@ -121,12 +124,12 @@ struct ConnectionSettings: View {
                             Button("Remove certificate selection") { model.selectCertificate(nil) }
                         }
                     } header: { Text("Client certificate") }
-                    .disabled(model.settingsLocked)
+                    .disabled(model.profileControlsLocked)
                 }
 
                 LoginSSOSettings(state: model.loginSSO, isBusy: model.configuringLoginSSO,
                                  message: model.loginSSOMessage, configure: model.configureLoginSSO)
-                    .disabled(model.settingsLocked || model.updating || !model.helperVerified)
+                    .disabled(model.profileControlsLocked || !model.helperVerified)
 
                 Section {
                     Toggle("Remember sign-in when allowed", isOn: Binding(
@@ -141,71 +144,14 @@ struct ConnectionSettings: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } header: { Text("Saved sign-in") }
-                .disabled(model.settingsLocked)
+                .disabled(model.profileControlsLocked)
 
                 Section {
                     Toggle("Reconnect an interrupted session", isOn: $preferences.reconnect)
-                        .disabled(model.settingsLocked)
-                    Toggle("Launch GPBar at login", isOn: Binding(
-                        get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }
-                    ))
-                    Text("Launching GPBar does not connect the VPN.")
+                        .disabled(model.profileControlsLocked)
+                    Text("Retry this connection when its tunnel is interrupted.")
                         .font(.caption).foregroundStyle(.secondary)
-                } header: { Text("On this Mac") }
-
-                Section {
-                    Toggle("Automatically check for updates", isOn: Binding(
-                        get: { updates.automaticallyChecksForUpdates },
-                        set: { updates.setAutomaticallyChecksForUpdates($0) }
-                    ))
-                    .disabled(updates.unavailableReason != nil)
-                    Button("Check for Updates…") { updates.checkForUpdates() }
-                        .disabled(!updates.canCheckForUpdates)
-                    Text(updates.unavailableReason ?? "GPBar asks before installing. Disconnect the VPN before updating.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if model.updating {
-                        Text("Finish the update or restart GPBar before connecting.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                } header: { Text("Updates") }
-
-                Section {
-                    HStack(alignment: .top) {
-                        Image(systemName: model.helperVerified ? "checkmark.circle" : "lock.circle")
-                            .foregroundStyle(model.helperVerified ? Color("Connected") : .secondary)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(model.helperVerified ? "Helper ready" : "VPN helper")
-                            Text(model.helperMessage).font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer()
-                        if model.checkingHelper {
-                            ProgressView().controlSize(.small)
-                        } else if model.helperStatus == .requiresApproval {
-                            Button("Open settings") { model.openSystemSettings() }
-                        } else if model.helperStatus == .enabled {
-                            Button("Check again") { model.refresh() }
-                        } else {
-                            Button("Set up") { model.registerHelper() }
-                        }
-                    }
-                    .disabled(model.updating)
-                    if let error = model.error {
-                        Text(error).font(.caption).foregroundStyle(Color("Failure"))
-                            .textSelection(.enabled)
-                    }
-                    if model.cleanupRequired || model.phase == .unknown {
-                        Text("GPBar restores only the network changes recorded for its sessions.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Button(model.recovering ? "Checking network…" : "Recover network") { model.recoverNetwork() }
-                            .disabled(model.updating || model.recovering || !model.helperVerified)
-                    }
-                    Button("Remove helper") {
-                        removalPending = true
-                        Task { await model.unregisterHelper(); removalPending = false }
-                    }
-                    .disabled(model.updating || removalPending || model.helperStatus == .notRegistered || model.settingsLocked || model.cleanupRequired)
-                } header: { Text("Permission") }
+                } header: { Text("Connection behavior") }
             }
             .formStyle(.grouped)
             HStack {
@@ -232,8 +178,7 @@ struct ConnectionSettings: View {
             .font(.caption)
             .padding(.horizontal, 24).padding(.vertical, 16)
         }
-        .frame(width: 480)
-        .frame(minHeight: 620)
+        .frame(minWidth: 480, minHeight: 560)
         .sheet(isPresented: $choosingCertificate) {
             CertificatePicker(model: model)
         }
@@ -243,7 +188,7 @@ struct ConnectionSettings: View {
         .onDisappear {
             if !preferences.addressDraft.isEmpty { preferences.saveAddress() }
         }
-        .onAppear { model.refresh() }
+
     }
 }
 
