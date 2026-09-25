@@ -26,6 +26,10 @@ Disconnect and complete cleanup before editing the active profile.
 Disable **Use split DNS** to restore the existing gateway DNS behavior on the next connection.
 Existing profiles start with split DNS disabled.
 
+![Split DNS settings with example domains](Screenshots/split-dns.png)
+
+The screenshot uses an isolated app copy with generic settings and helper access disabled.
+
 ## Routing and limits
 
 GPBar uses DNS servers supplied by the gateway. It does not provide a separate DNS server editor.
@@ -69,6 +73,21 @@ Use macOS system resolver queries to check a matching full name and an unrelated
 Direct `dig` or `nslookup` queries alone do not prove macOS resolver selection.
 Inspect DNS server routes, disconnect, and compare the resolver state with the original state.
 Builds and dictionary inspection alone do not prove successful DNS resolution.
+
+### Recorded live checks
+
+On September 25, 2026, the signed build passed native checks through computer use on Apple Silicon macOS 26.6.2.
+Empty, wildcard, and IP-address rules blocked connection. Case differences, duplicate names, and trailing dots were accepted.
+Separate profiles retained their own drafts, including across app restart. Active sessions locked DNS editing. Disabled mode allowed an invalid draft and reached sign-in; cancellation restored idle state.
+
+A real SAML connection installed one normalized `example.com` supplemental resolver using the gateway’s DNS server.
+The normal resolver and search list remained in place. The VPN DNS route used the tunnel; the local resolver route used Wi-Fi.
+System lookups and browser loading succeeded for `www.example.com` and unrelated `www.iana.org`.
+Disconnect removed GPBar’s resolver records and tunnel DNS route. Effective DNS state returned to its original values, apart from macOS-generated order numbers.
+
+These checks used public names to exercise resolver selection. Internal-only hostname coverage, IPv6, forced recovery, and tunnel renewal remain unverified.
+The app, helper, and real engine built successfully. Strict bundle signature checks and the affected Rust crate’s Clippy check passed.
+No automated tests were added. Independent correctness and security/lifecycle reviews found no actionable issues.
 
 ## Sources
 
