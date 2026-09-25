@@ -10,7 +10,7 @@ import Foundation
     private var timeout: Task<Void, Never>?
     private var updatePreparation: CommandCompletion?
 
-    enum HelperError: Error { case unavailable, invalidReply, signingIdentity }
+    enum HelperError: Error { case unavailable, timeout, invalidReply, incompatibleProtocol(Int), signingIdentity, cancelled }
 
     nonisolated func receive(_ data: Data) {
         guard data.count <= maximumMessageBytes,
@@ -31,16 +31,24 @@ import Foundation
         self.completion = completion
         timeout = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
-            self?.finish(request.commandID, .failure(.unavailable))
+            self?.finish(request.commandID, .failure(.timeout))
         }
         guard let proxy = connection?.remoteObjectProxyWithErrorHandler({ @Sendable [weak self] _ in
             Task { @MainActor in self?.finish(request.commandID, .failure(.unavailable)) }
         }) as? HelperProtocol else { finish(request.commandID, .failure(.unavailable)); return }
         proxy.inspect(data) { [weak self] data in
-            let response = data.count <= maximumMessageBytes ? try? JSONDecoder().decode(HelperReply.self, from: data) : nil
+            let envelope = data.count <= maximumMessageBytes
+                ? try? JSONDecoder().decode(HelperInspectionEnvelope.self, from: data) : nil
+            let response = envelope?.protocolVersion == helperProtocolVersion
+                ? try? JSONDecoder().decode(HelperReply.self, from: data) : nil
             Task { @MainActor in
-                guard let response, response.protocolVersion == helperProtocolVersion,
-                      response.commandID == request.commandID else {
+                guard let envelope, envelope.commandID == request.commandID else {
+                    self?.finish(request.commandID, .failure(.invalidReply)); return
+                }
+                guard envelope.protocolVersion == helperProtocolVersion else {
+                    self?.finish(request.commandID, .failure(.incompatibleProtocol(envelope.protocolVersion))); return
+                }
+                guard let response else {
                     self?.finish(request.commandID, .failure(.invalidReply)); return
                 }
                 self?.finish(request.commandID, .success(response))
@@ -140,11 +148,15 @@ import Foundation
 
     private func lostConnection(_ generation: UUID) {
         guard self.generation == generation else { return }
-        cancel()
+        cancel(pendingError: .unavailable)
         onInterruption?()
     }
 
     func cancel() {
+        cancel(pendingError: .cancelled)
+    }
+
+    private func cancel(pendingError: HelperError) {
         generation = nil
         updatePreparation?.finish(CommandReply(accepted: false, code: "helper_unavailable"))
         connection?.invalidationHandler = nil
@@ -152,7 +164,7 @@ import Foundation
         connection?.exportedObject = nil
         connection?.invalidate()
         connection = nil
-        if let pending { finish(pending, .failure(.unavailable)) }
+        if let pending { finish(pending, .failure(pendingError)) }
     }
 
     private func finish(_ commandID: UUID, _ result: Result<HelperReply, HelperError>) {

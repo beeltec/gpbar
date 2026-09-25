@@ -94,6 +94,7 @@ import CryptoTokenKit
         helper.onEvent = { [weak self] event in self?.receive(event) }
         helper.onInterruption = { [weak self] in
             guard let self else { return }
+            if !self.updating && !self.quitting { self.helperDiagnostics.failed(.transportUnavailable) }
             self.finishPendingQuit()
             self.finishKerberos()
             self.helperVerified = false
@@ -612,6 +613,7 @@ import CryptoTokenKit
             guard let self, self.sessionID == sessionID else { return }
             if kind == .start { self.startPending = false }
             guard !reply.accepted else { return }
+            self.recordHelperCommandFailure(reply.code)
             self.finishPendingQuit()
             if reply.code == "command_timeout" || reply.code == "helper_unavailable" {
                 self.phase = .unknown
@@ -631,6 +633,18 @@ import CryptoTokenKit
                 }
                 self.error = "The command was rejected. Cancel this attempt and try again."
             }
+        }
+    }
+
+    private func recordHelperCommandFailure(_ code: String?) {
+        switch code {
+        case "command_timeout": helperDiagnostics.failed(.commandTimeout)
+        case "helper_unavailable": helperDiagnostics.failed(.transportUnavailable)
+        case "invalid_reply": helperDiagnostics.failed(.invalidReply)
+        case "user_not_active", "session_not_owned": helperDiagnostics.failed(.accessRejected)
+        case "engine_start_failed": helperDiagnostics.failed(.engineStartFailed)
+        case "recovery_required": helperDiagnostics.failed(.recoveryFailed)
+        default: helperDiagnostics.failed(.unknownFailure)
         }
     }
 
@@ -750,6 +764,7 @@ import CryptoTokenKit
     private(set) var helperStatus: SMAppService.Status = .notRegistered
     private(set) var helperMessage = "The helper needs your permission to manage VPN connections."
     private(set) var helperVerified = false
+    private(set) var helperDiagnostics = HelperDiagnosticsState()
     private(set) var checkingHelper = false
     var error: String?
     private(set) var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -765,9 +780,13 @@ import CryptoTokenKit
     func refresh() {
         guard !updating, !quitting else { return }
         helperStatus = service.status
+        helperDiagnostics.setInstallationIssue(bundledHelperIssue())
         retryRetiredAuthenticationRemovals()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         guard helperStatus == .enabled else {
+            if helperStatus == .requiresApproval { helperDiagnostics.failed(.approvalRequired) }
+            else if helperStatus == .notRegistered { helperDiagnostics.failed(.notRegistered) }
+            else { helperDiagnostics.failed(.serviceNotFound) }
             if sessionID != nil { phase = .unknown }
             finishPendingQuit()
             helper.cancel()
@@ -800,6 +819,8 @@ import CryptoTokenKit
             case .success(let reply):
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
                 guard self.helperVerified else {
+                    self.helperDiagnostics.contacted(reply)
+                    self.helperDiagnostics.failed(reply.runningAsRoot ? .accessRejected : .invalidRuntime)
                     self.engineAvailable = false
                     if self.kerberosRequestID != nil { self.disconnect() }
                     else if self.sessionID != nil { self.phase = .unknown }
@@ -815,9 +836,12 @@ import CryptoTokenKit
                     if self.kerberosRequestID != nil { self.disconnect() }
                     self.helperVerified = false
                     self.engineAvailable = false
+                    self.helperDiagnostics.failed(.invalidReply)
                     self.helperMessage = "The helper returned an invalid saved sign-in state."
                     return
                 }
+                self.helperDiagnostics.contacted(reply)
+                self.helperDiagnostics.ready()
                 for update in reply.pendingKerberosPolicies {
                     if let received = self.receivedKerberosPolicy, received.portal == update.portal,
                        received != update && received != inspectedKerberosPolicy { continue }
@@ -837,6 +861,7 @@ import CryptoTokenKit
                 if reply.sessionBusy {
                     self.phase = .unknown
                     self.helperMessage = "Another user's VPN session is stopping. Check again shortly."
+                    self.helperDiagnostics.currentStatus = "Helper busy"
                     return
                 }
                 if reply.activeSessionID == nil && self.sessionID != nil && !self.startPending {
@@ -862,6 +887,9 @@ import CryptoTokenKit
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
                     : "The helper is preparing an update. If it failed, remove the helper in Settings and set it up again."
+                if !reply.engineSessionsAvailable { self.helperDiagnostics.currentStatus = "Helper preparing update" }
+            case .failure(.cancelled):
+                return
             case .failure(let failure):
                 if self.kerberosRequestID != nil { self.disconnect() }
                 self.helperVerified = false
@@ -869,11 +897,21 @@ import CryptoTokenKit
                 self.phase = .unknown
                 switch failure {
                 case .unavailable:
+                    self.helperDiagnostics.failed(.transportUnavailable)
                     self.helperMessage = "The helper could not be reached. Check GPBar in Login Items & Extensions, then choose Check again. You can still quit GPBar."
+                case .timeout:
+                    self.helperDiagnostics.failed(.inspectionTimeout)
+                    self.helperMessage = "The helper did not answer within five seconds. Cause unknown. Choose Check again."
                 case .invalidReply:
-                    self.helperMessage = "The helper returned an incompatible or invalid reply. Quit GPBar and reopen the installed version in Applications."
+                    self.helperDiagnostics.failed(.invalidReply)
+                    self.helperMessage = "The helper returned an invalid reply. Cause unknown. Choose Check again."
+                case .incompatibleProtocol(let version):
+                    self.helperDiagnostics.incompatibleProtocol(version)
+                    self.helperMessage = "The helper uses another protocol version. Quit GPBar and reopen the installed version in Applications."
                 case .signingIdentity:
+                    self.helperDiagnostics.failed(.signingIdentityUnavailable)
                     self.helperMessage = "GPBar could not verify its signing identity. Reinstall an official signed release in Applications."
+                case .cancelled: break
                 }
             }
         }
@@ -887,8 +925,12 @@ import CryptoTokenKit
             refresh()
         } catch {
             refresh()
+            if helperStatus != .requiresApproval {
+                helperDiagnostics.failed(helperDiagnostics.installationIssue ?? .registrationFailed)
+            }
             self.error = helperStatus == .requiresApproval ? nil
-                : "Helper setup did not finish. Open Login Items & Extensions to check access."
+                : helperDiagnostics.installationIssue?.cause
+                    ?? "Helper setup did not finish. Open Login Items & Extensions to check access."
         }
     }
 
@@ -898,6 +940,9 @@ import CryptoTokenKit
             error = "Disable macOS login SSO for every enrolled user before removing the helper."
             return
         }
+        helperDiagnostics.snapshotFresh = false
+        helperDiagnostics.currentStatus = "Removing helper"
+        helperDiagnostics.currentCode = nil
         helper.cancel()
         helperVerified = false
         do {
@@ -905,6 +950,7 @@ import CryptoTokenKit
             error = nil
             refresh()
         } catch {
+            helperDiagnostics.failed(.removalFailed)
             self.error = "The helper could not be removed. Try again after checking System Settings."
         }
     }
@@ -936,6 +982,9 @@ import CryptoTokenKit
         helperVerified = false
         helperStatus = service.status
         helperMessage = "The VPN helper is stopped while GPBar updates."
+        helperDiagnostics.currentStatus = "Helper stopped for update"
+        helperDiagnostics.currentCode = nil
+        helperDiagnostics.snapshotFresh = false
         updatePreparation = .ready
         return true
     }
@@ -985,6 +1034,7 @@ import CryptoTokenKit
             guard let self else { return }
             self.recovering = false
             if reply.accepted {
+                self.helperDiagnostics.ready()
                 self.certificateContext?.invalidate()
                 self.certificateContext = nil
                 self.signatureRequestID = nil
@@ -999,6 +1049,7 @@ import CryptoTokenKit
                 self.error = nil
                 self.authentication.finish()
             } else {
+                self.recordHelperCommandFailure(reply.code)
                 self.error = "Network recovery could not finish. A session may still be running. Wait, then check again."
             }
         }
@@ -1018,6 +1069,28 @@ import CryptoTokenKit
         Recent session events
         \(recentEvents.joined(separator: "\n"))
         """
+    }
+
+    var helperDiagnosticReport: String {
+        let status: String
+        switch helperStatus {
+        case .enabled: status = "Enabled"
+        case .requiresApproval: status = "Approval required"
+        case .notRegistered: status = "Not registered"
+        default: status = "Unavailable"
+        }
+        return helperDiagnostics.report(serviceStatus: status, recoveryRequired: cleanupRequired)
+    }
+
+    private func bundledHelperIssue() -> HelperDiagnosticCode? {
+        let appURL = Bundle.main.bundleURL
+        let servicePath = appURL.appendingPathComponent(
+            "Contents/Library/LaunchDaemons/com.beeltec.GPBar.helper.plist").path
+        let executablePath = appURL.appendingPathComponent("Contents/MacOS/GPBarHelper").path
+        guard FileManager.default.fileExists(atPath: servicePath) else { return .serviceNotFound }
+        guard FileManager.default.fileExists(atPath: executablePath) else { return .helperExecutableMissing }
+        guard FileManager.default.isExecutableFile(atPath: executablePath) else { return .helperNotExecutable }
+        return nil
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

@@ -18,6 +18,7 @@
 		233C3267215AAFF659A63908 /* HelperMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */; };
 		239FD415686AC2A772F822F5 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
 		261FDB0FBCF637E50820065C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8B71A5530BCB89DA27C8676E /* Assets.xcassets */; };
+		27E3B23899FED6E3E041184A /* HelperDiagnosticsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654A24DC5E3BB3E24F7552B7 /* HelperDiagnosticsState.swift */; };
 		2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A45A7B43AB47061045E5CA7 /* HelperClient.swift */; };
 		2F9E7FDC59C30AED2491D431 /* LoginPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = F3F207AB1F1FC2B36AEAFF1B /* LoginPlugin.m */; };
 		33E176323541CFA8E2A71002 /* SigningIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F2204076A5B786845CBF4D /* SigningIdentity.swift */; };
@@ -43,6 +44,7 @@
 		83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */; };
 		84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22032C5BBA8F2C25237F631 /* GPBarApp.swift */; };
+		84FCB4A2A9782FB188667E6A /* HelperDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F181B462D9D299A502C224 /* HelperDiagnostics.swift */; };
 		86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 722E9924852CF38FB102AA62 /* GPBarLogin.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A3354E3F1A2B409D37E104D7 /* ConnectionPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA43745F44E29F4874CD768F /* ConnectionPath.swift */; };
 		A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 554E85928561E10EA94E38BC /* GPBarHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -56,12 +58,14 @@
 		C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */; };
 		C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */; };
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
+		C9D64D2A2E4AC549022E3F75 /* DiagnosticRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98C92C13814A8AFBDC713E40 /* DiagnosticRecorder.swift */; };
 		CD4D4523FF7690C1B2E34914 /* UserKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A116881E418FF3CF77CA5A4C /* UserKeychain.swift */; };
 		DC4557A3F7DEA8239A0C704A /* LoginCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */; };
 		DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */; };
 		E330E0D1DA4C705371FDDCC9 /* SplitDNS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */; };
 		E71892B749028094D81DB009 /* SplitDNS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF0DF402839A4C3298DEDA5 /* SplitDNS.swift */; };
 		EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */; };
+		EF04A8370AA662E18A3C1E88 /* HelperDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F181B462D9D299A502C224 /* HelperDiagnostics.swift */; };
 		F11B97DECD70F8EC0634B56A /* NetworkSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D011F424654D4C425384C4 /* NetworkSession.swift */; };
 		F6EF2AE2A078D24B44F7A651 /* ResourceAuthenticationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */; };
 		F926B22E2F28D5CDE460CA2F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 70D2E572EBC1DB08E0FCC30E /* Security.framework */; };
@@ -91,9 +95,9 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolderSpec = 6;
 			files = (
-				86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */,
+				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
 			);
 			name = "Embed Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -112,9 +116,9 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 6;
+			dstSubfolderSpec = 13;
 			files = (
-				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
+				86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */,
 			);
 			name = "Embed Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -140,6 +144,7 @@
 		61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.beeltec.GPBar.helper.plist; sourceTree = "<group>"; };
 		63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPreferences.swift; sourceTree = "<group>"; };
+		654A24DC5E3BB3E24F7552B7 /* HelperDiagnosticsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperDiagnosticsState.swift; sourceTree = "<group>"; };
 		65B80941A93BF21148AC2319 /* KerberosSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KerberosSession.swift; sourceTree = "<group>"; };
 		6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginCredentialCache.swift; sourceTree = "<group>"; };
 		70D2E572EBC1DB08E0FCC30E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -152,6 +157,7 @@
 		8B71A5530BCB89DA27C8676E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
 		94131D702B90C08815A2340E /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
+		98C92C13814A8AFBDC713E40 /* DiagnosticRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticRecorder.swift; sourceTree = "<group>"; };
 		9AB61916931634D0644C4377 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		9DE9724D810C8A963A882C17 /* ConnectionProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionProfiles.swift; sourceTree = "<group>"; };
 		9ED17FC405B675512961631C /* LoginSSOSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOSettings.swift; sourceTree = "<group>"; };
@@ -161,6 +167,7 @@
 		A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationView.swift; sourceTree = "<group>"; };
 		AD6377244151BCD70CBF1C73 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KerberosRequest.swift; sourceTree = "<group>"; };
+		B4F181B462D9D299A502C224 /* HelperDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperDiagnostics.swift; sourceTree = "<group>"; };
 		C4EE4A85BDA0950C2783704C /* ResourceAuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceAuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		C8F2204076A5B786845CBF4D /* SigningIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SigningIdentity.swift; sourceTree = "<group>"; };
 		C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperMain.swift; sourceTree = "<group>"; };
@@ -202,6 +209,7 @@
 			isa = PBXGroup;
 			children = (
 				A490690342F7B2351CA3B2F4 /* EngineMessages.swift */,
+				B4F181B462D9D299A502C224 /* HelperDiagnostics.swift */,
 				94131D702B90C08815A2340E /* HelperProtocol.swift */,
 				AEE02A998FBA0D84CB611BCB /* KerberosRequest.swift */,
 				DD0820114707F390803A21A0 /* LoginSSO.swift */,
@@ -284,6 +292,7 @@
 		BA12FB6AB5CCE84CFC2AAE04 /* GPBarHelper */ = {
 			isa = PBXGroup;
 			children = (
+				98C92C13814A8AFBDC713E40 /* DiagnosticRecorder.swift */,
 				C95CBB5E75BA62DBA5DB6841 /* HelperMain.swift */,
 				C99D05E9613FD6AD55612F55 /* LoginCaptureService.swift */,
 				6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */,
@@ -350,6 +359,7 @@
 				60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */,
 				64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */,
 				9DE9724D810C8A963A882C17 /* ConnectionProfiles.swift */,
+				654A24DC5E3BB3E24F7552B7 /* HelperDiagnosticsState.swift */,
 			);
 			path = Connection;
 			sourceTree = "<group>";
@@ -480,7 +490,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C9D64D2A2E4AC549022E3F75 /* DiagnosticRecorder.swift in Sources */,
 				5BEBBA921F48AB6C9BA541BA /* EngineMessages.swift in Sources */,
+				84FCB4A2A9782FB188667E6A /* HelperDiagnostics.swift in Sources */,
 				233C3267215AAFF659A63908 /* HelperMain.swift in Sources */,
 				BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */,
 				49E3A7E68BB0616C9BC6277E /* KerberosRequest.swift in Sources */,
@@ -517,6 +529,8 @@
 				84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */,
 				7788FADAF54A62443DA8FB72 /* GeneralSettings.swift in Sources */,
 				2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */,
+				EF04A8370AA662E18A3C1E88 /* HelperDiagnostics.swift in Sources */,
+				27E3B23899FED6E3E041184A /* HelperDiagnosticsState.swift in Sources */,
 				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
 				DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */,
 				5BB3FC42976A4AD8F3CF0053 /* KerberosSession.swift in Sources */,
@@ -584,6 +598,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				INFOPLIST_KEY_CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -792,6 +808,8 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				INFOPLIST_KEY_CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
