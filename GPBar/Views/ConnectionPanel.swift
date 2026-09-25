@@ -103,7 +103,7 @@ struct ConnectionPanel: View {
                     }
                 }
                 primaryAction.controlSize(.large)
-                if model.phase == .authenticating {
+                if model.phase == .authenticating && model.sessionProfileKnown {
                     Button("Cancel sign-in") { model.disconnect() }.font(.caption)
                 }
                 Divider()
@@ -127,27 +127,33 @@ struct ConnectionPanel: View {
     }
 
     @ViewBuilder private var primaryAction: some View {
-        if model.cleanupRequired {
+        if model.hasSession {
+            switch model.phase {
+            case .preparing, .connecting:
+                Button("Cancel") { model.disconnect() }
+            case .authenticating where model.sessionProfileKnown:
+                Button("Open sign-in window") { model.authentication.reopen() }.buttonStyle(.borderedProminent)
+            case .disconnecting:
+                Button("Disconnecting…") {}.disabled(true)
+            case .unknown:
+                HStack {
+                    Button("Retry status") { model.refresh() }
+                    Button("Disconnect") { model.disconnect() }
+                }
+            case .connected, .reconnecting, .disconnected, .failed, .authenticating:
+                Button("Disconnect") { model.disconnect() }.buttonStyle(.borderedProminent)
+            }
+        } else if model.cleanupRequired {
             Button("Open recovery settings") { showWindow("settings") }
         } else if model.preferences.portal.isEmpty || model.profiles.storageError != nil {
             Button("Set up connection") { settings() }.buttonStyle(.borderedProminent)
         } else if !model.helperVerified || !model.engineAvailable {
             Button("Set up VPN helper") { showWindow("settings") }.buttonStyle(.borderedProminent)
+        } else if model.phase == .unknown {
+            Button("Retry status") { model.refresh() }
         } else {
-            switch model.phase {
-            case .disconnected, .failed:
-                Button("Connect") { model.connect() }.buttonStyle(.borderedProminent)
-            case .preparing, .connecting:
-                Button("Cancel") { model.disconnect() }
-            case .authenticating:
-                Button("Open sign-in window") { model.authentication.reopen() }.buttonStyle(.borderedProminent)
-            case .connected, .reconnecting:
-                Button("Disconnect") { model.disconnect() }.buttonStyle(.borderedProminent)
-            case .disconnecting:
-                Button("Disconnecting…") {}.disabled(true)
-            case .unknown:
-                Button("Retry status") { model.refresh() }
-            }
+            Button("Connect") { model.connect() }.buttonStyle(.borderedProminent)
+                .disabled(model.profileControlsLocked)
         }
     }
 

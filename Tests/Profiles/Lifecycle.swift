@@ -193,6 +193,14 @@ import AppKit
                             updates: [AuthenticationCacheUpdate(portal: "https://missing.example", revision: UUID())])
         try expect(corruptHelper.commands.isEmpty && KeychainAuthentication.writes.isEmpty, "unreadable storage retains helper cookie and policy revisions")
         try expect(corruptModel.profileControlsLocked, "unreadable storage blocks connection commands")
+        corruptModel.refresh()
+        let corruptSession = UUID().uuidString
+        corruptHelper.reply(active: corruptSession)
+        corruptHelper.event(.phaseChanged, session: corruptSession, sequence: 1, phase: .connected)
+        try expect(corruptModel.hasSession && corruptModel.phase == .connected, "unreadable storage still exposes active session controls")
+        corruptModel.disconnect()
+        try expect(corruptHelper.commands.last?.command.type == .disconnect, "unreadable storage permits explicit disconnect")
+        corruptHelper.event(.stopped, session: corruptSession, sequence: 2, cleanup: "restored")
         print("PASS: \(checks) production model lifecycle, callback, cache, SSO, recovery, and ownership checks")
     }
 }

@@ -35,7 +35,7 @@ import CryptoTokenKit
     private(set) var loginSSOMessage: String?
     private var authenticationStorageRevision = UUID()
     private var certificateMetadataRevision = UUID()
-    private var sessionProfileKnown = true
+    private(set) var sessionProfileKnown = true
     private var authenticationStorageOperations: [String: UUID] = [:]
     private var receivedKerberosPolicy: KerberosPolicyUpdate?
     private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
@@ -70,6 +70,7 @@ import CryptoTokenKit
         settingsLocked || updating || cleanupRequired || recovering || checkingHelper || loadingCertificates
             || profiles.storageError != nil || (helperStatus == .enabled && !helperVerified)
     }
+    var hasSession: Bool { sessionID != nil }
     var connectionTitle: String { sessionProfileKnown ? profiles.label(for: preferences) : "Unidentified connection" }
     var connectionPortal: String { sessionProfileKnown ? preferences.portal : (snapshot?.portal ?? "") }
     var portalEnrolledForLoginSSO: Bool {
