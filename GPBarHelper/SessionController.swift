@@ -102,6 +102,7 @@ actor SessionController {
               let state = try? LoginSSOInstallation.state(userID: userID), state.installed, let portal = state.portal,
               Self.validLoginSession(auditSessionID) else { return }
         loginCredentials.capture(username: username, password: password, userID: userID, auditSessionID: auditSessionID, portal: portal)
+        DiagnosticRecorder.shared.record(.loginCaptureAccepted, userID: userID)
         loginCredentialExpiry?.cancel()
         let captureID = UUID()
         loginCaptureID = captureID
@@ -174,6 +175,8 @@ actor SessionController {
             }.value
             finishing = false
             if success { completed = nil }
+            DiagnosticRecorder.shared.record(success ? .recoveryCompleted : .recoveryFailed,
+                reason: success ? .restored : .recoveryFailed, userID: userID)
             return CommandReply(accepted: success, code: success ? nil : "recovery_required")
         }
         if message.command.type == .start {
@@ -211,6 +214,7 @@ actor SessionController {
             completed = nil
             sessionID = message.sessionID
             do {
+                DiagnosticRecorder.shared.record(.engineStartRequested, userID: userID)
                 var forwarded = message.command
                 forwarded.useLoginCredentials = nil
                 forwarded.splitDNSDomains = nil
@@ -222,6 +226,7 @@ actor SessionController {
                 try start(JSONEncoder().encode(envelope), splitDNSDomains: message.command.splitDNSDomains ?? [])
                 return CommandReply(accepted: true, code: nil)
             } catch {
+                DiagnosticRecorder.shared.record(.engineStartFailed, reason: .engineStartFailed, userID: userID)
                 loginCredentials.clear()
                 loginAuditSessionID = nil
                 owner = nil
@@ -334,6 +339,9 @@ actor SessionController {
         networkMayHaveChanged = true
         startupTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(10)) } catch { return }
+            if let owner = await self?.owner, await self?.pendingStart != nil {
+                DiagnosticRecorder.shared.record(.engineStartupTimedOut, reason: .engineStartupTimedOut, userID: owner)
+            }
             await self?.stop()
         }
         let events = Self.chunks(eventPipe.fileHandleForReading)
@@ -352,7 +360,12 @@ actor SessionController {
                     guard buffer.count <= maximumMessageBytes else { throw ControllerError.invalidFrame }
                 }
                 if !buffer.isEmpty { throw ControllerError.invalidFrame }
-            } catch { await self?.stop() }
+            } catch {
+                if case ControllerError.invalidFrame = error, let owner = await self?.owner {
+                    DiagnosticRecorder.shared.record(.engineProtocolFailed, reason: .invalidEngineFrame, userID: owner)
+                }
+                await self?.stop()
+            }
             await self?.outputEnded()
         }
         errorTask = Task {
@@ -405,6 +418,7 @@ actor SessionController {
             pendingStart = nil
             startupTask?.cancel()
             startupTask = nil
+            if let owner { DiagnosticRecorder.shared.record(.engineStarted, userID: owner) }
             try await write(start)
             return
         }
@@ -594,6 +608,9 @@ actor SessionController {
                 completed = (owner, bytes)
                 emit(bytes)
             }
+            let cleanup: HelperDiagnosticReason = recovered
+                ? (terminal?.event.cleanup == "not_needed" ? .notNeeded : .restored) : .unverified
+            DiagnosticRecorder.shared.record(.cleanupCompleted, reason: cleanup, userID: owner)
         }
         sessionID = nil
         owner = nil

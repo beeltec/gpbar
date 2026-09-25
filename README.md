@@ -29,7 +29,8 @@ Check the [authentication support matrix](AUTHENTICATION.md) before trying your 
 - Choose automatic authentication, SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
 - Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
 - Recover recorded network changes and remove the VPN helper from general settings.
-- Debug builds include local diagnostics and export.
+- Settings includes helper status, version details, and a reviewable diagnostic report in all builds.
+- Debug builds include additional session diagnostics and export.
 - Optionally launch GPBar at login. This opens the app without connecting the VPN.
 - Optionally reuse your next macOS login password through a separately approved system plug-in.
 
@@ -82,6 +83,10 @@ Valid addresses save automatically. Invalid drafts stay visible while switching 
 App restart restores each saved address and the last selected profile.
 
 Open **Settings…**, or press **Command-comma**, for launch at login, updates, helper management, and network recovery.
+Helper diagnostics in Settings shows the current status, last contact, running helper version, and latest failure code.
+Choose **Preview diagnostic report…** to review the safe report before copying it.
+The report hides home and custom installation paths. It does not include credentials, authentication URLs, account names, or private network details.
+Helper events cover at most the current helper process. They reset when the helper restarts.
 Launch and update choices apply to the whole app. Sparkle and macOS retain ownership of their existing preferences.
 macOS login SSO remains limited to one portal per user. Profiles using that portal share its enrollment.
 Disable that enrollment before changing or removing an enrolled portal.
@@ -109,7 +114,13 @@ Launching GPBar again registers the helper again.
 Check GPBar's approval in macOS **System Settings → General → Login Items & Extensions**.
 Then choose **Check again** in GPBar Settings. Each failed check releases its connection so the next check starts fresh.
 An incompatible reply can mean that the app and helper differ. Quit GPBar and reopen the installed copy in Applications.
-If the error remains, include the exact message, GPBar build, macOS version, and installation method in a bug report.
+If the error remains, open **Preview diagnostic report…** in Settings, review it, and copy it for a bug report.
+The report includes the app and last reported helper versions, status, failure code, and bounded helper events.
+If GPBar says **Cause unknown**, it has no reliable evidence for the cause.
+macOS may block helper startup or communication before the helper can reply.
+Reproduce the failure, note its time, and filter macOS Console for `GPBarHelper` or `com.beeltec.GPBar.helper`.
+Messages from launchd or macOS security services near that time can explain failures outside the helper.
+Review macOS logs before sharing them, because they may contain private details.
 
 Helper failure does not prevent quitting GPBar. If connection status is unknown, GPBar explains that cleanup remains unconfirmed.
 For a known session, quitting requests disconnect and waits at most 20 seconds before exiting.
@@ -171,7 +182,8 @@ The helper manages privileged operations and network cleanup.
 
 Use [GitHub Issues](https://github.com/beeltec/gpbar/issues) for bug reports and feature requests.
 Include your macOS version, GPBar build, authentication method, browser choice, and steps to reproduce the problem.
-Debug builds can export diagnostics. Review them before sharing. Remove credentials, callback URLs, account details, and private network information.
+All builds can copy a helper diagnostic report from Settings. Review it before sharing.
+Debug builds can export broader session diagnostics. Review them before sharing. Remove credentials, callback URLs, account details, and private network information.
 
 Keep changes focused and follow the existing code style. Use Conventional Commits for commit messages.
 The project uses live macOS and browser validation, alongside builds and static checks.

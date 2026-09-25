@@ -6,6 +6,8 @@ final class InspectionService: NSObject, HelperProtocol {
     private let events: ClientEvents
     private let connectionID: UUID
     private let auditSessionID: UInt32
+    private let acceptedLock = NSLock()
+    private var acceptedRecorded = false
 
     init(userID: uid_t, connection: NSXPCConnection, connectionID: UUID) {
         self.userID = userID
@@ -14,7 +16,17 @@ final class InspectionService: NSObject, HelperProtocol {
         self.auditSessionID = UInt32(bitPattern: connection.auditSessionIdentifier)
     }
 
+    private func recordAccepted() {
+        acceptedLock.withLock {
+            if !acceptedRecorded {
+                acceptedRecorded = true
+                DiagnosticRecorder.shared.record(.connectionAccepted, userID: userID)
+            }
+        }
+    }
+
     func configureLoginSSO(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
+        recordAccepted()
         guard data.count <= 8192,
               let request = try? JSONDecoder().decode(LoginSSORequest.self, from: data),
               request.protocolVersion == helperProtocolVersion else { reply(Data()); return }
@@ -27,6 +39,7 @@ final class InspectionService: NSObject, HelperProtocol {
     }
 
     func prepareForUpdate(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
+        recordAccepted()
         guard data.count <= maximumMessageBytes,
               let request = try? JSONDecoder().decode(HelperRequest.self, from: data),
               request.protocolVersion == helperProtocolVersion else { reply(Data()); return }
@@ -39,15 +52,22 @@ final class InspectionService: NSObject, HelperProtocol {
     }
 
     func inspect(_ data: Data, reply: @escaping @Sendable (Data) -> Void) {
+        recordAccepted()
         guard data.count <= maximumMessageBytes,
-              let request = try? JSONDecoder().decode(HelperRequest.self, from: data),
-              request.protocolVersion == helperProtocolVersion else {
+              let request = try? JSONDecoder().decode(HelperRequest.self, from: data) else {
+            DiagnosticRecorder.shared.record(.accessRejected, reason: .invalidRequest, userID: userID)
             reply(Data())
+            return
+        }
+        guard request.protocolVersion == helperProtocolVersion else {
+            reply((try? JSONEncoder().encode(HelperInspectionEnvelope(protocolVersion: helperProtocolVersion,
+                commandID: request.commandID))) ?? Data())
             return
         }
         var consoleUser: uid_t = 0
         let name = SCDynamicStoreCopyConsoleUser(nil, &consoleUser, nil)
         let authorized = name != nil && userID != 0 && consoleUser == userID
+        if !authorized { DiagnosticRecorder.shared.record(.accessRejected, reason: .inactiveUser, userID: userID) }
         let userID = userID
         let connectionID = connectionID
         let events = events
@@ -64,12 +84,14 @@ final class InspectionService: NSObject, HelperProtocol {
                 activeSessionID: attachment.sessionID, sessionBusy: attachment.busy, recoveryRequired: attachment.recoveryRequired,
                 pendingAuthenticationUpdates: attachment.pendingAuthenticationUpdates,
                 pendingKerberosPolicies: attachment.pendingKerberosPolicies,
-                loginSSO: authorized ? try? LoginSSOInstallation.state(userID: userID) : nil)
+                loginSSO: authorized ? try? LoginSSOInstallation.state(userID: userID) : nil,
+                diagnostics: authorized ? DiagnosticRecorder.shared.snapshot(for: userID) : nil)
             reply((try? JSONEncoder().encode(response)) ?? Data())
         }
     }
 
     func send(_ command: Data, reply: @escaping @Sendable (Data) -> Void) {
+        recordAccepted()
         let userID = userID
         let auditSessionID = auditSessionID
         Task {
@@ -112,7 +134,11 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
         var consoleUser: uid_t = 0
         guard SCDynamicStoreCopyConsoleUser(nil, &consoleUser, nil) != nil,
               connection.effectiveUserIdentifier != 0,
-              connection.effectiveUserIdentifier == consoleUser else { return false }
+              connection.effectiveUserIdentifier == consoleUser else {
+            DiagnosticRecorder.shared.record(.accessRejected, reason: .inactiveUser,
+                userID: connection.effectiveUserIdentifier)
+            return false
+        }
         connection.setCodeSigningRequirement(requirement)
         connection.exportedInterface = NSXPCInterface(with: HelperProtocol.self)
         let connectionID = UUID()
@@ -128,6 +154,7 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
 
 @main enum HelperMain {
     static func main() {
+        DiagnosticRecorder.shared.record(.processStarted)
         if CommandLine.arguments == [CommandLine.arguments[0], "--remove-login-sso"] {
             do { try LoginSSOInstallation.removeForRecovery(); exit(EXIT_SUCCESS) }
             catch { exit(EXIT_FAILURE) }
@@ -137,9 +164,18 @@ final class HelperListener: NSObject, NSXPCListenerDelegate {
             do { try NetworkSession().run(mode: CommandLine.arguments[1]); exit(EXIT_SUCCESS) }
             catch { exit(EXIT_FAILURE) }
         }
-        guard CommandLine.arguments.count == 1 else { exit(EXIT_FAILURE) }
-        guard geteuid() == 0,
-              let requirement = try? SigningIdentity.requirement(for: "com.beeltec.GPBar") else { exit(EXIT_FAILURE) }
+        guard CommandLine.arguments.count == 1 else {
+            DiagnosticRecorder.shared.record(.startupFailed, reason: .invalidRuntime)
+            exit(EXIT_FAILURE)
+        }
+        guard geteuid() == 0 else {
+            DiagnosticRecorder.shared.record(.startupFailed, reason: .invalidRuntime)
+            exit(EXIT_FAILURE)
+        }
+        guard let requirement = try? SigningIdentity.requirement(for: "com.beeltec.GPBar") else {
+            DiagnosticRecorder.shared.record(.startupFailed, reason: .signingIdentityUnavailable)
+            exit(EXIT_FAILURE)
+        }
         let delegate = HelperListener(requirement: requirement)
         let listener = NSXPCListener(machServiceName: helperServiceName)
         listener.setConnectionCodeSigningRequirement("(\(requirement)) or (\(loginSSOHostRequirement))")

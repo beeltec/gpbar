@@ -1,10 +1,12 @@
 import SwiftUI
+import AppKit
 
 struct GeneralSettings: View {
     @Bindable var model: ConnectionModel
     @ObservedObject var updates: UpdateController
     @Environment(\.openWindow) private var openWindow
     @State private var removalPending = false
+    @State private var reportPreview: DiagnosticReportPreview?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,6 +73,42 @@ struct GeneralSettings: View {
                     .disabled(model.updating || removalPending || model.helperStatus == .notRegistered || model.settingsLocked || model.cleanupRequired)
                 } header: { Text("VPN helper") }
 
+                Section {
+                    LabeledContent("Status", value: model.helperDiagnostics.currentStatus)
+                    LabeledContent("Network recovery required", value: model.cleanupRequired ? "Yes" : "No")
+                    if let code = model.helperDiagnostics.currentCode {
+                        Text(code.cause).font(.caption).foregroundStyle(.secondary)
+                    }
+                    LabeledContent("App version", value: appVersion)
+                    LabeledContent("Helper version", value: helperVersion)
+                    LabeledContent("Helper protocol", value: model.helperDiagnostics.reportedProtocol.map(String.init) ?? "Unavailable")
+                    LabeledContent("Last contact", value: model.helperDiagnostics.lastContact.map(HelperDiagnosticsState.date) ?? "Never during this app launch")
+                    LabeledContent("Latest failure", value: latestFailure)
+                    LabeledContent("Cached details", value: model.helperDiagnostics.cachedDetailsState)
+                    if let issue = model.helperDiagnostics.installationIssue {
+                        LabeledContent("Installation issue", value: issue.rawValue)
+                        Text(issue.cause).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let received = model.helperDiagnostics.snapshotReceivedAt {
+                        LabeledContent("Details received", value: HelperDiagnosticsState.date(received))
+                    }
+                    LabeledContent("App installation") {
+                        Text(Bundle.main.bundleURL.path).textSelection(.enabled)
+                            .lineLimit(nil).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Helper executable") {
+                        Text(model.helperDiagnostics.snapshot?.executablePath ?? "Unavailable")
+                            .textSelection(.enabled).lineLimit(nil).multilineTextAlignment(.trailing)
+                    }
+                    Text("Cause unknown means GPBar has no reliable cause. macOS may block startup or communication before the helper can reply.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("For more detail, reproduce the failure, note its time, and filter Console for GPBarHelper or com.beeltec.GPBar.helper. Review logs before sharing them.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Preview diagnostic report…") {
+                        reportPreview = DiagnosticReportPreview(text: model.helperDiagnosticReport)
+                    }
+                } header: { Text("Helper diagnostics") }
+
                 if model.profiles.loginSSOPortal != nil {
                     Section {
                         Text("macOS login SSO is enabled for one portal. Disable it before removing the helper or updating GPBar.")
@@ -104,5 +142,66 @@ struct GeneralSettings: View {
         }
         .frame(minWidth: 480, minHeight: 580)
         .onAppear { model.refresh() }
+        .sheet(item: $reportPreview) { preview in
+            DiagnosticReportSheet(text: preview.text)
+        }
+    }
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = HelperDiagnosticsState.safeVersion(info?["CFBundleShortVersionString"] as? String) ?? "Unavailable"
+        let build = HelperDiagnosticsState.safeBuild(info?["CFBundleVersion"] as? String) ?? "Unavailable"
+        return "\(version) (\(build))"
+    }
+
+    private var helperVersion: String {
+        guard let snapshot = model.helperDiagnostics.snapshot else { return "Unavailable" }
+        return "\(snapshot.version ?? "Unavailable") (\(snapshot.build ?? "Unavailable"))"
+    }
+
+    private var latestFailure: String {
+        guard let failure = model.helperDiagnostics.lastFailure else { return "None during this app launch" }
+        return "\(failure.code.rawValue) at \(HelperDiagnosticsState.date(failure.time))"
+    }
+}
+
+private struct DiagnosticReportPreview: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+private struct DiagnosticReportSheet: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Diagnostic report").font(.headline)
+            Text("Review this report before copying or sharing it.")
+                .font(.caption).foregroundStyle(.secondary)
+            ScrollView {
+                Text(text).font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+            }
+            .frame(minHeight: 350)
+            HStack {
+                if copied { Label("Report copied", systemImage: "checkmark.circle") }
+                Spacer()
+                Button("Close") { dismiss() }
+                Button("Copy diagnostic report") {
+                    NSPasteboard.general.clearContents()
+                    copied = NSPasteboard.general.setString(text, forType: .string)
+                    if copied {
+                        NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested,
+                            userInfo: [.announcement: "Diagnostic report copied", .priority: NSAccessibilityPriorityLevel.high.rawValue])
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 650)
+        .frame(minHeight: 480)
     }
 }
