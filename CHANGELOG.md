@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## [0.3.1] - 2026-09-25
+
+### Added
+
+- Show helper status, failure codes, app and helper versions, installation paths, and last successful contact in release Settings.
+- Preview and copy a diagnostic report with recent helper events and network recovery status.
+- Record safe helper startup, connection acceptance or rejection, engine startup, and cleanup events.
+- Explain how to collect macOS logs when GPBar cannot identify the cause.
+
+### Privacy and compatibility
+
+Diagnostic reports exclude credentials, authentication URLs, account names, and private network details. Home and custom installation paths are redacted.
+Current status remains separate from historical failures. Cached helper details are marked stale when contact is lost.
+Existing protocol-11 helpers remain compatible, but need updating to provide version details and lifecycle events.
+
+### Upgrade notes and limits
+
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
+
+Release Settings, report preview and copying, helper versions, older-helper compatibility, and lifecycle events were checked live on macOS 26.6.2.
+Forced timeout, signature rejection, incompatible protocol, login capture, and cleanup failure received source review but remain unverified live.
+The [existing authentication limits](AUTHENTICATION.md) and [split DNS limits](DNS.md) still apply.
+
 ## [0.3.0] - 2026-09-25
 
 ### Added
@@ -113,6 +137,7 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
+[0.3.1]: https://github.com/beeltec/gpbar/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/beeltec/gpbar/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/beeltec/gpbar/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/beeltec/gpbar/compare/v0.2.0...v0.2.1
