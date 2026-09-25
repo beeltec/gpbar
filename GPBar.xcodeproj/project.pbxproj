@@ -37,7 +37,9 @@
 		6776762B796BF540A7E2532E /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */; };
 		687731C41C188A0955BAE941 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = 5ACB57778BC88D588B84B179 /* Licenses */; };
 		6F0514B9DF953974434AB07F /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4847C626753C794B558357B0 /* AboutView.swift */; };
+		7788FADAF54A62443DA8FB72 /* GeneralSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CA72E974DDF67F047DDD92 /* GeneralSettings.swift */; };
 		796E4CAD72F666A4677217BC /* SavedAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEDD89C54A66B544B58DF69 /* SavedAuthentication.swift */; };
+		80CCF78BA2D60563F751C126 /* ConnectionProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE9724D810C8A963A882C17 /* ConnectionProfiles.swift */; };
 		83EDD6509B59E2C43973E3C1 /* PortalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C4C3956223045607EF9CADC /* PortalAddress.swift */; };
 		8439BB00C85F9F71B6EC9C13 /* com.beeltec.GPBar.helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 61BF464D70F4A7BB98C35BCA /* com.beeltec.GPBar.helper.plist */; };
 		84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22032C5BBA8F2C25237F631 /* GPBarApp.swift */; };
@@ -50,6 +52,7 @@
 		B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */; };
 		BAD749ACCBAF9E0EA1A853F7 /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94131D702B90C08815A2340E /* HelperProtocol.swift */; };
 		BE77525EF0492C271ACCF3CE /* ResourceAuthenticationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5823599D65FADF7E057E212B /* ResourceAuthenticationRequest.swift */; };
+		C86EC4D7FA87EA61637EADD3 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281E34216A7777A6715C611D /* ConnectionsView.swift */; };
 		C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */; };
 		C8E5935DAE699D83347B0D26 /* KeychainIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */; };
 		C9168F07ACE53EA7E51DE479 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 63676126D7D70F456474985D /* PrivacyInfo.xcprivacy */; };
@@ -86,9 +89,9 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 6;
+			dstSubfolderSpec = 13;
 			files = (
-				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
+				86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */,
 			);
 			name = "Embed Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -107,9 +110,9 @@
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolderSpec = 6;
 			files = (
-				86931934DABC50061941DDE3 /* GPBarLogin.bundle in Embed Dependencies */,
+				A7C2EC467B453F9FF0415F9A /* GPBarHelper in Embed Dependencies */,
 			);
 			name = "Embed Dependencies";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -121,6 +124,7 @@
 		0E2A8851715EB08324D5B856 /* KeychainIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainIdentity.swift; sourceTree = "<group>"; };
 		118EE08402056365ED0947EF /* AuthenticationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationCoordinator.swift; sourceTree = "<group>"; };
 		17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionPanel.swift; sourceTree = "<group>"; };
+		281E34216A7777A6715C611D /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
 		3816651963CDC9E12F5836C0 /* KeychainAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAuthentication.swift; sourceTree = "<group>"; };
 		43782CB7A198F3EEAB7E3955 /* SecureRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureRuntime.swift; sourceTree = "<group>"; };
 		4847C626753C794B558357B0 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
@@ -137,6 +141,7 @@
 		6C2BF77A5E51123A94FCBBF7 /* LoginCredentialCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginCredentialCache.swift; sourceTree = "<group>"; };
 		70D2E572EBC1DB08E0FCC30E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		722E9924852CF38FB102AA62 /* GPBarLogin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GPBarLogin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		73CA72E974DDF67F047DDD92 /* GeneralSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettings.swift; sourceTree = "<group>"; };
 		74799272DFB6A5CAE0F5CB2B /* LoginSSOAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOAuthorization.swift; sourceTree = "<group>"; };
 		7745D995B1793C8882744FE4 /* LoginSSOInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOInstallation.swift; sourceTree = "<group>"; };
 		7A45A7B43AB47061045E5CA7 /* HelperClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperClient.swift; sourceTree = "<group>"; };
@@ -145,6 +150,7 @@
 		92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
 		94131D702B90C08815A2340E /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
 		9AB61916931634D0644C4377 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		9DE9724D810C8A963A882C17 /* ConnectionProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionProfiles.swift; sourceTree = "<group>"; };
 		9ED17FC405B675512961631C /* LoginSSOSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginSSOSettings.swift; sourceTree = "<group>"; };
 		A116881E418FF3CF77CA5A4C /* UserKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserKeychain.swift; sourceTree = "<group>"; };
 		A3DA8149CFB00C7EA5E54463 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -260,7 +266,9 @@
 				17464B7C77EE0AF511765C20 /* ConnectionPanel.swift */,
 				FA43745F44E29F4874CD768F /* ConnectionPath.swift */,
 				8A7ADA2F49D70CC54134C598 /* ConnectionSettings.swift */,
+				281E34216A7777A6715C611D /* ConnectionsView.swift */,
 				E8B81603F14E68AF97C567BC /* DiagnosticsView.swift */,
+				73CA72E974DDF67F047DDD92 /* GeneralSettings.swift */,
 				9ED17FC405B675512961631C /* LoginSSOSettings.swift */,
 				92B57365D48A14E3BEE6595E /* MenuBarStatusIcon.swift */,
 				A655D8288A4805EB56B3C43B /* ResourceAuthenticationView.swift */,
@@ -337,6 +345,7 @@
 			children = (
 				60BE08E47756E5B074AD3F7D /* ConnectionModel.swift */,
 				64567B0BF10E17871C9853B3 /* ConnectionPreferences.swift */,
+				9DE9724D810C8A963A882C17 /* ConnectionProfiles.swift */,
 			);
 			path = Connection;
 			sourceTree = "<group>";
@@ -495,10 +504,13 @@
 				C8D9532E10B5C3FA2375ED8F /* ConnectionPanel.swift in Sources */,
 				A3354E3F1A2B409D37E104D7 /* ConnectionPath.swift in Sources */,
 				B9913D0600FF5FF520939DBD /* ConnectionPreferences.swift in Sources */,
+				80CCF78BA2D60563F751C126 /* ConnectionProfiles.swift in Sources */,
 				EEF16877F7EE045065C0DB4A /* ConnectionSettings.swift in Sources */,
+				C86EC4D7FA87EA61637EADD3 /* ConnectionsView.swift in Sources */,
 				4E0923A29AF0BB7131580FB3 /* DiagnosticsView.swift in Sources */,
 				10C60EA437D94C29A082CDBE /* EngineMessages.swift in Sources */,
 				84B1D2128E80053D253B81EA /* GPBarApp.swift in Sources */,
+				7788FADAF54A62443DA8FB72 /* GeneralSettings.swift in Sources */,
 				2B4B9069C0992C9898FF14ED /* HelperClient.swift in Sources */,
 				468F5D62839DB93CCDE17E74 /* HelperProtocol.swift in Sources */,
 				DDD04DA4B0BC6340EF5B83DF /* KerberosRequest.swift in Sources */,

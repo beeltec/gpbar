@@ -25,15 +25,38 @@ struct ConnectionPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text(model.preferences.title).font(.headline).lineLimit(2)
+                    Menu {
+                        ForEach(model.profiles.profiles) { profile in
+                            Button { model.selectProfile(profile.id) } label: {
+                                if profile.id == model.preferences.id {
+                                    Label(model.profiles.label(for: profile), systemImage: "checkmark")
+                                } else {
+                                    Text(model.profiles.label(for: profile))
+                                }
+                            }
+                            .disabled(model.profileControlsLocked)
+                        }
+                        Divider()
+                        Button("Manage Connections…") { showWindow("connection") }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(model.connectionTitle).font(.headline).lineLimit(2)
+                            if !model.connectionPortal.isEmpty {
+                                Text(model.connectionPortal).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Connection profile")
                     Spacer()
-                    Button { settings() } label: { Image(systemName: "gearshape") }
-                        .buttonStyle(.plain).help("Connection settings").accessibilityLabel("Connection settings")
+                    Button { showWindow("settings") } label: { Image(systemName: "gearshape") }
+                        .buttonStyle(.plain).help("Settings").accessibilityLabel("Settings")
                 }
                 ConnectionPath(phase: model.phase)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(status).font(.system(size: 20, weight: .semibold, design: .rounded))
-                    if let error = model.error {
+                    if let error = model.profiles.storageError ?? model.error {
                         Text(error).font(.callout).foregroundStyle(Color("Failure")).textSelection(.enabled)
                     } else if model.preferences.portal.isEmpty {
                         Text("Add the connection address supplied by your organization.")
@@ -84,11 +107,9 @@ struct ConnectionPanel: View {
                 }
                 Divider()
                 HStack {
+                    Button("Connections…") { showWindow("connection") }
                     Button("About GPBar…") { showWindow("about") }
                     Spacer()
-                    #if DEBUG
-                    Button("Diagnostics…") { showWindow("diagnostics") }
-                    #endif
                     Button("Quit") { NSApp.terminate(nil) }
                 }
                 .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
@@ -106,9 +127,11 @@ struct ConnectionPanel: View {
 
     @ViewBuilder private var primaryAction: some View {
         if model.cleanupRequired {
-            Button("Open recovery settings") { settings() }
-        } else if model.preferences.portal.isEmpty || !model.helperVerified || !model.engineAvailable {
+            Button("Open recovery settings") { showWindow("settings") }
+        } else if model.preferences.portal.isEmpty || model.profiles.storageError != nil {
             Button("Set up connection") { settings() }.buttonStyle(.borderedProminent)
+        } else if !model.helperVerified || !model.engineAvailable {
+            Button("Set up VPN helper") { showWindow("settings") }.buttonStyle(.borderedProminent)
         } else {
             switch model.phase {
             case .disconnected, .failed:

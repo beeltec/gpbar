@@ -5,7 +5,8 @@ import Network
 import CryptoTokenKit
 
 @MainActor @Observable final class ConnectionModel {
-    let preferences = ConnectionPreferences()
+    let profiles: ConnectionProfiles
+    var preferences: ConnectionPreferences { profiles.selected }
     let authentication = AuthenticationCoordinator()
     let resourceAuthentication = ResourceAuthenticationCoordinator()
     private(set) var resourceAuthenticationMessage: String?
@@ -27,6 +28,8 @@ import CryptoTokenKit
     private(set) var configuringLoginSSO = false
     private(set) var loginSSOMessage: String?
     private var authenticationStorageRevision = UUID()
+    private var certificateMetadataRevision = UUID()
+    private var sessionProfileKnown = true
     private var authenticationStorageOperations: [String: UUID] = [:]
     private var receivedKerberosPolicy: KerberosPolicyUpdate?
     private var receivedAuthenticationUpdate: AuthenticationCacheUpdate?
@@ -57,7 +60,19 @@ import CryptoTokenKit
     private var restoreHelperAfterUpdate = false
     var settingsLocked: Bool { configuringLoginSSO || sessionID != nil || phase.isActive }
 
-    init() {
+    var profileControlsLocked: Bool {
+        settingsLocked || updating || cleanupRequired || recovering || checkingHelper || loadingCertificates
+            || profiles.storageError != nil || (helperStatus == .enabled && !helperVerified)
+    }
+    var connectionTitle: String { sessionProfileKnown ? profiles.label(for: preferences) : "Unidentified connection" }
+    var connectionPortal: String { sessionProfileKnown ? preferences.portal : (snapshot?.portal ?? "") }
+    var portalEnrolledForLoginSSO: Bool {
+        !preferences.portal.isEmpty && preferences.portal == profiles.loginSSOPortal
+    }
+
+    init(defaults: UserDefaults = .standard) {
+        profiles = ConnectionProfiles(defaults: defaults)
+        for profile in profiles.profiles { configureProfile(profile) }
         availableTokenIDs = Set(tokenWatcher.tokenIDs)
         tokenWatcher.setInsertionHandler { @Sendable [weak self] tokenID in
             Task { @MainActor [weak self] in
@@ -68,28 +83,7 @@ import CryptoTokenKit
                 }, forTokenID: tokenID)
             }
         }
-        certificateMetadataReady = preferences.certificateReference == nil || preferences.certificateTokenID != nil
-        if !certificateMetadataReady, let reference = preferences.certificateReference {
-            Task {
-                do {
-                    let tokenID = try await KeychainIdentity.tokenID(reference: reference)
-                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
-                    preferences.certificateTokenID = tokenID
-                    certificateMetadataReady = true
-                    availableTokenIDs = Set(tokenWatcher.tokenIDs)
-                    if selectedTokenMissing, sessionID != nil {
-                        disconnect()
-                        error = "The selected token is unavailable. Reinsert it and connect again."
-                    }
-                } catch {
-                    guard preferences.certificateReference == reference, !certificateMetadataReady else { return }
-                    certificateMetadataFailed = true
-                    guard preferences.authenticationMethod == .certificate else { return }
-                    if sessionID != nil { disconnect() }
-                    self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
-                }
-            }
-        }
+        refreshCertificateMetadata()
         helper.onEvent = { [weak self] event in self?.receive(event) }
         helper.onInterruption = { [weak self] in
             guard let self else { return }
@@ -101,15 +95,6 @@ import CryptoTokenKit
             self.receivedAuthenticationUpdate = nil
             self.lastSequence = 0
             if self.sessionID != nil { self.phase = .unknown }
-        }
-        preferences.onAddressChange = { [weak self] previousPortal in
-            guard let self, !self.settingsLocked else { return }
-            self.certificateMetadataReady = true
-            self.certificateMetadataFailed = false
-            self.snapshot = nil
-            self.error = nil
-            self.authentication.finish()
-            self.forgetSavedAuthentication(portal: previousPortal)
         }
         authentication.onCancel = { [weak self] in self?.disconnect() }
         authentication.onRetryExternally = { [weak self] in
@@ -138,8 +123,98 @@ import CryptoTokenKit
         }
     }
 
+    private func configureProfile(_ profile: ConnectionPreferences) {
+        profile.canChangeAddress = { [weak self, weak profile] in
+            guard let self, let profile else { return false }
+            return self.preferences.id == profile.id && !self.profileControlsLocked && !self.portalEnrolledForLoginSSO
+        }
+        profile.onAddressChange = { [weak self, weak profile] previousPortal in
+            guard let self, let profile else { return }
+            self.resetProfilePresentation()
+            self.forgetSavedAuthentication(portal: previousPortal, profile: profile)
+        }
+    }
+
+    func selectProfile(_ id: UUID) {
+        guard !profileControlsLocked, id != preferences.id else { return }
+        saveProfileDraft()
+        guard profiles.select(id) else { return }
+        resetProfilePresentation()
+    }
+
+    func addProfile() {
+        guard !profileControlsLocked else { return }
+        saveProfileDraft()
+        guard let profile = profiles.add() else { return }
+        configureProfile(profile)
+        resetProfilePresentation()
+    }
+
+    func removeProfile(_ id: UUID) {
+        guard !profileControlsLocked, preferences.id == id, !portalEnrolledForLoginSSO,
+              let removed = profiles.removeSelected() else { return }
+        configureProfile(preferences)
+        resetProfilePresentation()
+        forgetSavedAuthentication(profile: removed)
+        profiles.finishRemoval(removed)
+    }
+
+    private func saveProfileDraft() {
+        if !preferences.addressDraft.isEmpty { preferences.saveAddress() }
+    }
+
+    private func resetProfilePresentation() {
+        if !phase.isActive { phase = .disconnected }
+        snapshot = nil
+        error = nil
+        authenticationStorageMessage = nil
+        loginSSOMessage = nil
+        certificateChoices = []
+        certificateError = nil
+        receivedAuthenticationUpdate = nil
+        receivedKerberosPolicy = nil
+        browserOverride = nil
+        retryExternally = false
+        authentication.finish()
+        resourceAuthentication.finish()
+        resourceAuthenticationMessage = nil
+        refreshCertificateMetadata()
+    }
+
+    private func refreshCertificateMetadata() {
+        guard profiles.storageError == nil else { return }
+        let profile = preferences
+        let revision = UUID()
+        certificateMetadataRevision = revision
+        certificateMetadataFailed = false
+        certificateMetadataReady = profile.certificateReference == nil || profile.certificateTokenID != nil
+        if !certificateMetadataReady, let reference = profile.certificateReference {
+            Task {
+                do {
+                    let tokenID = try await KeychainIdentity.tokenID(reference: reference)
+                    guard preferences.id == profile.id, certificateMetadataRevision == revision,
+                          profile.certificateReference == reference, !certificateMetadataReady else { return }
+                    profile.certificateTokenID = tokenID
+                    certificateMetadataReady = true
+                    availableTokenIDs = Set(tokenWatcher.tokenIDs)
+                    if selectedTokenMissing, sessionID != nil {
+                        disconnect()
+                        error = "The selected token is unavailable. Reinsert it and connect again."
+                    }
+                } catch {
+                    guard preferences.id == profile.id, certificateMetadataRevision == revision,
+                          profile.certificateReference == reference, !certificateMetadataReady else { return }
+                    certificateMetadataFailed = true
+                    guard preferences.authenticationMethod == .certificate else { return }
+                    if sessionID != nil { disconnect() }
+                    self.error = "The saved identity could not be checked. Reinsert or unlock it, then select its certificate again."
+                }
+            }
+        }
+    }
+
     func connect(browserOverride: BrowserChoice? = nil) {
-        guard !updating, !settingsLocked, !cleanupRequired else { return }
+        guard !profileControlsLocked else { return }
         guard preferences.saveAddress() else { error = preferences.addressError; return }
         guard helperVerified, engineAvailable else { error = "Set up the current VPN helper before connecting."; return }
         let usesCertificate = preferences.authenticationMethod == .certificate
@@ -154,6 +229,8 @@ import CryptoTokenKit
         guard !selectedTokenMissing else { error = "Insert the selected smart card or hardware token, then try again."; return }
         let newSession = UUID().uuidString
         sessionID = newSession
+        sessionProfileKnown = true
+        profiles.session = ConnectionProfiles.Session(id: newSession, profileID: preferences.id)
         engineStartSent = false
         self.browserOverride = browserOverride
         startPending = true
@@ -169,7 +246,7 @@ import CryptoTokenKit
         command.kerberosFallbackUntil = preferences.kerberosFallbackUntil
         command.useLoginCredentials = loginSSO?.installed == true && loginSSO?.portal == preferences.portal
         if preferences.rememberAuthentication && !preferences.pendingAuthenticationRemovals.contains(preferences.portal) {
-            KeychainAuthentication.load(portal: preferences.portal) { [weak self, command] result in
+            KeychainAuthentication.load(portal: preferences.portal, namespace: preferences.authenticationNamespace) { [weak self, command] result in
                 Task { @MainActor in
                     guard let self, self.sessionID == newSession, self.phase != .disconnecting else { return }
                     guard self.phase == .preparing else {
@@ -214,6 +291,7 @@ import CryptoTokenKit
                     certificateContext?.invalidate()
                     certificateContext = nil
                     sessionID = nil
+                    profiles.session = nil
                     startPending = false
                     phase = .failed
                     self.error = preferences.certificateTokenID == nil
@@ -233,44 +311,90 @@ import CryptoTokenKit
         if !enabled { forgetSavedAuthentication() }
     }
 
-    func forgetSavedAuthentication(portal: String? = nil) {
+    func forgetSavedAuthentication(portal: String? = nil, profile: ConnectionPreferences? = nil) {
         guard !settingsLocked else { return }
+        let preferences = profile ?? preferences
         receivedAuthenticationUpdate = nil
         let targets = Set(preferences.pendingAuthenticationRemovals + [portal ?? preferences.portal]).filter { !$0.isEmpty }
         preferences.pendingAuthenticationRemovals = targets.sorted()
-        for target in targets { storeAuthentication(nil, portal: target) }
+        for target in targets { storeAuthentication(nil, portal: target, profile: preferences) }
     }
 
-    private func storeAuthentication(_ saved: SavedAuthentication?, portal: String, cacheRevision: UUID? = nil) {
+    private func reconcileAuthentication(_ update: AuthenticationCacheUpdate) {
+        let targets = (profiles.profiles + profiles.retired).filter {
+            $0.portal == update.portal || $0.pendingAuthenticationRemovals.contains(update.portal)
+        }
+        // Mark all namespaces before any callback can acknowledge the portal-wide revision.
+        for profile in targets where !profile.pendingAuthenticationRemovals.contains(update.portal) {
+            profile.pendingAuthenticationRemovals.append(update.portal)
+        }
+        if targets.isEmpty {
+            let command = EngineCommand(type: .acknowledgeAuthenticationCache, portal: update.portal, cacheRevision: update.revision)
+            helper.send(EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
+                commandID: UUID().uuidString, command: command)) { _ in }
+        }
+        for profile in targets {
+            storeAuthentication(nil, portal: update.portal, profile: profile, cacheRevision: update.revision)
+        }
+    }
+
+    private func retryRetiredAuthenticationRemovals() {
+        for profile in profiles.retired {
+            for portal in profile.pendingAuthenticationRemovals where authenticationStorageOperations["\(profile.id)|\(portal)"] == nil {
+                storeAuthentication(nil, portal: portal, profile: profile)
+            }
+            profiles.finishRemoval(profile)
+        }
+    }
+
+    private func adoptSession(_ id: String) {
+        sessionID = id
+        sessionProfileKnown = false
+        if let recorded = profiles.session, recorded.id == id, profiles.select(recorded.profileID) {
+            configureProfile(preferences)
+            refreshCertificateMetadata()
+            sessionProfileKnown = true
+        } else {
+            error = "This session’s profile could not be identified. Disconnect before choosing another connection."
+        }
+    }
+
+    private func storeAuthentication(_ saved: SavedAuthentication?, portal: String, profile: ConnectionPreferences, cacheRevision: UUID? = nil) {
         guard !portal.isEmpty else { return }
+        let preferences = profile
+        let operation = "\(profile.id)|\(portal)"
         if !preferences.pendingAuthenticationRemovals.contains(portal) {
             preferences.pendingAuthenticationRemovals.append(portal)
         }
         let revision = UUID()
         authenticationStorageRevision = revision
-        authenticationStorageOperations[portal] = revision
-        KeychainAuthentication.replace(saved, portal: portal) { [weak self] success in
+        authenticationStorageOperations[operation] = revision
+        KeychainAuthentication.replace(saved, portal: portal, namespace: profile.authenticationNamespace) { [weak self] success in
             Task { @MainActor in
-                guard let self, self.authenticationStorageOperations[portal] == revision else { return }
+                guard let self, self.authenticationStorageOperations[operation] == revision else { return }
                 if success, let cacheRevision {
                     let command = EngineCommand(type: .acknowledgeAuthenticationCache, portal: portal, cacheRevision: cacheRevision)
                     let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion,
                         sessionID: UUID().uuidString, commandID: UUID().uuidString, command: command)
                     self.helper.send(envelope) { [weak self] reply in
-                        self?.completeAuthenticationStorage(saved, portal: portal, revision: revision, success: reply.accepted)
+                        self?.completeAuthenticationStorage(saved, portal: portal, profile: profile, revision: revision, success: reply.accepted)
                     }
                 } else {
-                    self.completeAuthenticationStorage(saved, portal: portal, revision: revision, success: success)
+                    self.completeAuthenticationStorage(saved, portal: portal, profile: profile, revision: revision, success: success)
                 }
             }
         }
     }
 
-    private func completeAuthenticationStorage(_ saved: SavedAuthentication?, portal: String, revision: UUID, success: Bool) {
-        guard authenticationStorageOperations[portal] == revision else { return }
-        authenticationStorageOperations.removeValue(forKey: portal)
+    private func completeAuthenticationStorage(_ saved: SavedAuthentication?, portal: String, profile: ConnectionPreferences, revision: UUID, success: Bool) {
+        let operation = "\(profile.id)|\(portal)"
+        guard authenticationStorageOperations[operation] == revision else { return }
+        authenticationStorageOperations.removeValue(forKey: operation)
+        let preferences = profile
         if !success, receivedAuthenticationUpdate?.portal == portal { receivedAuthenticationUpdate = nil }
         if success { preferences.pendingAuthenticationRemovals.removeAll { $0 == portal } }
+        profiles.finishRemoval(profile)
+        guard self.preferences.id == profile.id else { return }
         if !preferences.pendingAuthenticationRemovals.isEmpty {
             authenticationStorageMessage = "Some saved sign-ins could not be confirmed. Refresh helper status, unlock Keychain, then try Forget saved sign-in again."
             return
@@ -302,6 +426,7 @@ import CryptoTokenKit
             helper.send(request) { [weak self] reply in
                 guard let self, self.sessionID == cancelledSession else { return }
                 self.sessionID = nil
+                self.profiles.session = nil
                 self.startPending = false
                 self.phase = .disconnected
                 if !reply.accepted {
@@ -340,6 +465,7 @@ import CryptoTokenKit
             return false
         }
         preferences.clearCertificate()
+        certificateMetadataRevision = UUID()
         certificateMetadataReady = true
         certificateMetadataFailed = false
         if let choice {
@@ -385,7 +511,7 @@ import CryptoTokenKit
     }
 
     private func storeKerberosPolicy(_ update: KerberosPolicyUpdate) {
-        preferences.saveKerberosPolicy(update)
+        profiles.saveKerberosPolicy(update)
         let command = EngineCommand(type: .acknowledgeKerberosPolicy, portal: update.portal, cacheRevision: update.revision)
         let envelope = EngineCommandEnvelope(protocolVersion: helperProtocolVersion, sessionID: UUID().uuidString,
             commandID: UUID().uuidString, command: command)
@@ -473,8 +599,9 @@ import CryptoTokenKit
                 self.certificateContext = nil
                 self.phase = .failed
                 self.sessionID = nil
+                self.profiles.session = nil
                 self.error = reply.code == "runtime_or_recovery"
-                    ? "The VPN runtime could not be verified, or an earlier session needs network recovery. Open Edit Connection."
+                    ? "The VPN runtime could not be verified, or an earlier session needs network recovery. Open Settings."
                     : "The VPN session could not start. Check helper access and try again."
             } else {
                 if kind == .disconnect || kind == .cancel || kind == .getSnapshot {
@@ -493,13 +620,17 @@ import CryptoTokenKit
                     || envelope.event.type == .credentialsRequired
                     || envelope.event.type == .signatureRequired
                     || envelope.event.type == .stopped else { return }
-            sessionID = envelope.sessionID
+            if envelope.event.type == .stopped && profiles.session?.id != envelope.sessionID {
+                sessionID = envelope.sessionID
+                sessionProfileKnown = false
+            } else { adoptSession(envelope.sessionID) }
             engineStartSent = true
             lastSequence = 0
         }
         guard sessionID == envelope.sessionID, envelope.sequence > lastSequence else { return }
         lastSequence = envelope.sequence
         let event = envelope.event
+        if !sessionProfileKnown && ![.snapshot, .phaseChanged, .stopped, .failure].contains(event.type) { return }
         recentEvents.append("\(Date().ISO8601Format()) \(event.type.rawValue)\(event.phase.map { " " + $0.rawValue } ?? "")")
         if let code = event.code, code.count <= 128, code.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }) {
             recentEvents[recentEvents.count - 1] += " " + code
@@ -522,7 +653,7 @@ import CryptoTokenKit
             let saved = event.savedAuthentication.flatMap {
                 $0.isValid && $0.portal == portal && portal == preferences.portal && preferences.rememberAuthentication ? $0 : nil
             }
-            storeAuthentication(saved, portal: portal, cacheRevision: revision)
+            storeAuthentication(saved, portal: portal, profile: preferences, cacheRevision: revision)
         case .kerberosRequired:
             negotiateKerberos(event, session: envelope.sessionID)
         case .kerberosFinished:
@@ -540,7 +671,7 @@ import CryptoTokenKit
                 self.phase = phase
                 if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
-                if phase == .connected { error = nil }
+                if phase == .connected && sessionProfileKnown { error = nil }
             }
         case .snapshot:
             if let snapshot = event.snapshot {
@@ -548,7 +679,7 @@ import CryptoTokenKit
                 phase = snapshot.phase
                 if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
-                if phase == .connected { error = nil }
+                if phase == .connected && sessionProfileKnown { error = nil }
             }
         case .authenticationRequired, .otpRequired, .credentialsRequired:
             phase = .authenticating
@@ -577,6 +708,8 @@ import CryptoTokenKit
             cleanupRequired = event.cleanup != "not_needed" && event.cleanup != "restored"
             sessionID = nil
             authentication.finish()
+            if profiles.session?.id == envelope.sessionID { profiles.session = nil }
+            sessionProfileKnown = true
             phase = error == nil && !cleanupRequired ? .disconnected : .failed
             if cleanupRequired { error = "Connection stopped. Network cleanup needs attention." }
             if quitAfterDisconnect {
@@ -590,7 +723,7 @@ import CryptoTokenKit
             }
         case .ready: break
         }
-        if preferences.authenticationMethod == .certificate, selectedTokenMissing || certificateMetadataFailed,
+        if sessionProfileKnown, preferences.authenticationMethod == .certificate, selectedTokenMissing || certificateMetadataFailed,
            sessionID != nil, phase != .disconnecting {
             disconnect()
             error = "The selected smart card or hardware token is unavailable. Reinsert it and connect again."
@@ -616,13 +749,14 @@ import CryptoTokenKit
     func refresh() {
         guard !updating else { return }
         helperStatus = service.status
+        retryRetiredAuthenticationRemovals()
         launchAtLogin = SMAppService.mainApp.status == .enabled
         guard helperStatus == .enabled else {
             if sessionID != nil { phase = .unknown }
             cancelPendingQuit()
             helper.cancel()
             checkingHelper = false
-            if sessionID == nil && phase == .unknown { phase = .disconnected }
+            if sessionID == nil && profiles.session == nil && phase == .unknown { phase = .disconnected }
             helperVerified = false
             helperMessage = helperStatus == .requiresApproval
                 ? "Allow GPBar in Login Items & Extensions, then return here."
@@ -647,7 +781,6 @@ import CryptoTokenKit
             }
             switch result {
             case .success(let reply):
-                self.loginSSO = reply.loginSSO
                 self.helperVerified = reply.runningAsRoot && reply.authorizedUser
                 guard self.helperVerified else {
                     self.engineAvailable = false
@@ -656,6 +789,8 @@ import CryptoTokenKit
                     self.helperMessage = "The helper could not confirm access for this user."
                     return
                 }
+                self.loginSSO = reply.loginSSO
+                if let state = reply.loginSSO { self.profiles.loginSSOPortal = state.portal }
                 guard reply.pendingKerberosPolicies.count <= 128,
                       reply.pendingKerberosPolicies.allSatisfy({ PortalAddress.normalize($0.portal) == $0.portal }),
                       reply.pendingAuthenticationUpdates.count <= 128,
@@ -674,13 +809,13 @@ import CryptoTokenKit
                 for update in reply.pendingAuthenticationUpdates {
                     if let received = self.receivedAuthenticationUpdate, received.portal == update.portal,
                        received == update || received != inspectedAuthenticationUpdate { continue }
-                    self.storeAuthentication(nil, portal: update.portal, cacheRevision: update.revision)
+                    self.reconcileAuthentication(update)
                 }
                 self.engineAvailable = reply.engineSessionsAvailable && !reply.sessionBusy
                 if reply.recoveryRequired {
                     self.cleanupRequired = true
                     self.phase = .failed
-                    self.error = "An earlier VPN session needs network recovery. Open Edit Connection."
+                    self.error = "An earlier VPN session needs network recovery. Open Settings."
                 }
                 if reply.sessionBusy {
                     self.phase = .unknown
@@ -701,17 +836,19 @@ import CryptoTokenKit
                 }
                 if self.sessionID == nil {
                     if let active = reply.activeSessionID, !self.completedSessions.contains(active) {
-                        self.sessionID = active
+                        self.adoptSession(active)
                         self.engineStartSent = true
                         self.phase = .unknown
                     } else if self.phase == .unknown { self.phase = .disconnected }
                 }
+                if reply.activeSessionID == nil { self.profiles.session = nil; self.sessionProfileKnown = true }
                 if self.sessionID != nil { self.send(EngineCommand(type: .getSnapshot)) }
                 self.helperMessage = reply.engineSessionsAvailable ? "Helper identity and user access verified."
-                    : "The helper is preparing an update. If it failed, remove the helper in Edit Connection and set it up again."
+                    : "The helper is preparing an update. If it failed, remove the helper in Settings and set it up again."
             case .failure:
                 if self.kerberosRequestID != nil { self.disconnect() }
                 self.helperVerified = false
+                self.phase = .unknown
                 self.helperMessage = "The helper could not be reached. Check approval, then try again."
             }
         }
@@ -830,6 +967,8 @@ import CryptoTokenKit
                 self.startPending = false
                 if let sessionID = self.sessionID { self.completedSessions.append(sessionID) }
                 self.sessionID = nil
+                self.profiles.session = nil
+                self.sessionProfileKnown = true
                 self.cleanupRequired = false
                 self.phase = .disconnected
                 self.error = nil

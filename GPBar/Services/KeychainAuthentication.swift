@@ -15,11 +15,11 @@ enum KeychainAuthentication {
         let authentication: SavedAuthentication
     }
 
-    static func load(portal: String, completion: @escaping @Sendable (Result<SavedAuthentication?, Failure>) -> Void) {
+    static func load(portal: String, namespace: UUID? = nil, completion: @escaping @Sendable (Result<SavedAuthentication?, Failure>) -> Void) {
         queue.async {
             do {
                 let authentication: SavedAuthentication? = try UserKeychain.withoutInteraction {
-                    var query = query(portal: portal)
+                    var query = query(portal: portal, namespace: namespace)
                     query[kSecReturnData as String] = true
                     query[kSecMatchLimit as String] = kSecMatchLimitOne
                     var result: CFTypeRef?
@@ -29,7 +29,7 @@ enum KeychainAuthentication {
                     let stored = data.count <= 65536 ? try? JSONDecoder().decode(Stored.self, from: data) : nil
                     guard let stored, stored.version == 1, stored.device == (try device()),
                           stored.authentication.portal == portal, let authentication = stored.authentication.unexpired() else {
-                        try remove(portal: portal)
+                        try remove(portal: portal, namespace: namespace)
                         return nil
                     }
                     return authentication
@@ -39,25 +39,25 @@ enum KeychainAuthentication {
         }
     }
 
-    static func replace(_ authentication: SavedAuthentication?, portal: String, completion: @escaping @Sendable (Bool) -> Void) {
+    static func replace(_ authentication: SavedAuthentication?, portal: String, namespace: UUID? = nil, completion: @escaping @Sendable (Bool) -> Void) {
         queue.async {
             do {
                 try UserKeychain.withoutInteraction {
                     guard let authentication else {
-                        try remove(portal: portal)
+                        try remove(portal: portal, namespace: namespace)
                         return
                     }
                     guard authentication.portal == portal, authentication.isValid,
                           let current = authentication.unexpired() else { throw Failure.invalidData }
                     let data = try JSONEncoder().encode(Stored(version: 1, device: try device(), authentication: current))
                     guard data.count <= 65536 else { throw Failure.invalidData }
-                    let query = query(portal: portal)
+                    let query = query(portal: portal, namespace: namespace)
                     var trusted: SecTrustedApplication?
                     var access: SecAccess?
                     guard SecTrustedApplicationCreateFromPath(nil, &trusted) == errSecSuccess, let trusted,
                           SecAccessCreate("GPBar saved sign-in" as CFString, [trusted] as CFArray, &access) == errSecSuccess,
                           let access else { throw Failure.unavailable }
-                    try remove(portal: portal)
+                    try remove(portal: portal, namespace: namespace)
                     var item = query
                     item[kSecValueData as String] = data
                     item[kSecAttrAccess as String] = access
@@ -68,16 +68,16 @@ enum KeychainAuthentication {
         }
     }
 
-    private static func query(portal: String) -> [String: Any] {
+    private static func query(portal: String, namespace: UUID?) -> [String: Any] {
         return [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service,
-         kSecAttrAccount as String: portal,
+         kSecAttrAccount as String: namespace.map { "\($0.uuidString)|\(portal)" } ?? portal,
          kSecAttrSynchronizable as String: false,
          kSecUseDataProtectionKeychain as String: false]
     }
 
-    private static func remove(portal: String) throws {
-        let status = SecItemDelete(query(portal: portal) as CFDictionary)
+    private static func remove(portal: String, namespace: UUID?) throws {
+        let status = SecItemDelete(query(portal: portal, namespace: namespace) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw Failure.unavailable }
     }
 
