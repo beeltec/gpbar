@@ -1,153 +1,81 @@
 # GPBar
 
-A native macOS menu bar client for GlobalProtect VPNs, built with SwiftUI, OpenProtect, and OpenConnect.
-Enter the portal address supplied by your organization, sign in, and manage your connection from the menu bar.
+A native macOS menu bar client for GlobalProtect VPNs.
+Enter your organization's portal address, sign in, and manage the connection from the menu bar.
+GPBar is built with SwiftUI, [OpenProtect](https://github.com/kyaky/openprotect), and [OpenConnect](https://www.infradead.org/openconnect/).
 No company portal is built in.
 
-**Development status:** GPBar is under active development.
-A locally signed and notarized v0.2.0 build established a real SAML connection.
-Normal disconnect restored the observed routes and DNS configuration.
-Failure recovery, wider portal compatibility, and release validation remain incomplete.
-
-## Requirements
-
-- An Apple Silicon Mac running macOS 26 or newer. Intel Macs are not supported.
-- Access to a GlobalProtect portal and the sign-in method required by your organization.
-- Permission to approve GPBar's privileged VPN helper in macOS.
-
-Live checks have used macOS 26.6.2. Compatibility with macOS 26.0 still needs live validation.
-GPBar does not support every authentication policy available in the official GlobalProtect app.
-Check the [authentication support matrix](AUTHENTICATION.md) before trying your portal.
+> [!WARNING]
+> GPBar is under active development. SAML connections work in live use.
+> Other sign-in methods, failure recovery, and wider portal support still need validation.
+> See [Known limits](#known-limits).
 
 ## Features
 
-- Connect, cancel sign-in, disconnect, and view connection details from the menu bar.
-- Save multiple named connection profiles and switch between them from the menu bar.
-- Choose [split DNS domains](DNS.md) per profile, using VPN DNS for matching names.
-- Sign in through an in-app browser, the default browser, or a selected browser.
-- Continue connection setup automatically after the browser returns the authentication callback.
-- Choose automatic authentication, SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
-- Receive protected-resource sign-in prompts through a connected IPv4 tunnel under the portal’s trusted-host policy.
-- Recover recorded network changes and remove the VPN helper from general settings.
-- Settings includes helper status, version details, and a reviewable diagnostic report in all builds.
-- Debug builds include additional session diagnostics and export.
-- Optionally launch GPBar at login. This opens the app without connecting the VPN.
-- Optionally reuse your next macOS login password through a separately approved system plug-in.
+- Connect, disconnect, and view connection details from the menu bar.
+- Save multiple named connection profiles.
+- Sign in with SAML, Cloud Identity Engine, Kerberos SSO, username and password, or a Keychain client certificate.
+- Use the in-app browser, your default browser, or a specific browser for sign-in.
+- Send only selected domains to VPN DNS with [split DNS](DNS.md).
+- Reconnect interrupted sessions automatically.
+- Restore network settings with **Recover network** in Settings.
+- Optional launch at login, and optional [macOS login SSO](LOGIN-SSO.md).
+- Signed [automatic updates](UPDATES.md) through Sparkle.
 
-SAML has live connection evidence. Password, certificate, smart-card, and saved-sign-in flows still need broader live validation.
-Cloud Identity Engine OIDC has synthetic checks but no live provider evidence.
-External browser callback handling and automatic tab closure also need further validation.
+## Requirements
 
-## Get started
+- An Apple Silicon Mac with macOS 26 or newer. Intel Macs are not supported.
+- A GlobalProtect portal and a [supported sign-in method](AUTHENTICATION.md).
+- Permission to approve GPBar's privileged VPN helper.
 
-Download a DMG or PKG from [Releases](https://github.com/beeltec/gpbar/releases).
-Both contain the app and its runtime dependencies.
-See [the changelog](CHANGELOG.md) for changes and release-specific limits.
-Open the DMG and drag GPBar to Applications, or run the PKG installer.
-Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
+## Installation
 
-1. Place the built or downloaded `GPBar.app` in Applications and open it.
-2. Follow the app's guidance to approve the VPN helper if macOS requests it.
-3. Enter your organization's portal address, such as `vpn.example.com`. Valid addresses save automatically.
-4. Leave authentication set to **Automatic**, or choose the method required by your organization.
-5. Click **Connect** and complete sign-in. Browser callbacks continue connection setup automatically.
-6. Use **Disconnect** in the menu bar panel when finished.
+Download the DMG or PKG from [Releases](https://github.com/beeltec/gpbar/releases).
+Drag GPBar to Applications, or run the PKG installer.
+See the [changelog](CHANGELOG.md) for changes in each release.
 
-The in-app browser is the default for browser sign-in.
-Change the browser under **Automatic**, **SAML**, or **Cloud Identity Engine** in **Connections**.
-That choice remains saved when you return to **Automatic**.
+## Usage
 
-Opening **Connections**, **Settings**, or **About GPBar** from the menu bar panel closes the panel and brings the selected window forward.
-In-app sign-in windows and their popups also receive focus. Showing or reopening sign-in closes the menu bar panel.
-GPBar appears in the Dock and app switcher while a window is open, including minimized windows.
-Closing the last window returns GPBar to the menu bar. Opening only the menu bar panel does not show a Dock icon.
+1. Open GPBar and approve the VPN helper if macOS asks.
+2. Enter your portal address, such as `vpn.example.com`. GPBar saves valid addresses automatically.
+3. Keep authentication set to **Automatic**, or choose the method your organization uses.
+4. Click **Connect** and sign in. GPBar continues after the browser returns.
+5. Click **Disconnect** when you are done.
 
-GPBar includes Sparkle update checks. Installation requires confirmation and a disconnected VPN.
-Stable releases provide the update feed. See [automatic updates](UPDATES.md) for details.
-
-### Connection profiles and settings
-
-Open **Connections…** to add, name, edit, or remove a profile. The sidebar shows each profile and its portal.
-Choose a profile from the menu bar, then click **Connect**. Selecting a profile never starts a connection.
-Disconnect and finish network cleanup before switching profiles.
-Profiles with matching names show a short identifier so you can tell them apart.
-Removing the last profile creates an empty connection ready for setup.
-
-Each profile keeps its portal, authentication method, browser choice, certificate selection, reconnect option, saved-sign-in preference, and split DNS settings.
-Split DNS is disabled by default. Enable it in **Connections** and enter domains such as `corp.example.com`.
-Matching domains and subdomains use VPN DNS. Other names keep normal macOS DNS selection; gateway traffic routes still apply.
-See [split DNS](DNS.md) for configuration, routing limits, and recovery.
-Profiles can use the same server with different choices. Their saved VPN sign-ins have separate Keychain storage.
-Existing settings and saved sign-in remain with your first profile after migration.
-Valid addresses save automatically. Invalid drafts stay visible while switching profiles but do not replace the saved address.
-App restart restores each saved address and the last selected profile.
-
-Open **Settings…**, or press **Command-comma**, for launch at login, updates, helper management, and network recovery.
-Helper diagnostics in Settings shows the current status, last contact, running helper version, and latest failure code.
-Choose **Preview diagnostic report…** to review the safe report before copying it.
-The report hides home and custom installation paths. It does not include credentials, authentication URLs, account names, or private network details.
-Helper events cover at most the current helper process. They reset when the helper restarts.
-Launch and update choices apply to the whole app. Sparkle and macOS retain ownership of their existing preferences.
-macOS login SSO remains limited to one portal per user. Profiles using that portal share its enrollment.
-Disable that enrollment before changing or removing an enrolled portal.
-
-The explicitly requested [profile suites](Tests/Profiles/README.md) cover migration, isolation, cleanup, and session ownership without another VPN server.
+Open **Connections…** to add or edit profiles. Open **Settings…** for launch at login, updates, and helper tools.
 
 ### Remove GPBar
 
-Disable macOS login SSO for every enrolled user first, if enabled. See [removal and recovery](LOGIN-SSO.md).
-Disconnect and wait for network cleanup to finish.
-Open **Settings**, choose **Remove helper**, then quit GPBar and remove the app from Applications.
-Launching GPBar again registers the helper again.
+1. Disable [macOS login SSO](LOGIN-SSO.md#installation-removal-and-updates) if you enabled it.
+2. Disconnect and wait for network cleanup to finish.
+3. Open **Settings**, choose **Remove helper**, and quit GPBar.
+4. Delete GPBar from Applications.
 
-## Known limits
-
-- GPBar runs one tunnel at a time. Disconnect before switching connection profiles.
-- Kerberos SSO has local KDC and synthetic HTTPS checks, but no matching GlobalProtect provider validation.
-- Optional [macOS login SSO](LOGIN-SSO.md) has synthetic checks. Real login capture and provider compatibility remain unverified.
-- Crash recovery, sleep/wake, reconnect, and IPv6 behavior still need live validation.
-- GPBar has no kill switch. Traffic routing depends on the gateway's configuration.
-- Clean installation and notarized updates still need release validation.
+## Troubleshooting
 
 ### If the VPN helper cannot be reached
 
-Check GPBar's approval in macOS **System Settings → General → Login Items & Extensions**.
-Then choose **Check again** in GPBar Settings. Each failed check releases its connection so the next check starts fresh.
-An incompatible reply can mean that the app and helper differ. Quit GPBar and reopen the installed copy in Applications.
-If the error remains, open **Preview diagnostic report…** in Settings, review it, and copy it for a bug report.
-The report includes the app and last reported helper versions, status, failure code, and bounded helper events.
-If GPBar says **Cause unknown**, it has no reliable evidence for the cause.
-macOS may block helper startup or communication before the helper can reply.
-Reproduce the failure, note its time, and filter macOS Console for `GPBarHelper` or `com.beeltec.GPBar.helper`.
-Messages from launchd or macOS security services near that time can explain failures outside the helper.
-Review macOS logs before sharing them, because they may contain private details.
+1. Check that GPBar is allowed in **System Settings → General → Login Items & Extensions**.
+2. Choose **Check again** in GPBar Settings.
+3. If the app and helper versions differ, quit GPBar and open the copy in Applications.
+4. If the error stays, open **Preview diagnostic report…** in Settings and attach it to a bug report.
 
-Helper failure does not prevent quitting GPBar. If connection status is unknown, GPBar explains that cleanup remains unconfirmed.
-For a known session, quitting requests disconnect and waits at most 20 seconds before exiting.
-Quitting does not prove that the VPN stopped or that network settings were restored.
-Reopen GPBar to check status and use **Recover network** in Settings when needed.
-Recovery records remain available. macOS logout, restart, and shutdown do not require GPBar's quit confirmation.
+The report does not contain credentials, sign-in URLs, account names, or private network details.
+You can still quit GPBar when the helper fails. Reopen GPBar and use **Recover network** if needed.
 
-See the [authentication matrix](AUTHENTICATION.md) for method-specific support and validation limits.
+## Known limits
 
-### Interrupted connections
+- One tunnel at a time. Disconnect before you switch profiles.
+- No kill switch. Traffic routing depends on the gateway configuration.
+- Password, certificate, smart-card, Cloud Identity Engine, and Kerberos sign-in need more live validation.
+- macOS login SSO has only synthetic checks.
+- Crash recovery, sleep and wake, long reconnects, and IPv6 need live validation.
 
-With **Reconnect an interrupted session** enabled, GPBar retries tunnel failures with bounded backoff.
-After a verified connection lasts at least one minute, the next interruption receives a fresh recovery budget.
-Scheduled tunnel renewals therefore do not consume a lifetime retry limit.
-Renewal hands control back to GPBar without logging out the gateway session. Normal disconnect still requests logout.
-Stopping between reconnect attempts also requests logout. GPBar reports if the gateway cannot confirm it.
-Repeated short failures still stop after nine retries. Rejected sessions allow up to two automatic sign-in attempts per recovery period.
-An explicit gateway termination stops recovery and asks you to select **Connect**.
-Tunnel errors distinguish session rejection, gateway termination, and interruptions with a numeric failure code.
-If the gateway rejects a session, recovery can require sign-in again. Unanswered sign-in requests stop after five minutes with explicit retry guidance.
-Long-running renewal, sleep/wake, and gateway expiry still need live validation.
+See the [authentication support matrix](AUTHENTICATION.md) for details per method.
 
 ## Build from source
 
-Development requires an Apple Silicon Mac, Xcode, Homebrew, Rust through rustup, and an Apple code-signing identity.
-Local builds have used Xcode 27.0. The release workflow uses Xcode 26.6.
-The repository pins Rust 1.95.0 and requires XcodeGen 2.46.0 or newer.
+You need an Apple Silicon Mac, Xcode, Homebrew, rustup, and an Apple code-signing identity.
 
 ```sh
 git clone https://github.com/beeltec/gpbar.git
@@ -162,46 +90,38 @@ GPBAR_OUTPUT="$PWD/build/local/GPBar.app" \
 scripts/build-app.sh
 ```
 
-Replace the signing identity and team with values from your local signing setup.
-The output must be a new absolute path ending in `.app`; the script refuses to overwrite an existing app.
-The script builds patched OpenConnect and the Rust engine, generates the Xcode project, bundles dependencies, and signs the app.
-Development signing does not produce a notarized distribution build.
-
-See [release publishing](RELEASE.md) for dependency pins, signing, and notarization.
-Use [local distribution builds](RELEASE.md#build-and-validate-locally) to test a signed, notarized app before publishing.
-Release builds enforce the exact native dependency versions in [runtime-inputs.json](Packaging/runtime-inputs.json).
+`GPBAR_OUTPUT` must be a new absolute path that ends in `.app`.
+Development builds are not notarized. See [tagged releases](RELEASE.md) for distribution builds.
 
 ## How it works
 
 The SwiftUI app runs as the logged-in user.
-It talks over authenticated XPC to a privileged helper, which manages a bundled OpenProtect engine through private pipes.
-OpenProtect handles GlobalProtect authentication, and OpenConnect provides the tunnel.
-The helper manages privileged operations and network cleanup.
+It talks over authenticated XPC to a privileged helper.
+The helper runs the bundled OpenProtect engine, which handles GlobalProtect sign-in.
+OpenConnect provides the tunnel. The helper also restores network settings on disconnect.
 
-## Contributing and reporting problems
+## Documentation
 
-Use [GitHub Issues](https://github.com/beeltec/gpbar/issues) for bug reports and feature requests.
-Include your macOS version, GPBar build, authentication method, browser choice, and steps to reproduce the problem.
-All builds can copy a helper diagnostic report from Settings. Review it before sharing.
-Debug builds can export broader session diagnostics. Review them before sharing. Remove credentials, callback URLs, account details, and private network information.
+| Topic | Guide |
+| --- | --- |
+| Sign-in methods and browsers | [Authentication support](AUTHENTICATION.md) |
+| Split DNS | [Split DNS](DNS.md) |
+| macOS login SSO | [macOS login SSO](LOGIN-SSO.md) |
+| Updates | [Automatic updates](UPDATES.md) |
+| Releases and signing | [Tagged releases](RELEASE.md) |
+| Dependencies and licenses | [Third-party notices](THIRD-PARTY-NOTICES.md) |
 
-Keep changes focused and follow the existing code style. Use Conventional Commits for commit messages.
-The project uses live macOS and browser validation, alongside builds and static checks.
-Do not add automated tests or test targets unless explicitly requested. Preserve existing upstream tests.
-Issue #21 includes an explicitly requested [resource MFA suite](Tests/ResourceMFA/README.md), since no matching live server is available.
-Issue #20 includes an explicitly requested [CIE suite](Tests/CloudIdentity/README.md) for the same reason.
-Issue #19 includes an explicitly requested [macOS login SSO suite](Tests/LoginSSO/README.md).
-Issue #18 includes an explicitly requested [Kerberos SSO suite](Tests/Kerberos/README.md).
-Issue #14 adds [shared authentication checks and a full-suite command](Tests/Authentication/README.md).
-Run `scripts/test-authentication.sh` after building the native dependencies.
-These synthetic checks do not establish real provider or smart-card compatibility.
-Record what you checked and any remaining limits in your pull request.
+## Contributing
 
-## Third-party software and licensing
+Report bugs and request features in [GitHub Issues](https://github.com/beeltec/gpbar/issues).
+Include your macOS version, GPBar version, sign-in method, browser, and steps to reproduce.
+Review diagnostic reports before you share them.
 
-GPBar builds on OpenProtect, OpenConnect, vpnc-script, and Sparkle.
-See [third-party notices](THIRD-PARTY-NOTICES.md) and [bundled license texts](Packaging/Licenses) for dependency licensing.
-Sparkle's license is included in [Sparkle.txt](Packaging/Licenses/Sparkle.txt).
+Keep changes focused, follow the existing code style, and use [Conventional Commits](https://www.conventionalcommits.org/).
+The project validates behavior live on macOS and in real browsers. Do not add new automated tests.
+Describe what you checked and any open limits in your pull request.
 
-GPBar's original code is licensed under the [MIT License](LICENSE).
-Third-party components and changes derived from them remain subject to their respective licenses.
+## License
+
+GPBar's own code uses the [MIT License](LICENSE).
+Third-party components keep their own licenses. See [third-party notices](THIRD-PARTY-NOTICES.md) and [bundled license texts](Packaging/Licenses).
