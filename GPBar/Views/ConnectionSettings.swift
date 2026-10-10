@@ -80,7 +80,7 @@ struct ConnectionSettings: View {
                         }
                         Text(preferences.browser == .inApp
                              ? "Sign in within GPBar. Some organizations require an external browser."
-                             : "Callback capture and automatic tab closure depend on your browser.")
+                             : "Use your browser’s existing sign-in session. Close its sign-in tabs when finished.")
                             .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } header: { Text("Browser login") }

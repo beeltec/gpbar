@@ -1,10 +1,9 @@
 import AppKit
-import AuthenticationServices
 import Observation
 import SwiftUI
 import WebKit
 
-@MainActor @Observable final class AuthenticationCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, NSWindowDelegate, ASWebAuthenticationPresentationContextProviding {
+@MainActor @Observable final class AuthenticationCoordinator: NSObject, WKNavigationDelegate, WKUIDelegate, NSWindowDelegate {
     var onCallback: ((String, String, String) -> Void)?
     var onOTP: ((String, String, String) -> Void)?
     var onCredentials: ((String, String, String, String) -> Void)?
@@ -28,7 +27,6 @@ import WebKit
     @ObservationIgnored private(set) var webView: WKWebView?
     @ObservationIgnored private var window: NSWindow?
     @ObservationIgnored private var popupWindows: [NSWindow] = []
-    @ObservationIgnored private var webSession: ASWebAuthenticationSession?
     @ObservationIgnored private var sessionID: String?
     @ObservationIgnored private var challengeID: String?
     @ObservationIgnored private var launchURL: URL?
@@ -152,60 +150,48 @@ import WebKit
     func cancel() { finish(); onCancel?() }
 
     func openExternal() {
-        guard let url = launchURL, let sessionID, let challengeID, !submitted else { return }
-        if browser == .systemDefault {
-            guard webSession == nil else { return }
-            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "globalprotectcallback") { @Sendable [weak self] url, _ in
-                Task { @MainActor in
-                    guard let self, self.sessionID == sessionID, self.challengeID == challengeID else { return }
-                    self.webSession = nil
-                    if let url { self.submitCallback(url.absoluteString) }
-                    else { self.error = "Browser sign-in was closed. Reopen the page or cancel this attempt." }
-                }
-            }
-            session.presentationContextProvider = self
-            session.prefersEphemeralWebBrowserSession = true
-            webSession = session
-            if !session.start() { webSession = nil; error = "The browser could not start sign-in." }
-            message = "Finish signing in through your default browser. macOS may use Safari if needed."
-        } else {
-            guard let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: browserID) else {
-                error = "Your chosen browser is unavailable. Cancel and choose an installed browser."
-                return
-            }
-            guard let callback = URL(string: "globalprotectcallback:setup"),
-                  let handler = NSWorkspace.shared.urlForApplication(toOpen: callback),
-                  Bundle(url: handler)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
-                callbackHandlerRequired = true
-                error = "GPBar must handle sign-in links for this browser. This changes the callback handler used by other VPN clients."
-                return
-            }
-            NSWorkspace.shared.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { @Sendable [weak self] _, error in
-                let failed = error != nil
-                Task { @MainActor in
-                    guard let self, self.sessionID == sessionID, self.challengeID == challengeID else { return }
-                    if failed { self.error = "Your browser could not open the sign-in page." }
-                }
-            }
-            message = "Finish signing in in your chosen browser. You can close its sign-in tab after connecting."
+        guard browser != .inApp, !isOTP, !isCredentials,
+              let url = launchURL, let sessionID, let challengeID, !submitted else { return }
+        error = nil
+        callbackHandlerRequired = false
+        let application = browser == .systemDefault
+            ? NSWorkspace.shared.urlForApplication(toOpen: url)
+            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: browserID)
+        guard let application else {
+            error = "Your chosen browser is unavailable. Cancel and choose an installed browser."
+            return
         }
+        guard let callback = URL(string: "globalprotectcallback:setup"),
+              let handler = NSWorkspace.shared.urlForApplication(toOpen: callback),
+              Bundle(url: handler)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
+            callbackHandlerRequired = true
+            error = "GPBar must handle sign-in links for this browser. This changes the callback handler used by other VPN clients."
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.createsNewApplicationInstance = false
+        NSWorkspace.shared.open([url], withApplicationAt: application, configuration: configuration) { @Sendable [weak self] _, error in
+            let failed = error != nil
+            Task { @MainActor in
+                guard let self, self.sessionID == sessionID, self.challengeID == challengeID, !self.submitted else { return }
+                if failed { self.error = "Your browser could not open the sign-in page. Reopen it or cancel this attempt." }
+            }
+        }
+        message = "Finish signing in in your browser. Close this attempt’s browser tabs before starting another sign-in."
     }
 
     func useCallbackHandler() {
-        let attempt = challengeID
+        guard callbackHandlerRequired, let sessionID, let challengeID, !submitted else { return }
         NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpenURLsWithScheme: "globalprotectcallback") { @Sendable [weak self] error in
             let failed = error != nil
             Task { @MainActor in
-                guard let self, self.challengeID == attempt else { return }
+                guard let self, self.sessionID == sessionID, self.challengeID == challengeID, !self.submitted else { return }
                 self.callbackHandlerRequired = failed
                 if failed { self.error = "The sign-in link handler could not be changed." }
                 else { self.error = nil; self.openExternal() }
             }
         }
-    }
-
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        window ?? ASPresentationAnchor()
     }
 
     private func showWindow() {
@@ -234,8 +220,6 @@ import WebKit
 
     private func closeOwnedWindows() {
         closing = true
-        webSession?.cancel()
-        webSession = nil
         webView?.stopLoading()
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
