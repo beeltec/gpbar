@@ -37,6 +37,23 @@ The client sends the GlobalProtect credentials rather than connecting directly t
 
 ## Implementation details
 
+### External browser windows and tabs
+
+Default browser and Choose browser use normal macOS URL opening through `NSWorkspace`.
+Default browser resolves the current HTTP handler. Choose browser resolves the saved application identifier.
+GPBar reuses the browser application instead of requesting a private authentication session or a new application instance.
+Normal browser windows can receive sign-in as a new tab. Browser settings and profiles control the final placement.
+With no suitable window, the browser opens one. Safari's tab settings can also request new windows.
+[Apple URL opening](https://developer.apple.com/documentation/appkit/nsworkspace/open(_:withapplicationat:configuration:completionhandler:)),
+[Safari tab settings](https://support.apple.com/guide/safari/use-tabs-for-webpages-sfri11576/mac)
+
+External sign-in uses the browser's existing cookies and profile settings. In-app sign-in retains its isolated WebKit session.
+Both external choices require GPBar to handle `globalprotectcallback:` links.
+When another app owns those links, GPBar asks before changing the handler. This can affect other VPN clients.
+External tabs stay open after sign-in or cancellation. Close cancelled sign-in tabs before starting another attempt.
+Native callbacks have no GPBar attempt identifier. An old tab can submit into a later waiting attempt; the portal validates its credentials.
+The same browser-opening behavior applies to Cloud Identity Engine. Its existing provider-validation limits still apply.
+
 ### Library reuse audit
 
 Prefer existing OpenProtect and OpenConnect functionality before adding authentication code.
@@ -423,7 +440,13 @@ No internal application endpoint was supplied for this check.
 
 Successful password login, client-certificate login, smart-card hardware, and separate gateway authentication remain unverified against a live provider.
 Saved-cookie persistence, reuse, expiry, and policy changes also need live validation.
-Full external-browser callback handling and page cleanup remain unverified.
+Live browser checks on macOS 27.0.1 covered Brave Origin 154.1.96.61 and Google Chrome 154.0.8037.98.
+Brave Origin reused the active normal window under both Default browser and Choose browser, preserving the existing tab.
+A user-approved Microsoft Authenticator login returned automatically to GPBar through the native callback handler.
+Chrome opened sign-in from a stopped browser, then added another tab in the same window through Reopen sign-in page.
+External cancellation and normal disconnect returned GPBar to idle. Browser tabs remained open for manual closure.
+These checks do not establish Safari or Firefox placement, CIE provider compatibility, or permission-failure behavior.
+External tabs have no automatic cleanup. Private windows, profile selection, and tab settings remain browser-controlled.
 Builds and source reviews do not establish compatibility with a provider.
 
 Issue #14 explicitly authorizes [the shared authentication suite](Tests/Authentication/README.md).
