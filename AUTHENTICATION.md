@@ -37,6 +37,23 @@ The client sends the GlobalProtect credentials rather than connecting directly t
 
 ## Implementation details
 
+### External browser windows and tabs
+
+Default browser and Choose browser use normal macOS URL opening through `NSWorkspace`.
+Default browser resolves the current HTTP handler. Choose browser resolves the saved application identifier.
+GPBar reuses the browser application instead of requesting a private authentication session or a new application instance.
+Normal browser windows can receive sign-in as a new tab. Browser settings and profiles control the final placement.
+With no suitable window, the browser opens one. Safari's tab settings can also request new windows.
+[Apple URL opening](https://developer.apple.com/documentation/appkit/nsworkspace/open(_:withapplicationat:configuration:completionhandler:)),
+[Safari tab settings](https://support.apple.com/guide/safari/use-tabs-for-webpages-sfri11576/mac)
+
+External sign-in uses the browser's existing cookies and profile settings. In-app sign-in retains its isolated WebKit session.
+Both external choices require GPBar to handle `globalprotectcallback:` links.
+When another app owns those links, GPBar asks before changing the handler. This can affect other VPN clients.
+External tabs stay open after sign-in or cancellation. Close cancelled sign-in tabs before starting another attempt.
+Native callbacks have no GPBar attempt identifier. An old tab can submit into a later waiting attempt; the portal validates its credentials.
+The same browser-opening behavior applies to Cloud Identity Engine. Its existing provider-validation limits still apply.
+
 ### Library reuse audit
 
 Prefer existing OpenProtect and OpenConnect functionality before adding authentication code.
