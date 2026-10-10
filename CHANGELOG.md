@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## [0.3.2] - 2026-10-10
+
+### Fixed
+
+- Open external sign-in through normal browser URL handling instead of a separate private authentication window.
+- Reuse existing browser windows for sign-in tabs where browser settings and profiles allow it.
+- Ignore late browser-launch and callback-handler results after an attempt is cancelled, replaced, or submitted.
+
+### Browser behavior and limits
+
+Default browser now uses normal browser cookies and requires GPBar to handle sign-in links, like Choose browser.
+GPBar asks before changing another app's callback association. Close sign-in tabs manually after completion or cancellation.
+Close old sign-in tabs before retrying; native callbacks have no GPBar attempt identifier.
+
+Tab placement was checked live in Brave Origin and Google Chrome on macOS 27.0.1.
+A user-approved Microsoft Authenticator login returned automatically to GPBar. Safari and Firefox remain untested.
+Browser settings and profiles control final placement. The [existing authentication limits](AUTHENTICATION.md) still apply.
+
+### Upgrade notes
+
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
+
 ## [0.3.1] - 2026-09-25
 
 ### Added
@@ -137,6 +160,7 @@ See [authentication support](AUTHENTICATION.md) and [macOS login SSO](LOGIN-SSO.
 
 Provider and hardware support was incomplete. A development build had live SAML connection and normal disconnect evidence.
 
+[0.3.2]: https://github.com/beeltec/gpbar/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/beeltec/gpbar/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/beeltec/gpbar/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/beeltec/gpbar/compare/v0.2.1...v0.2.2
