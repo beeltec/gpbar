@@ -188,7 +188,7 @@ struct ConnectionSettings: View {
                     .buttonStyle(.plain)
                 #endif
                 if model.settingsLocked {
-                    Button("Disconnect") { model.disconnect() }
+                    Button(model.phase == .disconnecting ? "Disconnecting…" : "Disconnect") { model.disconnect() }
                         .disabled(model.phase == .disconnecting)
                 } else {
                     Button("Connect") { model.connect() }
