@@ -2,10 +2,25 @@
 
 ## Unreleased
 
+## [0.3.3] - 2026-10-15
+
 ### Fixed
 
 - Keep disconnect controls disabled while the VPN stops, even when late status or sign-in events arrive.
-- Open the connection editor through explicit actions, rather than automatically during app reopening or first-time setup.
+- Prevent browser sign-in callbacks and app reopening from automatically opening the connection editor.
+
+### Validation
+
+Signed local builds and parallel code reviews passed on macOS 27.0.1 with Xcode 27.
+Live checks covered browser sign-in, disabled disconnect controls, cancellation, explicit editor actions, and callback delivery with the editor closed.
+The final connection check started from the editor, which was then closed during setup.
+The exact menu-start path and minimized-window restoration remain unverified on the final candidate because of UI-tool limits.
+Existing authentication and networking support limits still apply.
+
+### Upgrade notes
+
+Disable macOS login SSO for every enrolled user before updating or removing the helper, if enabled.
+Before reinstalling, disconnect, remove the helper in Settings, and quit GPBar.
 
 ## [0.3.2] - 2026-10-10
 
