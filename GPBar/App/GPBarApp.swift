@@ -8,13 +8,16 @@ import SwiftUI
         MenuBarExtra {
             ConnectionPanel(model: model)
         } label: {
-            MenuBarLabel(model: model, appDelegate: appDelegate)
+            MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
+                .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
         }
         .menuBarExtraStyle(.window)
 
         Window("Connections", id: "connection") {
             ConnectionsView(model: model)
         }
+        // The app delegate handles sign-in callbacks without opening a scene.
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 760, height: 660)
         .windowResizability(.contentMinSize)
@@ -26,12 +29,14 @@ import SwiftUI
         Window("Settings", id: "settings") {
             GeneralSettings(model: model, updates: appDelegate.updates)
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 520, height: 640)
 
         Window("About GPBar", id: "about") {
             AboutView()
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 560, height: 580)
 
@@ -39,27 +44,10 @@ import SwiftUI
         Window("Diagnostics", id: "diagnostics") {
             DiagnosticsView(model: model)
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 480, height: 340)
         #endif
-    }
-}
-
-private struct MenuBarLabel: View {
-    let model: ConnectionModel
-    let appDelegate: AppDelegate
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
-            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
-            .task {
-                appDelegate.openConnection = {
-                    openWindow(id: "connection")
-                    NSApp.activate()
-                }
-                if model.preferences.portal.isEmpty { appDelegate.openConnection?() }
-            }
     }
 }
 
@@ -93,7 +81,6 @@ private struct ConnectionCommands: Commands {
 }
 
 @MainActor private final class AppDelegate: NSObject, NSApplicationDelegate {
-    var openConnection: (() -> Void)?
     let model = ConnectionModel()
     lazy var updates = UpdateController(model: model)
     private var hasOpenWindows: Bool {
@@ -146,8 +133,6 @@ private struct ConnectionCommands: Commands {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if hasOpenWindows { return true }
-        openConnection?()
-        return true
+        hasOpenWindows
     }
 }
