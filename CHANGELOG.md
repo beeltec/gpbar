@@ -5,6 +5,7 @@
 ### Fixed
 
 - Keep disconnect controls disabled while the VPN stops, even when late status or sign-in events arrive.
+- Open the connection editor through explicit actions, rather than automatically during app reopening or first-time setup.
 
 ## [0.3.2] - 2026-10-10
 

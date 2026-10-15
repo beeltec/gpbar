@@ -8,7 +8,8 @@ import SwiftUI
         MenuBarExtra {
             ConnectionPanel(model: model)
         } label: {
-            MenuBarLabel(model: model, appDelegate: appDelegate)
+            MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
+                .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
         }
         .menuBarExtraStyle(.window)
 
@@ -45,24 +46,6 @@ import SwiftUI
     }
 }
 
-private struct MenuBarLabel: View {
-    let model: ConnectionModel
-    let appDelegate: AppDelegate
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        MenuBarStatusIcon(phase: model.phase, cleanupRequired: model.cleanupRequired, checkingHelper: model.checkingHelper)
-            .accessibilityLabel("GPBar, \(model.phase.rawValue), \(model.connectionTitle)")
-            .task {
-                appDelegate.openConnection = {
-                    openWindow(id: "connection")
-                    NSApp.activate()
-                }
-                if model.preferences.portal.isEmpty { appDelegate.openConnection?() }
-            }
-    }
-}
-
 private struct ConnectionCommands: Commands {
     @ObservedObject var updates: UpdateController
     @Environment(\.openWindow) private var openWindow
@@ -93,7 +76,6 @@ private struct ConnectionCommands: Commands {
 }
 
 @MainActor private final class AppDelegate: NSObject, NSApplicationDelegate {
-    var openConnection: (() -> Void)?
     let model = ConnectionModel()
     lazy var updates = UpdateController(model: model)
     private var hasOpenWindows: Bool {
@@ -146,8 +128,6 @@ private struct ConnectionCommands: Commands {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if hasOpenWindows { return true }
-        openConnection?()
-        return true
+        flag
     }
 }

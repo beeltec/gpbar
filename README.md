@@ -43,6 +43,8 @@ See the [changelog](CHANGELOG.md) for changes in each release.
 5. Click **Disconnect** when you are done.
 
 Open **Connections…** to add or edit profiles. Open **Settings…** for launch at login, updates, and helper tools.
+Connecting and returning from browser sign-in do not open the connection editor.
+For first-time setup, choose **Set up connection** from the menu bar panel.
 
 ### Remove GPBar
 
