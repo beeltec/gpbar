@@ -133,6 +133,6 @@ private struct ConnectionCommands: Commands {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        flag
+        hasOpenWindows
     }
 }
