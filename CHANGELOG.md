@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Keep disconnect controls disabled while the VPN stops, even when late status or sign-in events arrive.
+
 ## [0.3.2] - 2026-10-10
 
 ### Fixed

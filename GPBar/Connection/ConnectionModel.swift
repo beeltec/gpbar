@@ -703,7 +703,7 @@ import CryptoTokenKit
         case .signatureRequired:
             sign(event, session: envelope.sessionID)
         case .phaseChanged:
-            if let phase = event.phase {
+            if let phase = event.phase, self.phase != .disconnecting {
                 self.phase = phase
                 if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
@@ -712,12 +712,14 @@ import CryptoTokenKit
         case .snapshot:
             if let snapshot = event.snapshot {
                 self.snapshot = snapshot
+                guard phase != .disconnecting else { break }
                 phase = snapshot.phase
                 if phase != .connected { resourceAuthentication.finish(); resourceAuthenticationMessage = nil }
                 if phase != .authenticating && phase != .unknown { authentication.finish() }
                 if phase == .connected && sessionProfileKnown { error = nil }
             }
         case .authenticationRequired, .otpRequired, .credentialsRequired:
+            guard phase != .disconnecting else { break }
             phase = .authenticating
             authentication.begin(sessionID: envelope.sessionID, event: event, preferences: preferences, browserOverride: browserOverride)
         case .authenticationCompleted:
