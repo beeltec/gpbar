@@ -16,6 +16,8 @@ import SwiftUI
         Window("Connections", id: "connection") {
             ConnectionsView(model: model)
         }
+        // The app delegate handles sign-in callbacks without opening a scene.
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 760, height: 660)
         .windowResizability(.contentMinSize)
@@ -27,12 +29,14 @@ import SwiftUI
         Window("Settings", id: "settings") {
             GeneralSettings(model: model, updates: appDelegate.updates)
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 520, height: 640)
 
         Window("About GPBar", id: "about") {
             AboutView()
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 560, height: 580)
 
@@ -40,6 +44,7 @@ import SwiftUI
         Window("Diagnostics", id: "diagnostics") {
             DiagnosticsView(model: model)
         }
+        .handlesExternalEvents(matching: [])
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 480, height: 340)
         #endif
